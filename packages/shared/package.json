@@ -1,0 +1,15 @@
+{
+  "name": "@rdm/shared",
+  "version": "0.1.0",
+  "description": "Shared types, Zod schemas, and D1 migrations for the Remote Download Manager",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}
