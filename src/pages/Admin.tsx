@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { AppSidebar } from "@/components/AppSidebar";
+import { TopHeader } from "@/components/TopHeader";
+import { MOCK_USAGE } from "@/lib/mock-data";
+
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,8 +34,12 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      <AppSidebar />
+    <div className="min-h-screen bg-background flex flex-col">
+      <TopHeader
+        usage={MOCK_USAGE}
+        onAddMagnet={() => {}}
+        onUploadTorrent={() => {}}
+      />
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-5xl mx-auto px-6 py-6 space-y-6">
           <div className="flex items-center gap-3">
