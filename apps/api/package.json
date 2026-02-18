@@ -1,0 +1,20 @@
+{
+  "name": "@rdm/api",
+  "version": "0.1.0",
+  "description": "Cloudflare Workers API gateway for the Remote Download Manager",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev --config ../../infra/wrangler.toml",
+    "deploy": "wrangler deploy --config ../../infra/wrangler.toml --env production",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@rdm/shared": "workspace:*",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240725.0",
+    "typescript": "^5.4.0",
+    "wrangler": "^3.0.0"
+  }
+}
