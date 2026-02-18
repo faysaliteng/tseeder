@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Zap } from "lucide-react";
+import logoImg from "@/assets/logo.png";
 
 export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
@@ -23,8 +23,8 @@ export default function RegisterPage() {
       <div className="gradient-glow fixed inset-0 pointer-events-none" />
       <div className="w-full max-w-sm space-y-6 relative">
         <div className="text-center">
-          <div className="flex items-center justify-center w-12 h-12 rounded-xl gradient-primary mx-auto mb-4">
-            <Zap className="w-6 h-6 text-white" />
+          <div className="flex items-center justify-center w-16 h-16 rounded-2xl overflow-hidden border border-border mx-auto mb-4 shadow-primary">
+            <img src={logoImg} alt="TorrentFlow" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Create an account</h1>
           <p className="text-sm text-muted-foreground mt-1">Start with 5 GB free storage</p>

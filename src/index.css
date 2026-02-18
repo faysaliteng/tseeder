@@ -181,6 +181,16 @@
     box-shadow: 0 0 12px hsl(239 84% 67% / 0.6);
   }
 
+  /* File-manager row hover highlight */
+  .file-row-selected {
+    background: hsl(239 50% 28% / 0.2);
+  }
+
+  /* Seedr-style dashed separator (used sparingly) */
+  .dashed-separator {
+    border-top: 1px dashed hsl(220 20% 22%);
+  }
+
   /* Scrollbar */
   ::-webkit-scrollbar {
     width: 6px;
