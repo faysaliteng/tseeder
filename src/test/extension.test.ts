@@ -55,7 +55,7 @@ const chromeMock = {
 
 // ── Reusable logic (mirrors background.js) ────────────────────────────────────
 
-const API_BASE = "https://api.tseeder.cc";
+const API_BASE = "https://api.fseeder.cc";
 
 async function sendJob(
   body: { type: string; magnetUri?: string; url?: string },
@@ -76,7 +76,7 @@ async function sendJob(
       chromeMock.notifications.create({
         type: "basic",
         iconUrl: "icon48.png",
-        title: "tseeder ✅",
+        title: "fseeder ✅",
         message: "Added to your cloud vault!",
       });
       return "ok";
@@ -84,7 +84,7 @@ async function sendJob(
       chromeMock.notifications.create({
         type: "basic",
         iconUrl: "icon48.png",
-        title: "tseeder — Session expired",
+        title: "fseeder — Session expired",
         message: "Please sign in again at tseeder.cc.",
       });
       return "expired";
@@ -95,7 +95,7 @@ async function sendJob(
     chromeMock.notifications.create({
       type: "basic",
       iconUrl: "icon48.png",
-      title: "tseeder ❌",
+        title: "fseeder ❌",
       message: `Failed: ${(err as Error).message}`,
     });
     return "error";
@@ -160,8 +160,8 @@ describe("background.js — sendJob()", () => {
     const result = await sendJob({ type: "magnet", magnetUri: "magnet:?xt=urn:btih:abc" }, "key", fakeFetch);
 
     expect(result).toBe("ok");
-    expect(chromeMock.notifications.create).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "tseeder ✅" }),
+      expect(chromeMock.notifications.create).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "fseeder ✅" }),
     );
   });
 
@@ -170,8 +170,8 @@ describe("background.js — sendJob()", () => {
     const result = await sendJob({ type: "magnet", magnetUri: "magnet:?xt=urn:btih:abc" }, "bad_key", fakeFetch);
 
     expect(result).toBe("expired");
-    expect(chromeMock.notifications.create).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "tseeder — Session expired" }),
+      expect(chromeMock.notifications.create).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "fseeder — Session expired" }),
     );
   });
 
@@ -180,8 +180,8 @@ describe("background.js — sendJob()", () => {
     const result = await sendJob({ type: "magnet", magnetUri: "magnet:?xt=urn:btih:abc" }, "key", fakeFetch);
 
     expect(result).toBe("error");
-    expect(chromeMock.notifications.create).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "tseeder ❌" }),
+      expect(chromeMock.notifications.create).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "fseeder ❌" }),
     );
   });
 
@@ -190,8 +190,8 @@ describe("background.js — sendJob()", () => {
     const result = await sendJob({ type: "url", url: "https://example.com/file.torrent" }, "key", fakeFetch);
 
     expect(result).toBe("error");
-    expect(chromeMock.notifications.create).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "tseeder ❌", message: expect.stringContaining("Failed to fetch") }),
+      expect(chromeMock.notifications.create).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "fseeder ❌", message: expect.stringContaining("Failed to fetch") }),
     );
   });
 });
@@ -287,9 +287,8 @@ describe("manifest.json", () => {
     permissions: ["activeTab", "contextMenus", "scripting", "storage", "notifications"],
     externally_connectable: {
       matches: [
-        "https://tseeder.cc/*",
-        "https://*.tseeder.cc/*",
-        "https://id-preview--*.lovable.app/*",
+        "https://fseeder.cc/*",
+        "https://*.fseeder.cc/*",
       ],
     },
     background: { service_worker: "background.js", type: "module" },
@@ -319,9 +318,9 @@ describe("manifest.json", () => {
     expect(manifest.externally_connectable.matches.length).toBeGreaterThan(0);
   });
 
-  it("externally_connectable includes tseeder.cc", () => {
+  it("externally_connectable includes fseeder.cc", () => {
     expect(
-      manifest.externally_connectable.matches.some(m => m.includes("tseeder.cc")),
+      manifest.externally_connectable.matches.some(m => m.includes("fseeder.cc")),
     ).toBe(true);
   });
 

@@ -1,21 +1,21 @@
-// tseeder Extension — Background Service Worker
+// fseeder Extension — Background Service Worker
 // Deployers: update API_BASE to your Cloudflare Workers API URL.
-const API_BASE = 'https://api.tseeder.cc';
+const API_BASE = 'https://api.fseeder.cc';
 const ICON = 'icon48.svg';
 
 // ── Context menus ──────────────────────────────────────────────────────────────
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
-    id: 'tsdr-send-magnet',
-    title: '⚡ Send to tseeder Cloud',
+    id: 'fsdr-send-magnet',
+    title: '⚡ Send to fseeder Cloud',
     contexts: ['link'],
     targetUrlPatterns: ['magnet:*'],
   });
 
   chrome.contextMenus.create({
-    id: 'tsdr-send-link',
-    title: '⚡ Send URL to tseeder',
+    id: 'fsdr-send-link',
+    title: '⚡ Send URL to fseeder',
     contexts: ['link'],
   });
 });
@@ -29,10 +29,10 @@ chrome.contextMenus.onClicked.addListener(async (info) => {
     chrome.notifications.create({
       type: 'basic',
       iconUrl: ICON,
-      title: 'tseeder',
-      message: 'Please sign in to tseeder first.',
+      title: 'fseeder',
+      message: 'Please sign in to fseeder first.',
     });
-    chrome.tabs.create({ url: 'https://tseeder.cc/auth/login?ext=1' });
+    chrome.tabs.create({ url: 'https://fseeder.cc/auth/login?ext=1' });
     return;
   }
 
@@ -53,15 +53,14 @@ chrome.runtime.onMessage.addListener((msg, _sender, _sendResponse) => {
         chrome.notifications.create({
           type: 'basic',
           iconUrl: ICON,
-          title: 'tseeder',
-          message: 'Please sign in to tseeder first.',
+          title: 'fseeder',
+          message: 'Please sign in to fseeder first.',
         });
         return;
       }
       await sendJob({ type: 'magnet', magnetUri: msg.magnetUri }, auth.tsdr_api_key);
     });
   }
-  // Return false — we don't use sendResponse here.
   return false;
 });
 
@@ -70,12 +69,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, _sendResponse) => {
 chrome.runtime.onMessageExternal.addListener((msg, _sender, sendResponse) => {
   if (msg.type === 'TSDR_AUTH') {
     chrome.storage.local.set({
-      tsdr_api_key: msg.token,   // API key from /auth/api-keys
+      tsdr_api_key: msg.token,
       tsdr_email: msg.email,
     }, () => {
       sendResponse({ ok: true });
     });
-    return true; // keep port open for async sendResponse
+    return true;
   }
 
   if (msg.type === 'TSDR_SIGNOUT') {
@@ -103,19 +102,18 @@ async function sendJob(body, apiKey) {
       chrome.notifications.create({
         type: 'basic',
         iconUrl: ICON,
-        title: 'tseeder ✅',
+        title: 'fseeder ✅',
         message: 'Added to your cloud vault!',
       });
     } else if (res.status === 401) {
-      // Token expired or revoked — clear stored key
       await chrome.storage.local.remove(['tsdr_api_key', 'tsdr_email']);
       chrome.notifications.create({
         type: 'basic',
         iconUrl: ICON,
-        title: 'tseeder — Session expired',
-        message: 'Please sign in again at tseeder.cc.',
+        title: 'fseeder — Session expired',
+        message: 'Please sign in again at fseeder.cc.',
       });
-      chrome.tabs.create({ url: 'https://tseeder.cc/auth/login?ext=1&reason=expired' });
+      chrome.tabs.create({ url: 'https://fseeder.cc/auth/login?ext=1&reason=expired' });
     } else {
       throw new Error(`API error ${res.status}`);
     }
@@ -123,7 +121,7 @@ async function sendJob(body, apiKey) {
     chrome.notifications.create({
       type: 'basic',
       iconUrl: ICON,
-      title: 'tseeder ❌',
+      title: 'fseeder ❌',
       message: `Failed: ${err.message}`,
     });
   }
