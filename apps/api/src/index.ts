@@ -65,8 +65,11 @@ export interface Env {
   WORKER_CLUSTER_TOKEN: string;
   R2_ACCESS_KEY_ID: string;
   R2_SECRET_ACCESS_KEY: string;
+  R2_ENDPOINT: string;
+  R2_ACCOUNT_ID: string;
   ENVIRONMENT: string;
   APP_DOMAIN: string;
+  API_DOMAIN: string;
   R2_BUCKET_NAME: string;
   MAX_UPLOAD_BYTES: string;
   // Stripe (set via wrangler secret put)
