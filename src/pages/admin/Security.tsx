@@ -52,7 +52,7 @@ export default function AdminSecurity() {
 
   return (
     <AdminLayout>
-      <div className="p-6 space-y-5">
+      <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
         <AdminPageHeader
           title="Security Center"
           description="Blocklist management, security event monitoring, and platform controls."

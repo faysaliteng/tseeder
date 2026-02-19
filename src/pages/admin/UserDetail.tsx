@@ -91,7 +91,7 @@ export default function AdminUserDetail() {
 
   return (
     <AdminLayout>
-      <div className="p-6 space-y-6 max-w-4xl">
+      <div className="p-4 sm:p-6 space-y-5 sm:space-y-6 max-w-4xl">
         {/* Back + title */}
         <div className="flex items-center gap-3">
           <button

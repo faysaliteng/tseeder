@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import LoginPage from "./pages/auth/Login";
 import RegisterPage from "./pages/auth/Register";
+import ResetPage from "./pages/auth/Reset";
 import DashboardPage from "./pages/Dashboard";
 import JobDetailPage from "./pages/JobDetail";
 import SettingsPage from "./pages/Settings";
@@ -45,6 +46,7 @@ const App = () => (
           {/* Auth */}
           <Route path="/auth/login" element={<LoginPage />} />
           <Route path="/auth/register" element={<RegisterPage />} />
+          <Route path="/auth/reset" element={<ResetPage />} />
 
           {/* User app under /app/* */}
           <Route path="/app/dashboard" element={<DashboardPage />} />
