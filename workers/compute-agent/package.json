@@ -1,7 +1,7 @@
 {
   "name": "rdm-compute-agent",
-  "version": "0.1.0",
-  "description": "External torrent compute worker for the Remote Download Manager",
+  "version": "0.2.0",
+  "description": "External torrent compute worker for tseeder — Remote Download Manager",
   "private": true,
   "main": "src/index.ts",
   "scripts": {
@@ -9,7 +9,9 @@
     "start": "bun run src/index.ts",
     "build": "bun build src/index.ts --outdir dist --target bun"
   },
-  "dependencies": {},
+  "dependencies": {
+    "webtorrent": "^2.5.1"
+  },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "typescript": "^5.4.0"

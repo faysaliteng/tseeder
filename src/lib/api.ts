@@ -1,9 +1,19 @@
 /**
- * Typed API client — all data comes from the real Workers API
- * Set VITE_API_BASE_URL in .env.local (development) or Pages env (production)
+ * Typed API client — all data comes from the real Workers API.
+ *
+ * VITE_API_BASE_URL must be set in .env.local (development) or Cloudflare Pages
+ * environment variables (production). When unset in production the build will
+ * log a fatal warning and all API calls will fail.
  */
 
 const BASE = import.meta.env.VITE_API_BASE_URL ?? "";
+
+if (!BASE && import.meta.env.PROD) {
+  console.error(
+    "[tseeder] FATAL: VITE_API_BASE_URL is not set. " +
+    "All API calls will fail. Set this in Cloudflare Pages environment variables.",
+  );
+}
 
 // Store CSRF token after login
 let csrfToken = "";
@@ -177,7 +187,53 @@ export const apiKeys = {
 
 
 
-// ── Admin ─────────────────────────────────────────────────────────────────────
+// ── Billing (Stripe) ───────────────────────────────────────────────────────────
+
+export const billing = {
+  config: () => request<{ publishableKey: string | null }>("/billing/config"),
+
+  checkout: (planName: string) =>
+    request<{ checkoutUrl: string; sessionId: string }>("/billing/checkout", {
+      method: "POST",
+      body: JSON.stringify({ planName }),
+    }),
+
+  portal: () =>
+    request<{ portalUrl: string }>("/billing/portal", {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+};
+
+// ── Admin — DLQ / Search / Config History ─────────────────────────────────────
+
+export const adminDlq = {
+  list: (page = 1) =>
+    request<PaginatedResponse<unknown>>(`/admin/dlq?page=${page}`),
+  replay: (jobId: string, reason: string, ticketId: string) =>
+    request<{ id: string; status: string; message: string }>(`/admin/dlq/${jobId}/replay`, {
+      method: "POST",
+      body: JSON.stringify({ reason, ticketId }),
+    }),
+};
+
+export const adminSearch = {
+  search: (q: string) =>
+    request<{
+      query: string;
+      results: { users: unknown[]; jobs: unknown[]; auditLogs: unknown[] };
+      totals: { users: number; jobs: number; auditLogs: number };
+    }>(`/admin/search?q=${encodeURIComponent(q)}`),
+};
+
+export const adminConfig = {
+  history: (page = 1, key?: string) => {
+    const qs = new URLSearchParams({ page: String(page), ...(key ? { key } : {}) }).toString();
+    return request<PaginatedResponse<unknown>>(`/admin/config-history?${qs}`);
+  },
+};
+
+
 
 export const admin = {
   listUsers: (params?: { page?: number; q?: string; role?: string; suspended?: string }) => {

@@ -8,6 +8,7 @@ ENVIRONMENT = "production"
 APP_DOMAIN = "https://your-app.pages.dev"     # Set to your real domain before deploy
 R2_BUCKET_NAME = "rdm-files"
 MAX_UPLOAD_BYTES = "5368709120"               # 5 GB default file size limit
+# STRIPE_PUBLISHABLE_KEY = "pk_live_..."      # Publishable key — safe to commit once set
 
 # ── Cron Triggers ────────────────────────────────────────────────────────────
 # Polls Seedr.cc every 2 minutes when Seedr provider is active.

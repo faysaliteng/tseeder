@@ -186,6 +186,15 @@ export async function handleAdminUpdateUser(req: Request, env: Env, ctx: Ctx): P
 export async function handleAdminForceLogout(req: Request, env: Env, ctx: Ctx): Promise<Response> {
   const correlationId = req.headers.get("X-Correlation-ID") ?? crypto.randomUUID();
   const { id } = ctx.params;
+  const body = await req.json().catch(() => ({})) as { reason?: string; ticketId?: string };
+
+  // Mandatory reason + ticket for destructive action
+  if (!body.reason || body.reason.trim().length < 10) {
+    return apiError("VALIDATION_ERROR", "reason is required (min 10 characters)", 400, correlationId);
+  }
+  if (!body.ticketId || body.ticketId.trim().length < 1) {
+    return apiError("VALIDATION_ERROR", "ticketId is required", 400, correlationId);
+  }
 
   const user = await env.DB.prepare("SELECT id FROM users WHERE id = ? LIMIT 1").bind(id).first<{ id: string }>();
   if (!user) return apiError("NOT_FOUND", "User not found", 404, correlationId);
@@ -195,6 +204,7 @@ export async function handleAdminForceLogout(req: Request, env: Env, ctx: Ctx): 
   await writeAuditLog(env.DB, {
     actorId: ctx.user!.id, action: "user.force_logout",
     targetType: "user", targetId: id,
+    metadata: { reason: body.reason, ticketId: body.ticketId },
     ipAddress: req.headers.get("CF-Connecting-IP") ?? undefined,
   });
 
@@ -240,7 +250,15 @@ export async function handleAdminListJobs(req: Request, env: Env, _ctx: Ctx): Pr
 export async function handleAdminTerminateJob(req: Request, env: Env, ctx: Ctx): Promise<Response> {
   const correlationId = req.headers.get("X-Correlation-ID") ?? crypto.randomUUID();
   const { id } = ctx.params;
-  const body = await req.json().catch(() => ({})) as { reason?: string };
+  const body = await req.json().catch(() => ({})) as { reason?: string; ticketId?: string };
+
+  // Mandatory reason + ticket for all destructive actions
+  if (!body.reason || body.reason.trim().length < 10) {
+    return apiError("VALIDATION_ERROR", "reason is required (min 10 characters)", 400, correlationId);
+  }
+  if (!body.ticketId || body.ticketId.trim().length < 1) {
+    return apiError("VALIDATION_ERROR", "ticketId is required", 400, correlationId);
+  }
 
   const job = await env.DB.prepare("SELECT * FROM jobs WHERE id = ?").bind(id).first<any>();
   if (!job) return apiError("NOT_FOUND", "Job not found", 404, correlationId);
@@ -265,7 +283,7 @@ export async function handleAdminTerminateJob(req: Request, env: Env, ctx: Ctx):
   await writeAuditLog(env.DB, {
     actorId: ctx.user!.id, action: "job.terminated",
     targetType: "job", targetId: id,
-    metadata: { previousStatus: job.status, reason: body.reason },
+    metadata: { previousStatus: job.status, reason: body.reason, ticketId: body.ticketId },
     ipAddress: req.headers.get("CF-Connecting-IP") ?? undefined,
   });
 
@@ -593,8 +611,18 @@ export async function handleAdminStorage(req: Request, env: Env, _ctx: Ctx): Pro
 
 export async function handleAdminStorageCleanup(req: Request, env: Env, ctx: Ctx): Promise<Response> {
   const correlationId = req.headers.get("X-Correlation-ID") ?? crypto.randomUUID();
-  const body = await req.json().catch(() => ({})) as { reason?: string; dryRun?: boolean };
+  const body = await req.json().catch(() => ({})) as { reason?: string; ticketId?: string; dryRun?: boolean };
   const dryRun = body.dryRun === true;
+
+  // Mandatory reason + ticket for destructive (non-dryRun) cleanup
+  if (!dryRun) {
+    if (!body.reason || body.reason.trim().length < 10) {
+      return apiError("VALIDATION_ERROR", "reason is required (min 10 characters)", 400, correlationId);
+    }
+    if (!body.ticketId || body.ticketId.trim().length < 1) {
+      return apiError("VALIDATION_ERROR", "ticketId is required", 400, correlationId);
+    }
+  }
 
   // Find orphaned file records (jobs that are failed/cancelled, files older than 24h)
   const orphans = await env.DB.prepare(`
@@ -714,4 +742,164 @@ export async function handleAdminUpdateFlag(req: Request, env: Env, ctx: Ctx): P
   });
 
   return Response.json({ key, value: body.value, message: "Feature flag updated" });
+}
+
+// ── GET /admin/dlq ────────────────────────────────────────────────────────────
+// Lists failed jobs that are candidates for replay (stuck in failed status).
+
+export async function handleAdminDlqList(req: Request, env: Env, _ctx: Ctx): Promise<Response> {
+  const url = new URL(req.url);
+  const page = Math.max(1, parseInt(url.searchParams.get("page") ?? "1"));
+  const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50"));
+  const offset = (page - 1) * limit;
+
+  const [rows, countRow] = await Promise.all([
+    env.DB.prepare(`
+      SELECT j.id, j.name, j.status, j.error, j.user_id, j.infohash, j.magnet_uri,
+             j.created_at, j.updated_at, j.completed_at, u.email as user_email,
+             (SELECT COUNT(*) FROM job_events WHERE job_id = j.id) as event_count
+      FROM jobs j
+      LEFT JOIN users u ON u.id = j.user_id
+      WHERE j.status = 'failed'
+      ORDER BY j.updated_at DESC
+      LIMIT ? OFFSET ?
+    `).bind(limit, offset).all(),
+    env.DB.prepare("SELECT COUNT(*) as cnt FROM jobs WHERE status = 'failed'").first<{ cnt: number }>(),
+  ]);
+
+  return Response.json({
+    data: rows.results,
+    meta: { page, limit, total: countRow?.cnt ?? 0, totalPages: Math.ceil((countRow?.cnt ?? 0) / limit) },
+  });
+}
+
+// ── POST /admin/dlq/:id/replay ────────────────────────────────────────────────
+// Re-queues a failed job. Requires reason + ticketId for audit accountability.
+
+export async function handleAdminDlqReplay(req: Request, env: Env, ctx: Ctx): Promise<Response> {
+  const correlationId = req.headers.get("X-Correlation-ID") ?? crypto.randomUUID();
+  const { id } = ctx.params;
+  const body = await req.json().catch(() => ({})) as { reason?: string; ticketId?: string };
+
+  if (!body.reason || body.reason.trim().length < 10) {
+    return apiError("VALIDATION_ERROR", "reason is required (min 10 characters)", 400, correlationId);
+  }
+  if (!body.ticketId || body.ticketId.trim().length < 1) {
+    return apiError("VALIDATION_ERROR", "ticketId is required", 400, correlationId);
+  }
+
+  const job = await env.DB.prepare("SELECT * FROM jobs WHERE id = ? AND status = 'failed'")
+    .bind(id).first<any>();
+  if (!job) return apiError("NOT_FOUND", "Failed job not found", 404, correlationId);
+
+  // Reset to submitted and re-enqueue
+  await env.DB.prepare(
+    "UPDATE jobs SET status = 'submitted', error = NULL, updated_at = datetime('now') WHERE id = ?",
+  ).bind(id).run();
+
+  await env.JOB_QUEUE.send({
+    jobId: id,
+    userId: job.user_id,
+    type: job.magnet_uri ? "magnet" : "torrent",
+    magnetUri: job.magnet_uri ?? undefined,
+    correlationId,
+    replayedBy: ctx.user!.id,
+    replayReason: body.reason,
+    replayTicket: body.ticketId,
+  });
+
+  await writeAuditLog(env.DB, {
+    actorId: ctx.user!.id, action: "dlq.job_replayed",
+    targetType: "job", targetId: id,
+    metadata: { reason: body.reason, ticketId: body.ticketId, previousStatus: "failed" },
+    ipAddress: req.headers.get("CF-Connecting-IP") ?? undefined,
+  });
+
+  return Response.json({
+    id, status: "submitted",
+    message: "Job re-queued for processing",
+    reason: body.reason, ticketId: body.ticketId,
+  });
+}
+
+// ── GET /admin/search ─────────────────────────────────────────────────────────
+// Unified search across users, jobs, and audit_logs.
+
+export async function handleAdminGlobalSearch(req: Request, env: Env, _ctx: Ctx): Promise<Response> {
+  const correlationId = req.headers.get("X-Correlation-ID") ?? crypto.randomUUID();
+  const url = new URL(req.url);
+  const q = url.searchParams.get("q")?.trim() ?? "";
+
+  if (!q || q.length < 2) {
+    return apiError("VALIDATION_ERROR", "q must be at least 2 characters", 400, correlationId);
+  }
+
+  const pattern = `%${q}%`;
+
+  const [users, jobs, auditLogs] = await Promise.all([
+    env.DB.prepare(`
+      SELECT id, email, role, suspended, created_at FROM users
+      WHERE email LIKE ? LIMIT 10
+    `).bind(pattern).all<any>(),
+
+    env.DB.prepare(`
+      SELECT id, name, status, infohash, user_id, created_at FROM jobs
+      WHERE name LIKE ? OR infohash LIKE ?
+      ORDER BY created_at DESC LIMIT 10
+    `).bind(pattern, pattern).all<any>(),
+
+    env.DB.prepare(`
+      SELECT a.id, a.action, a.actor_id, a.target_type, a.target_id, a.created_at,
+             u.email as actor_email
+      FROM audit_logs a LEFT JOIN users u ON u.id = a.actor_id
+      WHERE a.action LIKE ? OR u.email LIKE ?
+      ORDER BY a.created_at DESC LIMIT 10
+    `).bind(pattern, pattern).all<any>(),
+  ]);
+
+  return Response.json({
+    query: q,
+    results: {
+      users: users.results.map(u => ({ type: "user", ...u })),
+      jobs: jobs.results.map(j => ({ type: "job", ...j })),
+      auditLogs: auditLogs.results.map(a => ({ type: "audit_log", ...a })),
+    },
+    totals: {
+      users: users.results.length,
+      jobs: jobs.results.length,
+      auditLogs: auditLogs.results.length,
+    },
+  });
+}
+
+// ── GET /admin/config-history ─────────────────────────────────────────────────
+// Shows versioned history of all config_changes with diffs.
+
+export async function handleAdminConfigHistory(req: Request, env: Env, _ctx: Ctx): Promise<Response> {
+  const url = new URL(req.url);
+  const page = Math.max(1, parseInt(url.searchParams.get("page") ?? "1"));
+  const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50"));
+  const offset = (page - 1) * limit;
+  const key = url.searchParams.get("key") ?? "";
+
+  const where = key ? "WHERE c.key = ?" : "";
+  const bindings: (string | number)[] = key ? [key] : [];
+
+  const [rows, countRow] = await Promise.all([
+    env.DB.prepare(`
+      SELECT c.id, c.key, c.old_value, c.new_value, c.reason, c.created_at,
+             u.email as changed_by_email
+      FROM config_changes c
+      LEFT JOIN users u ON u.id = c.changed_by
+      ${where}
+      ORDER BY c.created_at DESC LIMIT ? OFFSET ?
+    `).bind(...bindings, limit, offset).all(),
+    env.DB.prepare(`SELECT COUNT(*) as cnt FROM config_changes ${where}`)
+      .bind(...bindings).first<{ cnt: number }>(),
+  ]);
+
+  return Response.json({
+    data: rows.results,
+    meta: { page, limit, total: countRow?.cnt ?? 0, totalPages: Math.ceil((countRow?.cnt ?? 0) / limit) },
+  });
 }

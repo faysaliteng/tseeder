@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { usage as usageApi, auth as authApi, authMe, apiKeys as apiKeysApi, providers as providersApi, type ApiKey, ApiError } from "@/lib/api";
+import { usage as usageApi, auth as authApi, authMe, apiKeys as apiKeysApi, providers as providersApi, billing as billingApi, type ApiKey, ApiError } from "@/lib/api";
 import {
   seedrAuth, seedr, isSeedrConnected,
 } from "@/lib/seedr-api";
@@ -342,6 +342,89 @@ rclone mount tseeder: ~/tseeder --vfs-cache-mode full`}</code>
             <Plus className="w-3.5 h-3.5" /> Add SSH Public Key — Upgrade to Business
           </Button>
         </IntegrationPanel>
+      </div>
+    </SectionCard>
+  );
+}
+
+// ── Billing section ─────────────────────────────────────────────────────────
+function BillingSection({ planName }: { planName: string }) {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState<"checkout" | "portal" | null>(null);
+
+  const handleUpgrade = async (plan: string) => {
+    setLoading("checkout");
+    try {
+      const { checkoutUrl } = await billingApi.checkout(plan);
+      window.location.href = checkoutUrl;
+    } catch (err) {
+      toast({ title: "Billing error", description: err instanceof ApiError ? err.message : "Failed to open checkout", variant: "destructive" });
+      setLoading(null);
+    }
+  };
+
+  const handleManage = async () => {
+    setLoading("portal");
+    try {
+      const { portalUrl } = await billingApi.portal();
+      window.location.href = portalUrl;
+    } catch (err) {
+      toast({ title: "Billing error", description: err instanceof ApiError ? err.message : "No billing account found. Subscribe first.", variant: "destructive" });
+      setLoading(null);
+    }
+  };
+
+  const isPaid = planName !== "free";
+
+  return (
+    <SectionCard>
+      <SectionHeader title="Billing" icon={Zap} gradient="from-warning/60 to-primary/60" />
+      <div className="px-4 py-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1">Current Plan</div>
+            <span className="text-base font-bold text-foreground uppercase">{planName}</span>
+          </div>
+          {isPaid ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="rounded-xl border-border gap-1.5"
+              onClick={handleManage}
+              disabled={loading === "portal"}
+            >
+              {loading === "portal" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ExternalLink className="w-3.5 h-3.5" />}
+              Manage Billing
+            </Button>
+          ) : (
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" className="rounded-xl border-primary/40 text-primary gap-1.5 hover:bg-primary/10"
+                onClick={() => handleUpgrade("pro")} disabled={!!loading}>
+                {loading === "checkout" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                Upgrade to Pro
+              </Button>
+            </div>
+          )}
+        </div>
+        {!isPaid && (
+          <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground">
+            <div className="glass-card rounded-lg p-3 space-y-1">
+              <p className="font-bold text-foreground">Pro</p>
+              <p>100 GB storage · 10 jobs</p>
+              <p>Priority processing</p>
+            </div>
+            <div className="glass-card rounded-lg p-3 space-y-1">
+              <p className="font-bold text-foreground">Business</p>
+              <p>1 TB storage · Unlimited jobs</p>
+              <p>Team accounts · API access</p>
+            </div>
+          </div>
+        )}
+        {isPaid && (
+          <p className="text-xs text-muted-foreground">
+            Manage your subscription, view invoices, or cancel at any time through the Stripe billing portal.
+          </p>
+        )}
       </div>
     </SectionCard>
   );
@@ -695,7 +778,10 @@ export default function SettingsPage() {
           {/* ── Integrations ─────────────────────────────────────────── */}
           <IntegrationsSection apiKeys={keysData?.keys ?? []} userEmail={userEmail} />
 
-          {/* ── Security ─────────────────────────────────────────────── */}
+          {/* ── Billing ───────────────────────────────────────────────── */}
+          <BillingSection planName={usageData?.plan.name ?? "free"} />
+
+
           <SectionCard>
             <SectionHeader title="Security" icon={Lock} gradient="from-warning/60 to-destructive/60" />
             <div className="px-4 py-4 space-y-3">
