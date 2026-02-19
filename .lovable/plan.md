@@ -1,198 +1,191 @@
 
-# The Omega Upgrade — TorrentFlow $1,000,000,000,000 Edition
+## Extension Analysis — Bugs Found & Fix Plan
 
-## Current State Assessment
+### What Was Analysed
 
-After a full audit of every page and component, here is what exists and what needs to be elevated:
-
-**User-facing (good foundation, needs dramatic uplift):**
-- `TopHeader` — functional but basic. Plain icon buttons, no glow, no animated storage ring, no live provider chip.
-- `Dashboard` — plain flat list rows. No glassmorphism, no per-row status glow, no hover micro-animations, no ambient gradient background.
-- `JobDetail` — stat cards are plain `<div>` boxes. Progress bar is minimal. Files panel is utilitarian.
-- `AddDownloadModal` — standard Dialog, no visual drama.
-- `Settings` — dark grey section cards with a flat `bg-slate-700` header. Looks like a template.
-- `Login/Register/Reset` — basic centered card. No particle effects, no ambient glow layers.
-
-**Admin-facing (Infrastructure is premium, others are generic):**
-- `AdminLayout` — clean sidebar but standard. No glass top bar, no notification badge, no user avatar.
-- `AdminOverview` — `StatCard` components are basic. No animated numbers, no glow, no sparklines.
-- `AdminUsers`, `AdminJobs`, `AdminSecurity`, `AdminAudit`, `AdminStorage`, `AdminWorkers`, `AdminSettings` — all use the basic `AdminUI` shared components (plain table with `bg-card` rows).
-- `AdminUI.tsx` (`StatCard`, `AdminPageHeader`, `AdminTable`, `Paginator`, `DangerModal`) — the shared admin component library itself needs the biggest upgrade.
+Every extension file was read end-to-end and cross-referenced against the Chrome Manifest v3 specification and the web app's auth flow. **11 bugs** were found across 5 files. Below is the complete audit and fix plan.
 
 ---
 
-## The Omega Upgrade Plan
+### Bug Report
 
-### Phase 1 — Design System Tokens & Global Atmosphere
+#### Critical (extension will not function at all)
 
-**`src/index.css`** — Add new design tokens and global effects:
-- `--glow-primary`, `--glow-success`, `--glow-danger` token for consistent neon shadows
-- `.ambient-bg` utility: layered radial gradients that pulse subtly
-- `.glass-card`: `backdrop-filter: blur(20px)` + `bg-white/[0.03]` + `border-white/10` — the real glassmorphism
-- `.neon-border`: animated gradient border using `@keyframes border-flow`
-- `.shimmer`: scan-line shimmer loading animation replacing the plain `animate-pulse`
-- Custom scrollbar with primary-glow thumb on hover
-- `@keyframes float` for floating cards
-- `@keyframes glow-pulse` for live indicator dots
+| # | File | Bug | Impact |
+|---|------|-----|--------|
+| 1 | `manifest.json` | `scripting` permission missing | `chrome.scripting.executeScript` in popup.js throws a permission error — magnet scanning on the page never works |
+| 2 | `manifest.json` | `externally_connectable` key missing | `chrome.runtime.onMessageExternal` never fires — the web app can never send the auth token to the extension after login |
+| 3 | `background.js` | No listener for `TSDR_QUEUE_MAGNET` message | Content script's ⚡ button click sends a message that nobody handles — button is completely broken |
+| 4 | `popup.html` | References `popup.css` which does not exist | Popup throws a 404 for the stylesheet — all custom styles silently fail, popup may render unstyled |
 
----
+#### High (wrong production URL / auth broken)
 
-### Phase 2 — Shared Admin Component Library (`src/components/admin/AdminUI.tsx`)
+| # | File | Bug | Impact |
+|---|------|-----|--------|
+| 5 | `background.js` | Job POSTed to hardcoded `https://tseeder.cc/jobs` | Must point to the real Workers API URL; context-menu "Send to tseeder" silently fails or hits wrong host |
+| 6 | `popup.js` | `API_BASE` hardcoded to `'https://tseeder.cc'` | Same wrong URL; popup "Send to Cloud" button always fails in dev/staging |
+| 7 | `src/pages/auth/Login.tsx` | No `chrome.runtime.sendMessage` call after successful login | Auth token is never sent to extension; user logs into web app but extension stays unauthenticated forever |
 
-This is the multiplier — every admin page uses it.
+#### Medium (missing assets)
 
-**`StatCard`** — Complete redesign:
-- Glassmorphism card: `backdrop-blur`, gradient border, hover lift
-- Large animated number (count-up on mount, like Infrastructure page already does)
-- Colored icon container with matching glow ring
-- Micro sparkline area inside the card (7-point fake data rendered with a small inline SVG)
-- Trend arrow badge (↑ +12% / ↓ -3%) with color coding
+| # | File | Bug | Impact |
+|---|------|-----|--------|
+| 8 | `public/extension/` | `icon16.png`, `icon48.png`, `icon128.png` missing | Extension won't install in Chrome — manifest references non-existent files; Chrome rejects the extension |
+| 9 | `src/pages/Extension.tsx` | "Download Extension" button has no zip file to serve | Users click download and nothing happens |
 
-**`AdminTable`** — Elevated:
-- Frosted glass header row with sticky positioning
-- Row hover: left accent border slides in + row background shifts
-- Status-aware row coloring (failed rows get subtle red tint, active get blue)
-- Column headers get sort indicators with animated chevrons
-- Empty state: illustrated SVG placeholder instead of plain text
+#### Low (logic gap)
 
-**`DangerModal`** — Elevated:
-- Full-screen overlay with radial red glow centered on modal
-- Modal itself gets a pulsing red border animation
-- Shake animation on wrong confirm phrase
-- Animated warning icon
-
-**`Paginator`** — Elevated:
-- Page number pills with hover glow instead of plain Prev/Next buttons
+| # | File | Bug | Impact |
+|---|------|-----|--------|
+| 10 | `popup.js` | `scanPageForMagnets` relies on `chrome.scripting.executeScript` but `scripting` is missing | Even after fix #1, the host must be listed in `host_permissions` which already exists — low risk after permission fix |
+| 11 | `background.js` | Bearer token in job POST uses `auth.tsdr_token` — this is the session cookie value, not an API key | The Workers API expects a Bearer token from `/auth/api-keys`, not the session cookie; job POST will return 401 |
 
 ---
 
-### Phase 3 — Auth Pages (`src/pages/auth/`)
+### Fix Plan (file by file)
 
-**Login, Register, Reset** — Complete visual overhaul:
-- Full-viewport animated background: three slow-moving radial blobs (indigo, violet, teal) using `@keyframes` position shifts
-- Floating particle dots (CSS-only, 12 `<span>` elements with `animation-delay` stagger)
-- The form card gets `glass-card` treatment with a glowing border on focus
-- Logo animates in on mount with scale + fade
-- Plan pills upgrade: animated gradient border around the Premium pill
-- Input fields: bottom-border-only style that fills with gradient on focus
-- Submit button: gradient with shimmer sweep on hover (`::after` pseudo-element)
-- "Sign in" text animates character-by-character on success (CSS `animation-delay`)
+#### 1. `public/extension/manifest.json` — Add missing permissions + `externally_connectable`
 
----
-
-### Phase 4 — TopHeader (`src/components/TopHeader.tsx`)
-
-Largest visible impact for users:
-
-- **Storage ring**: Replace the plain rectangular bar with a circular SVG arc (like Apple Watch rings). Animated `stroke-dashoffset` fill. Color shifts green→yellow→red based on usage.
-- **Provider chip**: Small pill next to logo showing `⚡ CF` (orange) or `🌱 Seedr` (green) with a live pulse dot — reads from `localStorage`
-- **Add button**: Replace plain Plus icon with a glowing gradient circle button with ripple effect on click
-- **Paste bar expansion**: When open, the entire header transitions — blur-in overlay effect, the input has a neon underline focus
-- **Mobile hamburger menu**: Slide-up sheet with frosted glass, showing avatar, plan badge, storage ring miniature, and nav links with icon + label
-- **Notification dot**: Red badge count on the menu icon (static for now, wired to show count > 0)
-
----
-
-### Phase 5 — Dashboard (`src/pages/Dashboard.tsx`)
-
-- **Ambient background**: Subtle radial gradient top-left (indigo glow) that doesn't interfere with readability
-- **Toolbar**: Glass pill style — `backdrop-blur` container, inputs have glow on focus
-- **Empty state**: Animated illustration — pulsing folder icon with orbiting dots, gradient "Add Download" button with particle burst on click
-- **JobRow** — The biggest change:
-  - Left accent strip: 3px vertical bar colored by status (green=completed, blue=downloading, amber=queued, red=failed)
-  - Status icon replaced with animated badge chip (like the Infrastructure `PulseDot`)
-  - Progress bar: taller (4px), glowing version with percentage counter overlay
-  - Hover state: entire row lifts with `translateY(-1px)` + deepened shadow
-  - File type icon: colored glyph inside a colored rounded square (matching mime type color)
-  - Action buttons: appear with slide-in from right on hover
-- **Bulk action bar**: Already floats — upgrade to full glass pill with gradient buttons and count badge with bounce animation
-
----
-
-### Phase 6 — JobDetail (`src/pages/JobDetail.tsx`)
-
-- **Stat cards** (Download/Upload/Peers/Seeds): Match Infrastructure's `MetricCard` — glassmorphism, icon glow ring, animated number
-- **Progress bar**: Full-width with overlay showing speed + ETA in the center of the bar
-- **SSE live indicator**: Animated wifi-strength icon (4 bars animate in sequence)
-- **File browser**: Each row gets left-border color by mime type, hover lift, icon glow
-- **Completed banner**: Green frosted glass banner at the top of the file list with checkmark animation
-
----
-
-### Phase 7 — Admin Overview (`src/pages/admin/Overview.tsx`)
-
-Replace the entire page with Infrastructure-level quality:
-
-- 6 KPI cards in a grid — all using the upgraded `StatCard` (animated numbers, sparklines, trend badges)
-- **Global health ring**: A large circular gauge (SVG arc) in the center showing overall system health %, with red/amber/green zones
-- **Live job feed**: Real-time scrolling ticker of job events (simulated) like a trading terminal
-- **Geographic distribution**: Placeholder world map with dots showing worker locations
-- **Activity heatmap**: 7×24 grid of colored squares showing job activity by day/hour (GitHub-style)
-
----
-
-### Phase 8 — AdminLayout (`src/components/admin/AdminLayout.tsx`)
-
-- **Sidebar**: Each nav item gets a colored left accent on active state + icon glow
-- **Sidebar hover**: Items slide right 2px + glow on hover
-- **Top bar**: Glass morphism — `backdrop-blur` + gradient separator
-- **Notification bell**: Red badge counter + dropdown panel with 3 simulated system alerts
-- **Admin Session badge**: Becomes a user avatar circle (first letter of email) + role chip
-- **Command palette**: Press `Cmd+K` opens a search overlay (using `cmdk` already installed) with fuzzy search over users, jobs, nav items
-
----
-
-### Phase 9 — AddDownloadModal (`src/components/AddDownloadModal.tsx`)
-
-- **Dialog**: Glowing border, radial gradient behind the modal
-- **Tabs**: Pill style with gradient active state
-- **Magnet input**: Monospace with syntax highlight (magnet: prefix in purple, hash in green)
-- **Torrent drop zone**: Animated dashed border (marching ants) on drag, particle burst on file drop
-- **Submit button**: Ripple animation on click, transforms to progress indicator then checkmark on success
-
----
-
-### Phase 10 — Settings Page (`src/pages/Settings.tsx`)
-
-- **Section cards**: Replace `bg-slate-700` headers with gradient headers using brand colors per section
-- **Account section**: Avatar upload area with drag-to-replace, gradient ring around avatar
-- **Storage bars**: Match the TopHeader ring style — circular arc for storage, linear gradient bar for bandwidth
-- **Provider toggle**: Replace plain radio with the same `ProviderCard` component from Infrastructure (smaller variant)
-- **API Keys**: Terminal-style monospace card with green cursor blink, copy confirmation with checkmark animation
-- **Upgrade button**: Full-width gradient CTA with shimmer animation
-
----
-
-## Implementation Order (sequential, each builds on previous)
-
-```text
-1. index.css — new tokens + keyframes (foundation for everything)
-2. AdminUI.tsx — StatCard, AdminTable, DangerModal (multiplier component)
-3. TopHeader.tsx — SVG storage ring, provider chip, glow button
-4. Dashboard.tsx — ambient bg, JobRow redesign, empty state, bulk bar
-5. auth/Login.tsx + Register.tsx + Reset.tsx — blob bg, glass form
-6. JobDetail.tsx — MetricCard upgrade, enhanced progress, file browser
-7. AddDownloadModal.tsx — glow dialog, animated drop zone
-8. Settings.tsx — gradient headers, circular storage, provider cards
-9. admin/Overview.tsx — health ring, live feed, heatmap
-10. AdminLayout.tsx — glass topbar, cmd+k palette, notification bell
+```json
+{
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "scripting",        // ADD — needed for executeScript
+    "storage",
+    "notifications"
+  ],
+  "externally_connectable": {
+    "matches": [
+      "https://tseeder.cc/*",
+      "https://*.tseeder.cc/*",
+      "https://id-preview--*.lovable.app/*"
+    ]
+  }
+}
 ```
 
-## Files to be Modified
+#### 2. `public/extension/popup.css` — Create the missing stylesheet
 
-| File | Change Scope |
-|---|---|
-| `src/index.css` | New tokens, keyframes, utility classes |
-| `src/components/admin/AdminUI.tsx` | Full component redesign |
-| `src/components/TopHeader.tsx` | SVG ring, provider chip, glow buttons |
-| `src/pages/Dashboard.tsx` | Ambient bg, JobRow, toolbar, empty state |
-| `src/pages/auth/Login.tsx` | Blob bg, glass card, animations |
-| `src/pages/auth/Register.tsx` | Same treatment as Login |
-| `src/pages/auth/Reset.tsx` | Same treatment |
-| `src/pages/JobDetail.tsx` | Metric cards, progress, file browser |
-| `src/components/AddDownloadModal.tsx` | Glow dialog, drop zone animations |
-| `src/pages/Settings.tsx` | Gradient headers, circular storage |
-| `src/pages/admin/Overview.tsx` | Full premium redesign |
-| `src/components/admin/AdminLayout.tsx` | Glass topbar, cmd+k, notifications |
+Full CSS for the popup: layout, magnet chip buttons, status message colours, login/logged-in state transitions, send button gradient — all self-contained in ~80 lines.
 
-No new dependencies needed — everything uses the existing stack (Tailwind, Lucide, Recharts for any charts, `cmdk` for command palette already installed).
+#### 3. `public/extension/background.js` — Fix all three issues
+
+- Add `TSDR_QUEUE_MAGNET` message listener (routes to same job-POST logic)
+- Replace hardcoded `https://tseeder.cc` with a constant `API_BASE` at the top (with a config comment so deployers can change it)
+- Add an `onMessage` listener (internal) for the queue-magnet message from content.js
+
+```js
+const API_BASE = 'https://api.tseeder.cc'; // change to your Workers API URL
+
+// Internal message from content script
+chrome.runtime.onMessage.addListener(async (msg) => {
+  if (msg.type === 'TSDR_QUEUE_MAGNET') {
+    await sendJob(msg.magnetUri);
+  }
+});
+```
+
+#### 4. `public/extension/popup.js` — Fix API_BASE + use correct auth
+
+- Update `API_BASE` to read from extension storage first (set by web app after login), fall back to default
+- Add a check: after login, the web app POSTs the extension ID + sets the API key in storage under `tsdr_api_key`
+
+#### 5. `src/pages/auth/Login.tsx` — Send token to extension after successful login
+
+After a successful `/auth/login` API call, inject a `chrome.runtime.sendMessage` call targeting the extension ID stored in a known constant. This is the bridge that makes "login on web → extension is authenticated" work.
+
+```typescript
+// After login success
+const EXTENSION_ID = import.meta.env.VITE_EXTENSION_ID ?? "";
+if (typeof chrome !== "undefined" && chrome.runtime && EXTENSION_ID) {
+  chrome.runtime.sendMessage(EXTENSION_ID, {
+    type: "TSDR_AUTH",
+    token: apiKey,    // from POST /auth/api-keys
+    email: user.email,
+  });
+}
+```
+
+#### 6. Extension Icons — Generate placeholder SVG-based PNGs
+
+Create `icon16.png`, `icon48.png`, `icon128.png` using a Vite build script or pre-built assets. Since we cannot run scripts in this environment, we will replace the icon references in `manifest.json` with SVG data URIs (via a `web_accessible_resources` trick) OR generate minimal valid PNG placeholders as base64-encoded static files.
+
+The simplest reliable approach: create an `icons/` folder entry in the build pipeline and generate three PNG files with the tseeder purple gradient "T" logo using an HTML Canvas at build time.
+
+#### 7. `src/pages/Extension.tsx` — Wire up real ZIP download
+
+Use the `JSZip` library to dynamically bundle all extension files client-side and trigger a real download — no server required. The `Download Extension` button will:
+1. Fetch each extension file from `/extension/*.js`, `/extension/manifest.json`, `/extension/popup.html`, `/extension/popup.css`
+2. Bundle them into a `.zip` with JSZip
+3. Trigger browser download of `tseeder-extension.zip`
+
+---
+
+### Test Plan
+
+#### Unit tests (Vitest) — `src/test/extension.test.ts`
+
+```text
+background.js logic:
+  ✓ sendJob() posts to correct API_BASE with Bearer token
+  ✓ sendJob() shows error notification on 401
+  ✓ TSDR_AUTH message stores token + email to chrome.storage.local
+  ✓ TSDR_QUEUE_MAGNET message routes to sendJob()
+  ✓ Context menu click with no auth redirects to login tab
+
+content.js logic:
+  ✓ addTseederButton() adds button to magnet anchor
+  ✓ addTseederButton() is idempotent (does not add twice)
+  ✓ button click sends TSDR_QUEUE_MAGNET to runtime
+  ✓ MutationObserver picks up dynamically added magnet links
+
+popup.js logic:
+  ✓ init() shows login state when no token in storage
+  ✓ init() shows loggedin state when token exists
+  ✓ sendBtn click with empty input shows error status
+  ✓ sendBtn click calls fetch with correct headers
+  ✓ scanPageForMagnets renders chips for found magnets
+
+Extension manifest:
+  ✓ manifest.json is valid JSON
+  ✓ Required permissions present: scripting, contextMenus, storage, notifications
+  ✓ externally_connectable matches array is non-empty
+  ✓ background.service_worker points to existing file
+  ✓ All icon sizes referenced exist as files
+```
+
+#### Integration test (manual verification checklist in `DEVELOPER.md`)
+
+```text
+Load extension:
+  □ chrome://extensions → Load Unpacked → select public/extension/
+  □ No errors in Extensions dashboard
+  □ Icon appears in toolbar
+
+Auth bridge:
+  □ Log in at tseeder.cc → extension popup shows email + avatar initial
+  □ Log out → popup shows login state
+
+Job submission:
+  □ Paste magnet link in popup → "Added to your cloud vault!" notification
+  □ Right-click magnet link on any site → "Send to tseeder Cloud" menu item → notification
+  □ Content script adds ⚡ button to magnet links on public tracker sites
+  □ ⚡ button click → turns to ✅ → job appears in dashboard
+```
+
+---
+
+### Files to Create / Modify
+
+| Action | File |
+|--------|------|
+| **Modify** | `public/extension/manifest.json` — add `scripting` permission + `externally_connectable` |
+| **Create** | `public/extension/popup.css` — full popup stylesheet |
+| **Modify** | `public/extension/background.js` — fix API_BASE, add `TSDR_QUEUE_MAGNET` listener, fix auth |
+| **Modify** | `public/extension/popup.js` — fix API_BASE, read api key from storage correctly |
+| **Modify** | `src/pages/auth/Login.tsx` — send TSDR_AUTH to extension after login |
+| **Create** | `public/extension/icon16.svg`, `icon48.svg`, `icon128.svg` + update manifest to use SVGs |
+| **Modify** | `src/pages/Extension.tsx` — real JSZip-based download button |
+| **Create** | `src/test/extension.test.ts` — full Vitest unit test suite |
+| **Modify** | `DEVELOPER.md` — add manual extension test checklist |
