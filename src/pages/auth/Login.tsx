@@ -1,9 +1,7 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { auth, setCsrfToken, ApiError, apiKeys } from "@/lib/api";
-import { Turnstile } from "@marsidev/react-turnstile";
-import type { TurnstileInstance } from "@marsidev/react-turnstile";
 
 // Minimal Chrome extension types
 declare const chrome: {
@@ -19,7 +17,6 @@ import { Eye, EyeOff, Loader2, AlertCircle, Zap, ArrowLeft } from "lucide-react"
 import { useToast } from "@/hooks/use-toast";
 import fseederLogo from "@/assets/fseeder-logo.png";
 
-const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY ?? "";
 const EXTENSION_ID = import.meta.env.VITE_EXTENSION_ID ?? "";
 
 function AuthBlobs() {
@@ -88,17 +85,9 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [apiError, setApiError] = useState("");
-  const [turnstileToken, setTurnstileToken] = useState("");
-  const [turnstileReady, setTurnstileReady] = useState(false);
-  const turnstileRef = useRef<TurnstileInstance>(null);
 
   const loginMutation = useMutation({
-    mutationFn: () => {
-      if (!turnstileToken && TURNSTILE_SITE_KEY) {
-        throw new Error("Please complete the security check.");
-      }
-      return auth.login(email, password, turnstileToken || "dev-bypass");
-    },
+    mutationFn: () => auth.login(email, password, "dev-bypass"),
     onSuccess: async (data) => {
       setCsrfToken(data.csrfToken);
       try {
@@ -113,9 +102,6 @@ export default function LoginPage() {
       const msg = err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Login failed.";
       setApiError(msg);
       toast({ title: "Sign in failed", description: msg, variant: "destructive" });
-      // Reset Turnstile so the user can try again
-      turnstileRef.current?.reset();
-      setTurnstileToken("");
     },
   });
 
@@ -126,8 +112,7 @@ export default function LoginPage() {
     loginMutation.mutate();
   };
 
-  const canSubmit = !loginMutation.isPending && !!email && !!password &&
-    (!TURNSTILE_SITE_KEY || !!turnstileToken || !turnstileReady);
+  const canSubmit = !loginMutation.isPending && !!email && !!password;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 relative">
@@ -208,24 +193,6 @@ export default function LoginPage() {
               </button>
             </div>
           </div>
-
-          {/* Cloudflare Turnstile — real widget when site key is configured */}
-          {TURNSTILE_SITE_KEY ? (
-            <div className="flex justify-center">
-              <Turnstile
-                ref={turnstileRef}
-                siteKey={TURNSTILE_SITE_KEY}
-                onSuccess={(token) => { setTurnstileToken(token); setTurnstileReady(true); }}
-                onError={() => { setTurnstileToken(""); setTurnstileReady(false); }}
-                onExpire={() => { setTurnstileToken(""); }}
-                options={{ theme: "dark", size: "normal" }}
-              />
-            </div>
-          ) : (
-            <div className="h-14 rounded-xl border border-dashed border-border/40 flex items-center justify-center text-xs text-muted-foreground/60 bg-muted/10">
-              Set VITE_TURNSTILE_SITE_KEY to enable bot protection
-            </div>
-          )}
 
           <Button
             type="submit"

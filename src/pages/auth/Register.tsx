@@ -1,17 +1,13 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { auth, ApiError } from "@/lib/api";
-import { Turnstile } from "@marsidev/react-turnstile";
-import type { TurnstileInstance } from "@marsidev/react-turnstile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import fseederLogo from "@/assets/fseeder-logo.png";
-
-const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY ?? "";
 
 function AuthBlobs() {
   return (
@@ -61,20 +57,12 @@ export default function RegisterPage() {
   const [showPwd, setShowPwd] = useState(false);
   const [apiError, setApiError] = useState("");
   const [success, setSuccess] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState("");
-  const [turnstileReady, setTurnstileReady] = useState(false);
-  const turnstileRef = useRef<TurnstileInstance>(null);
 
   const passwordValid = PASSWORD_REGEX.test(password);
   const confirmMatch = password === confirm;
 
   const registerMutation = useMutation({
-    mutationFn: () => {
-      if (!turnstileToken && TURNSTILE_SITE_KEY) {
-        throw new Error("Please complete the security check.");
-      }
-      return auth.register(email, password, turnstileToken || "dev-bypass");
-    },
+    mutationFn: () => auth.register(email, password, "dev-bypass"),
     onSuccess: () => {
       setSuccess(true);
       toast({ title: "Account created!", description: "Check your email to verify your account." });
@@ -83,8 +71,6 @@ export default function RegisterPage() {
       const msg = err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Registration failed. Try again.";
       setApiError(msg);
       toast({ title: "Registration failed", description: msg, variant: "destructive" });
-      turnstileRef.current?.reset();
-      setTurnstileToken("");
     },
   });
 
@@ -97,8 +83,7 @@ export default function RegisterPage() {
     registerMutation.mutate();
   };
 
-  const canSubmit = !registerMutation.isPending && !!accepted && !!email && !!password && !!confirm &&
-    (!TURNSTILE_SITE_KEY || !!turnstileToken || !turnstileReady);
+  const canSubmit = !registerMutation.isPending && !!accepted && !!email && !!password && !!confirm;
 
   if (success) {
     return (
@@ -188,24 +173,6 @@ export default function RegisterPage() {
               <p className="text-xs text-destructive flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Passwords do not match</p>
             )}
           </div>
-
-          {/* Cloudflare Turnstile */}
-          {TURNSTILE_SITE_KEY ? (
-            <div className="flex justify-center">
-              <Turnstile
-                ref={turnstileRef}
-                siteKey={TURNSTILE_SITE_KEY}
-                onSuccess={(token) => { setTurnstileToken(token); setTurnstileReady(true); }}
-                onError={() => { setTurnstileToken(""); setTurnstileReady(false); }}
-                onExpire={() => setTurnstileToken("")}
-                options={{ theme: "dark", size: "normal" }}
-              />
-            </div>
-          ) : (
-            <div className="h-14 rounded-xl border border-dashed border-border/40 flex items-center justify-center text-xs text-muted-foreground/60 bg-muted/10">
-              Set VITE_TURNSTILE_SITE_KEY to enable bot protection
-            </div>
-          )}
 
           <div className="flex items-start gap-2">
             <Checkbox id="aup" checked={accepted} onCheckedChange={v => setAccepted(!!v)} className="mt-0.5" />
