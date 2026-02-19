@@ -193,7 +193,7 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
               <div className="mx-3 my-1 dashed-separator" />
               <DropdownLink icon={null} label="Files" lucideIcon={Star} onClick={() => { navigate("/app/dashboard"); setMenuOpen(false); }} />
               <DropdownLink icon={null} label="Account" lucideIcon={User} onClick={() => { navigate("/app/settings"); setMenuOpen(false); }} />
-              <DropdownLink icon={null} label="Admin Console" lucideIcon={Shield} onClick={() => { navigate("/admin/overview"); setMenuOpen(false); }} />
+              <DropdownLink icon={null} label="Admin Console" lucideIcon={Shield} onClick={() => { navigate("/admin/login"); setMenuOpen(false); }} />
               <DropdownLink icon={null} label="Tutorials" lucideIcon={HelpCircle} onClick={() => setMenuOpen(false)} />
             </div>
             <div className="mx-3 dashed-separator" />
