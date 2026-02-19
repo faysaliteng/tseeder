@@ -51,7 +51,7 @@ export default function AdminJobs() {
 
   return (
     <AdminLayout>
-      <div className="p-6 space-y-5">
+      <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
         <AdminPageHeader title="Job Operations" description="Global job search, inspect states, terminate, and manage the compute queue." />
 
         {/* Filters */}

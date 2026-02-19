@@ -367,12 +367,39 @@ export default function DashboardPage() {
                 selected={selected.has(job.id)}
                 onToggle={() => toggleOne(job.id)}
                 onAction={(action) => actionMutation.mutate({ id: job.id, action })}
-                onClick={() => navigate(`/dashboard/${job.id}`)}
+                onClick={() => navigate(`/app/dashboard/${job.id}`)}
               />
             ))
           )}
         </div>
       </main>
+
+      {/* ── Bulk action floating bar ─────────────────────────────── */}
+      {selected.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 duration-200">
+          <div className="flex items-center gap-2 px-4 py-3 bg-card border border-border rounded-2xl shadow-[0_8px_32px_-4px_hsl(220_26%_0%/0.8)] backdrop-blur-md">
+            <span className="text-xs font-semibold text-foreground mr-1">
+              {selected.size} selected
+            </span>
+            <div className="w-px h-4 bg-border mx-1" />
+            <button
+              onClick={() => {
+                selected.forEach(id => actionMutation.mutate({ id, action: "cancel" }));
+                setSelected(new Set());
+              }}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-destructive/40 text-destructive hover:bg-destructive/10 transition-colors font-medium"
+            >
+              <X className="w-3.5 h-3.5" /> Cancel All
+            </button>
+            <button
+              onClick={() => setSelected(new Set())}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              Deselect
+            </button>
+          </div>
+        </div>
+      )}
 
       <AddDownloadModal
         open={addOpen}

@@ -55,7 +55,7 @@ export default function AdminAudit() {
 
   return (
     <AdminLayout>
-      <div className="p-6 space-y-5">
+      <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
         <AdminPageHeader
           title="Audit Log"
           description="Immutable, append-only record of all admin and sensitive user actions."
