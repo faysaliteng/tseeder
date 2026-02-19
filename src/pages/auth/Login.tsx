@@ -21,7 +21,7 @@ export default function LoginPage() {
     mutationFn: () => auth.login(email, password, "dev-bypass"),
     onSuccess: (data) => {
       setCsrfToken(data.csrfToken);
-      navigate("/dashboard");
+      navigate("/app/dashboard");
     },
     onError: (err) => {
       const msg = err instanceof ApiError ? err.message : "Login failed. Check your credentials.";
