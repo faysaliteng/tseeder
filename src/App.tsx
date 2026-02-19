@@ -9,6 +9,7 @@ import LoginPage from "./pages/auth/Login";
 import RegisterPage from "./pages/auth/Register";
 import DashboardPage from "./pages/Dashboard";
 import AdminPage from "./pages/Admin";
+import SettingsPage from "./pages/Settings";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/auth/register" element={<RegisterPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/admin" element={<AdminPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
