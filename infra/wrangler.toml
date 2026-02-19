@@ -83,6 +83,8 @@ id = "REPLACE_WITH_YOUR_CSRF_KV_ID"             # wrangler kv:namespace create C
 #   WORKER_CLUSTER_TOKEN    — shared bearer token for compute agent auth
 #   R2_ACCESS_KEY_ID        — R2 S3-compatible API token access key
 #   R2_SECRET_ACCESS_KEY    — R2 S3-compatible API token secret
+#   R2_ENDPOINT             — https://<account-id>.r2.cloudflarestorage.com
+#   R2_ACCOUNT_ID           — Cloudflare account ID (for R2 S3-compat API)
 #   SEEDR_EMAIL             — (optional) Seedr.cc account email
 #   SEEDR_PASSWORD          — (optional) Seedr.cc account password
 
@@ -115,7 +117,7 @@ id = "REPLACE_WITH_YOUR_PREVIEW_CSRF_KV_ID"
 # ── Production routing ────────────────────────────────────────────────────────
 [env.production]
 name = "rdm-api"
-vars = { ENVIRONMENT = "production", APP_DOMAIN = "https://tseeder.cc", R2_BUCKET_NAME = "rdm-files", MAX_UPLOAD_BYTES = "5368709120" }
+vars = { ENVIRONMENT = "production", APP_DOMAIN = "https://tseeder.cc", API_DOMAIN = "https://api.tseeder.cc", R2_BUCKET_NAME = "rdm-files", MAX_UPLOAD_BYTES = "5368709120" }
 
 routes = [
   { pattern = "api.tseeder.cc/*", zone_name = "tseeder.cc" }

@@ -235,7 +235,10 @@ async function dispatchToComputeAgent(
   });
 
   // Step 2: Send job to compute agent
-  const callbackUrl = `${env.APP_DOMAIN}/jobs/callback`;
+  // API_DOMAIN is the Workers API origin (e.g. https://api.tseeder.cc)
+  // APP_DOMAIN is the frontend origin — callbacks MUST go to the API, not the frontend.
+  const apiDomain = env.API_DOMAIN ?? env.APP_DOMAIN;
+  const callbackUrl = `${apiDomain}/jobs/callback`;
   const payload = {
     jobId: msg.jobId,
     type: msg.type,
