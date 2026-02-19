@@ -64,19 +64,24 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
         </Link>
 
         {/* Plan label + storage bar */}
-        <div className="flex flex-col min-w-0 ml-1">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-xs sm:text-sm text-foreground tracking-widest uppercase">
-              {isPro ? "PRO" : "NON-PREMIUM"}
+        <div className="flex flex-col min-w-0 ml-1 overflow-hidden">
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold text-xs sm:text-sm text-foreground tracking-widest uppercase whitespace-nowrap">
+              {isPro ? "PRO" : (
+                <>
+                  <span className="hidden sm:inline">NON-PREMIUM</span>
+                  <span className="sm:hidden">FREE</span>
+                </>
+              )}
             </span>
             {!isPro && (
-              <button className="text-xs font-bold text-warning flex items-center gap-0.5 hover:underline whitespace-nowrap">
-                ▲ <span className="hidden sm:inline">GET MORE</span>
+              <button className="text-xs font-bold text-warning flex items-center gap-0.5 hover:underline whitespace-nowrap shrink-0">
+                ▲ GET MORE
               </button>
             )}
           </div>
           {/* Seedr-style storage progress bar */}
-          <div className="mt-1 w-24 sm:w-32 h-2.5 rounded-full bg-muted overflow-hidden">
+          <div className="mt-1 w-20 sm:w-32 h-2.5 rounded-full bg-muted overflow-hidden">
             <div
               className="h-full rounded-full transition-all"
               style={{
