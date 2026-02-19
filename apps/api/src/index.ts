@@ -39,7 +39,7 @@ import {
   handleAdminDlqList, handleAdminDlqReplay, handleAdminGlobalSearch, handleAdminConfigHistory,
 } from "./handlers/admin";
 import {
-  handleListOrgs, handleCreateOrg, handleGetOrg, handleUpdateOrg,
+  handleListOrgs, handleCreateOrg, handleGetOrg, handleUpdateOrg, handleDeleteOrg,
   handleListOrgMembers, handleInviteOrgMember, handleRemoveOrgMember,
   handleAcceptOrgInvite, handleAdminListOrgs, handleAdminObservability,
   handleUptimeHistory,
@@ -82,6 +82,29 @@ const router = new Router<Env>();
 router.get("/health", [], async () =>
   Response.json({ status: "ok", ts: new Date().toISOString() }),
 );
+
+// ── Public system status (unauthenticated, coarse-grained) ────────────────────
+// Returns just enough info for the /status page without exposing admin data.
+router.get("/system-status", [], async (_req, env) => {
+  const [stuckJobs, agentHealth] = await Promise.all([
+    env.DB.prepare(
+      "SELECT COUNT(*) as cnt FROM jobs WHERE status = 'submitted' AND created_at < datetime('now', '-10 minutes')"
+    ).first<{ cnt: number }>().catch(() => ({ cnt: 0 })),
+    fetch(`${env.WORKER_CLUSTER_URL}/agent/health`, {
+      headers: { "Authorization": `Bearer ${env.WORKER_CLUSTER_TOKEN}` },
+      signal: AbortSignal.timeout(5000),
+    }).then(r => r.ok ? r.json() : null).catch(() => null),
+  ]);
+  const queueDegraded = (stuckJobs?.cnt ?? 0) > 10;
+  return Response.json({
+    status: agentHealth && !queueDegraded ? "healthy" : "degraded",
+    failedLast24h: 0, // not exposed publicly
+    queueDepth: queueDegraded ? stuckJobs?.cnt ?? 0 : 0,
+    dlqDepth: 0,
+    agent: agentHealth ? { status: "healthy" } : null,
+    ts: new Date().toISOString(),
+  });
+});
 
 // ── Auth (public, rate-limited) ────────────────────────────────────────────────
 router.post("/auth/register",       [rateLimitMiddleware("register", 5, 60)],    handleRegister);
@@ -201,6 +224,7 @@ router.get("/orgs",                         [authMiddleware],                   
 router.post("/orgs",                        [authMiddleware, csrfMiddleware],             handleCreateOrg);
 router.get("/orgs/:slug",                   [authMiddleware],                             handleGetOrg);
 router.patch("/orgs/:slug",                 [authMiddleware, csrfMiddleware],             handleUpdateOrg);
+router.delete("/orgs/:slug",                [authMiddleware, csrfMiddleware],             handleDeleteOrg);
 router.get("/orgs/:slug/members",           [authMiddleware],                             handleListOrgMembers);
 router.post("/orgs/:slug/invites",          [authMiddleware, csrfMiddleware],             handleInviteOrgMember);
 router.delete("/orgs/:slug/members/:userId",[authMiddleware, csrfMiddleware],             handleRemoveOrgMember);

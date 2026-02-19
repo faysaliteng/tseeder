@@ -39,6 +39,7 @@ import AdminObservability from "./pages/admin/Observability";
 import BlogPage from "./pages/Blog";
 import BlogPostPage from "./pages/BlogPost";
 import OrgSettingsPage from "./pages/OrgSettings";
+import CreateOrgPage from "./pages/CreateOrg";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -105,7 +106,8 @@ const App = () => (
           <Route path="/admin/config-history" element={<AdminConfigHistory />} />
           <Route path="/admin/observability" element={<AdminObservability />} />
 
-          {/* Org settings */}
+          {/* Org routes */}
+          <Route path="/app/org/new" element={<CreateOrgPage />} />
           <Route path="/app/org/:slug/settings" element={<OrgSettingsPage />} />
 
           {/* Public Blog */}

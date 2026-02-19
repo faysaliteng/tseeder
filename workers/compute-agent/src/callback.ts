@@ -1,5 +1,9 @@
 /**
- * Posts progress callbacks to the Cloudflare Workers API
+ * Posts progress callbacks to the Cloudflare Workers API.
+ *
+ * Signing contract (must match apps/api/src/crypto.ts verifyCallbackSignature):
+ *   X-Timestamp: unix seconds
+ *   Authorization: Bearer <HMAC-SHA256(ts + "." + body, secret)>
  */
 
 import { logger } from "./logger";
@@ -11,7 +15,8 @@ export async function postCallback(
   payload: Record<string, unknown>,
 ): Promise<void> {
   const body = JSON.stringify(payload);
-  const signature = await hmacSha256(body, signingSecret);
+  const ts = Math.floor(Date.now() / 1000);
+  const signature = await hmacSha256(`${ts}.${body}`, signingSecret);
 
   let attempt = 0;
   const maxAttempts = 5;
@@ -26,6 +31,7 @@ export async function postCallback(
           "Authorization": `Bearer ${signature}`,
           "X-Correlation-ID": correlationId,
           "X-Idempotency-Key": payload.idempotencyKey as string,
+          "X-Timestamp": String(ts),
         },
         body,
         signal: AbortSignal.timeout(10_000),
@@ -48,7 +54,8 @@ export async function postCallback(
   logger.error({ jobId: payload.jobId }, "Callback failed after max retries");
 }
 
-async function hmacSha256(body: string, secret: string): Promise<string> {
+async function hmacSha256(payload: string, secret: string): Promise<string> {
   const { createHmac } = await import("node:crypto");
-  return createHmac("sha256", secret).update(body).digest("hex");
+  return createHmac("sha256", secret).update(payload).digest("hex");
 }
+

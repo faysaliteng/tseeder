@@ -28,6 +28,10 @@ async function request<T>(
   headers.set("Content-Type", headers.get("Content-Type") ?? "application/json");
   if (csrfToken) headers.set("X-CSRF-Token", csrfToken);
 
+  // Inject active org context (set by OrgSwitcher)
+  const activeOrgSlug = typeof window !== "undefined" ? localStorage.getItem("activeOrgSlug") : null;
+  if (activeOrgSlug) headers.set("X-Org-Slug", activeOrgSlug);
+
   const res = await fetch(`${BASE}${path}`, {
     ...options,
     credentials: "include",
@@ -155,6 +159,19 @@ export interface ApiUsage {
 export const usage = {
   get: () => request<ApiUsage>("/usage"),
   getPlans: () => request<{ plans: unknown[] }>("/plans"),
+};
+
+// ── Public system status (no auth — for /status page) ────────────────────────
+
+export const systemStatus = {
+  get: () => request<{
+    status: string;
+    failedLast24h: number;
+    queueDepth: number;
+    dlqDepth: number;
+    agent: { status: string } | null;
+    ts: string;
+  }>("/system-status"),
 };
 
 // ── Auth (me) ─────────────────────────────────────────────────────────────────
