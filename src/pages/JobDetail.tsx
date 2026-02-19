@@ -13,7 +13,7 @@ import {
   ArrowLeft, Pause, Play, X, Download, Folder, File,
   FileVideo, FileText, FileImage, Loader2, AlertCircle,
   ChevronRight, ChevronDown, RefreshCw,
-  Wifi, WifiOff, Users, Gauge, CheckCircle2,
+  Wifi, WifiOff, Users, Gauge, CheckCircle2, Zap, Copy, Check,
 } from "lucide-react";
 import type { JobStatus } from "@/lib/utils";
 
@@ -65,10 +65,19 @@ function MetricCard({
 function FileRow({ file }: { file: ApiFile }) {
   const { toast } = useToast();
   const [downloading, setDownloading] = useState(false);
+  const [streaming, setStreaming] = useState(false);
+  const [streamCopied, setStreamCopied] = useState(false);
+  const [streamUrl, setStreamUrl] = useState<string | null>(null);
 
   const mimeColor = file.mimeType?.startsWith("video/") ? "border-l-info"
     : file.mimeType?.startsWith("image/") ? "border-l-success"
     : "border-l-border";
+
+  const isStreamable = file.isComplete && (
+    file.mimeType?.startsWith("video/") ||
+    file.mimeType?.startsWith("audio/") ||
+    file.mimeType?.startsWith("image/")
+  );
 
   const handleDownload = async () => {
     setDownloading(true);
@@ -80,6 +89,26 @@ function FileRow({ file }: { file: ApiFile }) {
       toast({ title: "Download error", description: msg, variant: "destructive" });
     } finally {
       setDownloading(false);
+    }
+  };
+
+  const handleStream = async () => {
+    setStreaming(true);
+    try {
+      const { url } = await filesApi.getSignedUrl(file.id, 3600);
+      setStreamUrl(url);
+      await navigator.clipboard.writeText(url);
+      setStreamCopied(true);
+      toast({
+        title: "Stream URL copied! ⚡",
+        description: "Paste into VLC (Media → Open Network Stream) or Kodi (Videos → Enter Location)",
+      });
+      setTimeout(() => setStreamCopied(false), 3000);
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "Failed to get stream link";
+      toast({ title: "Stream error", description: msg, variant: "destructive" });
+    } finally {
+      setStreaming(false);
     }
   };
 
@@ -101,7 +130,29 @@ function FileRow({ file }: { file: ApiFile }) {
       <span className="text-xs text-muted-foreground w-20 text-right shrink-0 tabular-nums">
         {formatBytes(file.sizeBytes)}
       </span>
-      <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+      <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 flex items-center gap-1.5">
+        {/* Stream button — video/audio/image only */}
+        {isStreamable && (
+          <button
+            className={cn(
+              "flex items-center gap-1.5 text-xs px-3 py-1 rounded-lg border transition-all font-medium disabled:opacity-40",
+              streamCopied
+                ? "border-success/50 text-success bg-success/10"
+                : "border-primary-glow/40 text-primary-glow hover:bg-primary/10 hover:border-primary-glow/60",
+            )}
+            onClick={handleStream}
+            disabled={streaming}
+            title="Copy streaming URL for VLC / Kodi / Infuse"
+          >
+            {streaming
+              ? <Loader2 className="w-3 h-3 animate-spin" />
+              : streamCopied
+              ? <Check className="w-3 h-3" />
+              : <Zap className="w-3 h-3" />}
+            {streamCopied ? "Copied!" : "Stream"}
+          </button>
+        )}
+        {/* Download button */}
         <button
           className="flex items-center gap-1.5 text-xs px-3 py-1 rounded-lg border border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/50 transition-all font-medium disabled:opacity-40"
           onClick={handleDownload}
