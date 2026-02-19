@@ -16,7 +16,7 @@ import {
   TrendingUp, Languages, User, Lock, Bell, Trash2, Check, X, Loader2, Eye, EyeOff,
   Key, Plus, Copy, AlertTriangle, Clock, Zap, CloudLightning, ExternalLink,
 } from "lucide-react";
-import logoImg from "@/assets/logo.png";
+import gravlLogo from "@/assets/gravl-logo.png";
 
 // ── Section header with gradient ───────────────────────────────────────────
 function SectionHeader({ title, icon: Icon, gradient = "from-primary/80 to-primary-glow/80" }: {
@@ -217,7 +217,7 @@ export default function SettingsPage() {
               <div className="relative w-16 h-16 shrink-0">
                 <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-primary/30 bg-secondary"
                   style={{ boxShadow: "0 0 16px hsl(239 84% 67% / 0.2)" }}>
-                  <img src={logoImg} alt="Avatar" className="w-full h-full object-cover" />
+                  <img src={gravlLogo} alt="Avatar" className="w-full h-full object-cover" />
                 </div>
                 <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full gradient-primary border-2 border-background flex items-center justify-center">
                   <Plus className="w-2.5 h-2.5 text-white" />

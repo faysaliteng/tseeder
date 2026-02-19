@@ -1,12 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import gravlLogo from "@/assets/gravl-logo.png";
 import {
   LayoutDashboard, Users, Briefcase, Server, HardDrive,
   ShieldAlert, ScrollText, Settings, ChevronLeft, ChevronRight,
-  LogOut, Search, Bell, Menu, X, Layers, Zap,
+  LogOut, Search, Bell, Menu, X, Layers,
+  Command,
 } from "lucide-react";
+import {
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "@/components/ui/command";
 
 const NAV = [
   { to: "/admin/overview",        label: "Overview",       icon: LayoutDashboard, color: "text-primary" },
@@ -27,13 +37,40 @@ const ALERTS = [
   { id: 3, msg: "New user registered: demo@test.com", level: "info" },
 ];
 
+const CMD_ITEMS = [
+  { group: "Navigation", label: "Overview", to: "/admin/overview", icon: LayoutDashboard },
+  { group: "Navigation", label: "Users", to: "/admin/users", icon: Users },
+  { group: "Navigation", label: "Jobs", to: "/admin/jobs", icon: Briefcase },
+  { group: "Navigation", label: "Infrastructure", to: "/admin/infrastructure", icon: Layers },
+  { group: "Navigation", label: "Workers", to: "/admin/workers", icon: Server },
+  { group: "Navigation", label: "Storage", to: "/admin/storage", icon: HardDrive },
+  { group: "Navigation", label: "Security", to: "/admin/security", icon: ShieldAlert },
+  { group: "Navigation", label: "Audit Log", to: "/admin/audit", icon: ScrollText },
+  { group: "Navigation", label: "Settings", to: "/admin/settings", icon: Settings },
+  { group: "App", label: "Back to App", to: "/app/dashboard", icon: LogOut },
+  { group: "App", label: "Admin Login", to: "/admin/login", icon: Command },
+];
+
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [notifOpen, setNotifOpen] = useState(false);
+  const [cmdOpen, setCmdOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+
+  // ⌘K / Ctrl+K global shortcut
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setCmdOpen(o => !o);
+      }
+    };
+    document.addEventListener("keydown", down);
+    return () => document.removeEventListener("keydown", down);
+  }, []);
 
   const SidebarContent = ({ mobile = false }: { mobile?: boolean }) => (
     <>
@@ -157,17 +194,18 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             <Menu className="w-5 h-5" />
           </button>
 
-          {/* Search */}
-          <div className="relative flex-1 max-w-md hidden sm:block">
+          {/* Search — opens command palette */}
+          <button
+            onClick={() => setCmdOpen(true)}
+            className="relative flex-1 max-w-md hidden sm:flex items-center gap-3 bg-input/40 border border-border/50 rounded-xl pl-9 pr-3 py-2 text-sm text-muted-foreground hover:border-primary/40 hover:bg-input/60 transition-all backdrop-blur-sm text-left"
+          >
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Search users, jobs, infohash… (⌘K)"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full bg-input/40 border border-border/50 rounded-xl pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 focus:shadow-[0_0_0_2px_hsl(239_84%_67%/0.08)] transition-all backdrop-blur-sm"
-            />
-          </div>
+            <span>Search users, jobs, pages…</span>
+            <span className="ml-auto flex items-center gap-0.5 text-[10px] font-mono font-bold opacity-50">
+              <kbd className="px-1 py-0.5 rounded border border-border bg-muted">⌘</kbd>
+              <kbd className="px-1 py-0.5 rounded border border-border bg-muted">K</kbd>
+            </span>
+          </button>
 
           <div className="flex-1" />
 
@@ -221,6 +259,39 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+
+      {/* ⌘K Command Palette */}
+      <CommandDialog open={cmdOpen} onOpenChange={setCmdOpen}>
+        <CommandInput placeholder="Search pages, users, jobs…" />
+        <CommandList>
+          <CommandEmpty>No results found.</CommandEmpty>
+          {["Navigation", "App"].map(group => {
+            const items = CMD_ITEMS.filter(i => i.group === group);
+            return (
+              <CommandGroup key={group} heading={group}>
+                {items.map(item => {
+                  const Icon = item.icon;
+                  return (
+                    <CommandItem
+                      key={item.to}
+                      value={item.label}
+                      onSelect={() => {
+                        navigate(item.to);
+                        setCmdOpen(false);
+                      }}
+                      className="flex items-center gap-2.5 cursor-pointer"
+                    >
+                      <Icon className="w-4 h-4 text-muted-foreground" />
+                      <span>{item.label}</span>
+                      <span className="ml-auto text-xs text-muted-foreground/50 font-mono">{item.to}</span>
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            );
+          })}
+        </CommandList>
+      </CommandDialog>
     </div>
   );
 }
