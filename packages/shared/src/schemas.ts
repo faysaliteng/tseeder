@@ -106,6 +106,24 @@ export const SignedUrlRequestSchema = z.object({
 });
 export type SignedUrlRequest = z.infer<typeof SignedUrlRequestSchema>;
 
+// ─── Articles / Blog CMS ──────────────────────────────────────────────────────
+
+export const ArticleCreateSchema = z.object({
+  title: z.string().min(3, "Title must be at least 3 characters").max(200),
+  slug: z.string().regex(/^[a-z0-9-]+$/, "Slug may only contain lowercase letters, numbers, and hyphens").max(100).optional(),
+  excerpt: z.string().max(500).default(""),
+  body: z.string().default(""),
+  category: z.string().max(50).default("General"),
+  coverImage: z.string().url("Must be a valid URL").optional().or(z.literal("")),
+  readTime: z.string().max(20).optional(),
+  status: z.enum(["draft", "published"]).default("draft"),
+  tags: z.array(z.string().max(50)).max(10).optional(),
+});
+export type ArticleCreate = z.infer<typeof ArticleCreateSchema>;
+
+export const ArticleUpdateSchema = ArticleCreateSchema.partial();
+export type ArticleUpdate = z.infer<typeof ArticleUpdateSchema>;
+
 // ─── Admin ───────────────────────────────────────────────────────────────────
 
 export const UpdateUserSchema = z.object({
