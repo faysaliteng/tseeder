@@ -109,7 +109,7 @@ install_bun() {
   info "Installing Bun runtime…"
   # Install into /usr/local so it is accessible system-wide
   export BUN_INSTALL="/usr/local"
-  curl -fsSL https://bun.sh/install | bash -s -- --no-interactive
+  curl -fsSL https://bun.sh/install | BUN_INSTALL="/usr/local" bash
 
   if [[ ! -x "$BUN_BIN" ]]; then
     die "Bun installation failed — ${BUN_BIN} not found after install."
