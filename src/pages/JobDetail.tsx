@@ -1,21 +1,19 @@
 import { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { jobs as jobsApi, files as filesApi, type ApiJob, type ApiFile, ApiError } from "@/lib/api";
+import { jobs as jobsApi, files as filesApi, usage as usageApi, type ApiJob, type ApiFile, ApiError } from "@/lib/api";
 import { formatBytes, formatSpeed, formatEta } from "@/lib/mock-data";
 import { useJobSSE, mergeSSEIntoJob } from "@/hooks/useSSE";
 import { StatusBadge } from "@/components/StatusBadge";
 import { TopHeader } from "@/components/TopHeader";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { MOCK_USAGE } from "@/lib/mock-data";
-import { usage as usageApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Pause, Play, X, Download, Folder, File,
   FileVideo, FileText, FileImage, Loader2, AlertCircle,
-  ChevronRight, ChevronDown, RefreshCw, ExternalLink,
+  ChevronRight, ChevronDown, RefreshCw,
   Wifi, WifiOff, Users, Gauge,
 } from "lucide-react";
 import type { JobStatus } from "@/lib/mock-data";

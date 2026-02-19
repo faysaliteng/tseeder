@@ -1,19 +1,18 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { jobs as jobsApi, usage as usageApi, files as filesApi, type ApiJob, ApiError } from "@/lib/api";
-import { formatBytes, formatSpeed, formatEta, type JobStatus } from "@/lib/mock-data";
+import { jobs as jobsApi, usage as usageApi, type ApiJob, ApiError } from "@/lib/api";
+import { formatBytes, formatSpeed, formatEta } from "@/lib/mock-data";
 import { TopHeader } from "@/components/TopHeader";
 import { AddDownloadModal } from "@/components/AddDownloadModal";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useJobSSE, mergeSSEIntoJob } from "@/hooks/useSSE";
-import type { UsageMetrics } from "@/lib/mock-data";
 import {
   Folder, FileVideo, FileText, FileImage, File, Download,
-  Pause, Play, X, Search, FolderPlus, ChevronUp, ChevronDown,
-  CheckSquare, Square, ArrowUp, Loader2, AlertCircle,
+  Pause, Play, X, Search, ChevronUp, ChevronDown,
+  CheckSquare, Square, Loader2, AlertCircle,
   CheckCircle2, Clock, Minus, Plus, RefreshCw,
 } from "lucide-react";
 
