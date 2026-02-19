@@ -20,7 +20,7 @@ export function StatCard({
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
         <Icon className={`w-4 h-4 ${colours[variant]}`} />
       </div>
-      <p className={`text-2xl font-bold ${colours[variant]}`}>{value}</p>
+      <p className={`text-2xl font-bold truncate min-w-0 ${colours[variant]}`}>{value}</p>
       {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
     </div>
   );
