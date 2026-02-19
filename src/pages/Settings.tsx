@@ -1,10 +1,9 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { usage as usageApi, auth as authApi, authMe, apiKeys as apiKeysApi, type ApiKey, ApiError } from "@/lib/api";
+import { usage as usageApi, auth as authApi, authMe, apiKeys as apiKeysApi, providers as providersApi, type ApiKey, ApiError } from "@/lib/api";
 import {
   seedrAuth, seedr, isSeedrConnected,
-  getDownloadProvider, setDownloadProvider, type DownloadProvider,
 } from "@/lib/seedr-api";
 import { TopHeader } from "@/components/TopHeader";
 import { formatBytes } from "@/lib/utils";
@@ -15,8 +14,8 @@ import { useToast } from "@/hooks/use-toast";
 import {
   TrendingUp, User, Lock, Bell, Trash2, Check, X, Loader2, Eye, EyeOff,
   Key, Plus, Copy, AlertTriangle, Clock, Zap, CloudLightning, ExternalLink, Languages,
+  Info,
 } from "lucide-react";
-
 
 
 // ── Section header with gradient ───────────────────────────────────────────
@@ -122,24 +121,20 @@ export default function SettingsPage() {
   const userEmail = (meData?.user as any)?.email ?? "—";
   const userInitial = userEmail[0]?.toUpperCase() ?? "U";
 
+  // Active provider from real API (read-only for users — admin-controlled)
+  const { data: providerData } = useQuery({
+    queryKey: ["providers", "active"],
+    queryFn: () => providersApi.getActive(),
+    retry: false,
+  });
+  const activeProvider = providerData?.provider ?? "cloudflare";
 
-  const [provider, setProviderState] = useState<DownloadProvider>(getDownloadProvider);
   const [seedrConnected, setSeedrConnected] = useState(isSeedrConnected);
   const [seedrEmail, setSeedrEmail] = useState("");
   const [seedrPass, setSeedrPass] = useState("");
   const [seedrShowPass, setSeedrShowPass] = useState(false);
   const [seedrLoginLoading, setSeedrLoginLoading] = useState(false);
   const [seedrInfo, setSeedrInfo] = useState<{ username: string; space_max: number; space_used: number } | null>(null);
-
-  const handleProviderChange = useCallback((p: DownloadProvider) => {
-    if (p === "seedr" && !seedrConnected) {
-      toast({ title: "Connect Seedr.cc first", description: "Sign in to your Seedr.cc account below.", variant: "destructive" });
-      return;
-    }
-    setDownloadProvider(p);
-    setProviderState(p);
-    toast({ title: p === "seedr" ? "Switched to Seedr.cc ⚡" : "Switched to Cloudflare Workers ⚡" });
-  }, [seedrConnected, toast]);
 
   const handleSeedrLogin = async () => {
     if (!seedrEmail.trim() || !seedrPass.trim()) return;
@@ -163,9 +158,9 @@ export default function SettingsPage() {
     seedrAuth.logout();
     setSeedrConnected(false);
     setSeedrInfo(null);
-    if (provider === "seedr") { setDownloadProvider("cloudflare"); setProviderState("cloudflare"); }
     toast({ title: "Seedr.cc disconnected" });
   };
+
 
   const { data: usageData, isLoading: usageLoading } = useQuery({ queryKey: ["usage"], queryFn: () => usageApi.get() });
   const { data: keysData, isLoading: keysLoading } = useQuery({ queryKey: ["api-keys"], queryFn: () => apiKeysApi.list() });
@@ -327,57 +322,57 @@ export default function SettingsPage() {
           <SectionCard>
             <SectionHeader title="Download Provider" icon={Zap} gradient="from-primary/70 to-info/70" />
             <div className="px-4 py-4 space-y-3">
-              <p className="text-xs text-muted-foreground">Choose which backend handles torrent downloads.</p>
+              <div className="flex items-start gap-2 p-3 rounded-xl bg-muted/20 border border-border/40">
+                <Info className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                <p className="text-xs text-muted-foreground">
+                  The active download engine is controlled by platform admins.
+                  Currently: <strong className="text-foreground capitalize">{activeProvider === "seedr" ? "Seedr.cc" : "Cloudflare Workers"}</strong>
+                </p>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 {/* Cloudflare card */}
-                <button
-                  onClick={() => handleProviderChange("cloudflare")}
-                  className={cn(
-                    "flex flex-col items-start gap-3 rounded-xl border-2 p-4 transition-all duration-200 text-left relative overflow-hidden group",
-                    provider === "cloudflare"
-                      ? "border-primary bg-primary/8 shadow-glow-primary"
-                      : "border-border bg-muted/10 hover:border-primary/30"
-                  )}
-                >
-                  {provider === "cloudflare" && <span className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />}
-                  <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center border", provider === "cloudflare" ? "bg-primary/10 border-primary/30 shadow-[0_0_10px_hsl(239_84%_67%/0.3)]" : "bg-muted border-border")}>
-                    <CloudLightning className={cn("w-5 h-5", provider === "cloudflare" ? "text-primary" : "text-muted-foreground")} />
+                <div className={cn(
+                  "flex flex-col items-start gap-3 rounded-xl border-2 p-4 relative overflow-hidden",
+                  activeProvider === "cloudflare"
+                    ? "border-primary bg-primary/8 shadow-glow-primary"
+                    : "border-border bg-muted/10 opacity-50"
+                )}>
+                  {activeProvider === "cloudflare" && <span className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />}
+                  <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center border", activeProvider === "cloudflare" ? "bg-primary/10 border-primary/30" : "bg-muted border-border")}>
+                    <CloudLightning className={cn("w-5 h-5", activeProvider === "cloudflare" ? "text-primary" : "text-muted-foreground")} />
                   </div>
                   <div>
-                    <p className={cn("text-sm font-bold", provider === "cloudflare" ? "text-primary" : "text-foreground")}>Cloudflare</p>
+                    <p className={cn("text-sm font-bold", activeProvider === "cloudflare" ? "text-primary" : "text-foreground")}>Cloudflare</p>
                     <p className="text-xs text-muted-foreground mt-0.5">Self-hosted workers</p>
                   </div>
-                  {provider === "cloudflare" && (
+                  {activeProvider === "cloudflare" && (
                     <span className="text-[10px] font-bold uppercase tracking-widest text-primary border border-primary/30 rounded-full px-2 py-0.5 bg-primary/10">● Active</span>
                   )}
-                </button>
+                </div>
 
                 {/* Seedr.cc card */}
-                <button
-                  onClick={() => handleProviderChange("seedr")}
-                  className={cn(
-                    "flex flex-col items-start gap-3 rounded-xl border-2 p-4 transition-all duration-200 text-left relative overflow-hidden group",
-                    provider === "seedr"
-                      ? "border-success bg-success/5 shadow-glow-success"
-                      : "border-border bg-muted/10 hover:border-success/30",
-                    !seedrConnected && "opacity-60"
-                  )}
-                >
-                  {provider === "seedr" && <span className="absolute inset-0 bg-gradient-to-br from-success/5 to-transparent pointer-events-none" />}
-                  <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center border", provider === "seedr" ? "bg-success/10 border-success/30 shadow-[0_0_10px_hsl(142_71%_45%/0.3)]" : "bg-muted border-border")}>
-                    <Zap className={cn("w-5 h-5", provider === "seedr" ? "text-success" : "text-muted-foreground")} />
+                <div className={cn(
+                  "flex flex-col items-start gap-3 rounded-xl border-2 p-4 relative overflow-hidden",
+                  activeProvider === "seedr"
+                    ? "border-success bg-success/5 shadow-glow-success"
+                    : "border-border bg-muted/10 opacity-50"
+                )}>
+                  {activeProvider === "seedr" && <span className="absolute inset-0 bg-gradient-to-br from-success/5 to-transparent pointer-events-none" />}
+                  <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center border", activeProvider === "seedr" ? "bg-success/10 border-success/30" : "bg-muted border-border")}>
+                    <Zap className={cn("w-5 h-5", activeProvider === "seedr" ? "text-success" : "text-muted-foreground")} />
                   </div>
                   <div>
-                    <p className={cn("text-sm font-bold", provider === "seedr" ? "text-success" : "text-foreground")}>Seedr.cc</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Cloud torrent · blazing fast</p>
+                    <p className={cn("text-sm font-bold", activeProvider === "seedr" ? "text-success" : "text-foreground")}>Seedr.cc</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Cloud torrent</p>
                   </div>
-                  {provider === "seedr"
+                  {activeProvider === "seedr"
                     ? <span className="text-[10px] font-bold uppercase tracking-widest text-success border border-success/30 rounded-full px-2 py-0.5 bg-success/10">● Active</span>
-                    : !seedrConnected && <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground border border-border rounded-full px-2 py-0.5">Not connected</span>}
-                </button>
+                    : <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground border border-border rounded-full px-2 py-0.5">Inactive</span>}
+                </div>
               </div>
             </div>
           </SectionCard>
+
 
           {/* ── Seedr.cc Integration ──────────────────────────────────── */}
           <SectionCard>

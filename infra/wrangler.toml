@@ -8,7 +8,78 @@ ENVIRONMENT = "production"
 APP_DOMAIN = "https://your-app.pages.dev"
 R2_BUCKET_NAME = "rdm-files"
 MAX_UPLOAD_BYTES = "5368709120"
-TURNSTILE_SITE_KEY = "REPLACE_ME"
+
+# ── D1 Database ──────────────────────────────────────────────────────────────
+[[d1_databases]]
+binding = "DB"
+database_name = "rdm-database"
+database_id = "REPLACE_WITH_YOUR_D1_ID"
+migrations_dir = "../../packages/shared/migrations"
+
+# ── R2 Bucket ────────────────────────────────────────────────────────────────
+[[r2_buckets]]
+binding = "FILES_BUCKET"
+bucket_name = "rdm-files"
+
+# ── Cloudflare Queues ────────────────────────────────────────────────────────
+[[queues.producers]]
+queue = "rdm-job-queue"
+binding = "JOB_QUEUE"
+
+[[queues.consumers]]
+queue = "rdm-job-queue"
+max_batch_size = 10
+max_batch_timeout = 5
+max_retries = 5
+dead_letter_queue = "rdm-job-dlq"
+
+[[queues.producers]]
+queue = "rdm-job-dlq"
+binding = "JOB_DLQ"
+
+# ── Durable Objects ──────────────────────────────────────────────────────────
+[[durable_objects.bindings]]
+name = "JOB_PROGRESS_DO"
+class_name = "JobProgressDO"
+
+[[durable_objects.bindings]]
+name = "USER_SESSION_DO"
+class_name = "UserSessionDO"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["JobProgressDO", "UserSessionDO"]
+
+# ── KV (rate-limit counters, CSRF tokens) ────────────────────────────────────
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "REPLACE_WITH_YOUR_KV_ID"
+
+[[kv_namespaces]]
+binding = "CSRF_KV"
+id = "REPLACE_WITH_YOUR_CSRF_KV_ID"
+
+# ── Secrets (set via: wrangler secret put <NAME>) ────────────────────────────
+# SESSION_SECRET          — 64-char random hex (openssl rand -hex 32)
+# CSRF_SECRET             — 64-char random hex
+# CALLBACK_SIGNING_SECRET — 64-char random hex (shared with compute agents)
+# TURNSTILE_SECRET_KEY    — from Cloudflare Turnstile dashboard
+# WORKER_CLUSTER_URL      — https://your-compute-cluster.example.com
+# WORKER_CLUSTER_TOKEN    — shared bearer token for compute agent auth
+# R2_ACCESS_KEY_ID        — R2 API token access key
+# R2_SECRET_ACCESS_KEY    — R2 API token secret
+# SEEDR_EMAIL             — (optional) Seedr.cc account email for provider
+# SEEDR_PASSWORD          — (optional) Seedr.cc account password for provider
+
+# ── Rate Limiting ────────────────────────────────────────────────────────────
+[limits]
+cpu_ms = 50
+
+# ── Routes ───────────────────────────────────────────────────────────────────
+[env.production]
+routes = [
+  { pattern = "api.your-app.com/*", zone_name = "your-app.com" }
+]
 
 # ── D1 Database ──────────────────────────────────────────────────────────────
 [[d1_databases]]
