@@ -1,35 +1,30 @@
 import { Link } from "react-router-dom";
-import tseederLogo from "@/assets/tseeder-logo.png";
+import { PublicNav, PublicFooter } from "@/components/PublicNav";
 
 const LAST_UPDATED = "February 19, 2026";
 
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section>
+      <h2 className="text-base font-bold text-gray-900 mb-2">{title}</h2>
+      <div className="text-gray-600 text-sm leading-relaxed">{children}</div>
+    </section>
+  );
+}
+
 export default function TermsPage() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <nav className="sticky top-0 z-50 border-b border-border/40 backdrop-blur-xl bg-background/80">
-        <div className="max-w-4xl mx-auto px-6 h-14 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg overflow-hidden border border-primary/30">
-              <img src={tseederLogo} alt="tseeder" className="w-full h-full object-cover" />
-            </div>
-            <span className="text-base font-black tracking-tight text-gradient">tseeder</span>
-          </Link>
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
-            <Link to="/dmca" className="hover:text-foreground transition-colors">DMCA</Link>
-            <Link to="/status" className="hover:text-foreground transition-colors">Status</Link>
-          </div>
-        </div>
-      </nav>
+    <div className="min-h-screen bg-[#f4f6fb] font-sans flex flex-col">
+      <PublicNav active="terms" />
 
-      <main className="max-w-3xl mx-auto px-6 py-16">
+      <main className="flex-1 max-w-3xl mx-auto w-full px-6 py-16">
         <div className="mb-10">
-          <p className="text-xs font-bold text-primary uppercase tracking-widest mb-3">Legal</p>
-          <h1 className="text-4xl font-black tracking-tight mb-3">Terms of Service</h1>
-          <p className="text-sm text-muted-foreground">Last updated: {LAST_UPDATED}</p>
+          <p className="text-xs font-bold text-indigo-500 uppercase tracking-widest mb-3">Legal</p>
+          <h1 className="text-4xl font-black tracking-tight text-gray-900 mb-3">Terms of Service</h1>
+          <p className="text-sm text-gray-400">Last updated: {LAST_UPDATED}</p>
         </div>
 
-        <div className="space-y-8 text-muted-foreground leading-relaxed text-sm">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 space-y-8">
           <Section title="1. Acceptance of Terms">
             By accessing or using tseeder.cc (the "Service"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree, do not use the Service.
           </Section>
@@ -56,7 +51,8 @@ export default function TermsPage() {
           </Section>
 
           <Section title="5. DMCA and Copyright">
-            We respect intellectual property rights and comply with the Digital Millennium Copyright Act. If you believe content stored via tseeder infringes your copyright, please submit a notice at <Link to="/dmca" className="text-primary hover:text-primary/80 transition-colors">/dmca</Link>. We will respond to valid notices promptly.
+            We respect intellectual property rights and comply with the Digital Millennium Copyright Act. If you believe content stored via tseeder infringes your copyright, please submit a notice at{" "}
+            <Link to="/dmca" className="text-indigo-600 hover:text-indigo-800 transition-colors underline underline-offset-2">/dmca</Link>. We will respond to valid notices promptly.
           </Section>
 
           <Section title="6. Account Termination">
@@ -99,27 +95,20 @@ export default function TermsPage() {
           </Section>
 
           <Section title="14. Contact">
-            <strong className="text-foreground">tseeder Legal</strong><br />
+            <strong className="text-gray-900">tseeder Legal</strong><br />
             Email: legal@tseeder.cc
           </Section>
         </div>
 
-        <div className="mt-16 pt-8 border-t border-border/40 flex flex-wrap gap-4 text-xs text-muted-foreground">
-          <Link to="/" className="hover:text-foreground transition-colors">Home</Link>
-          <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
-          <Link to="/dmca" className="hover:text-foreground transition-colors">DMCA / Abuse</Link>
-          <Link to="/status" className="hover:text-foreground transition-colors">System Status</Link>
+        <div className="mt-10 flex flex-wrap gap-4 text-xs text-gray-400">
+          <Link to="/" className="hover:text-gray-900 transition-colors">Home</Link>
+          <Link to="/privacy" className="hover:text-gray-900 transition-colors">Privacy Policy</Link>
+          <Link to="/dmca" className="hover:text-gray-900 transition-colors">DMCA / Abuse</Link>
+          <Link to="/status" className="hover:text-gray-900 transition-colors">System Status</Link>
         </div>
       </main>
-    </div>
-  );
-}
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section>
-      <h2 className="text-base font-bold text-foreground mb-2">{title}</h2>
-      <div>{children}</div>
-    </section>
+      <PublicFooter />
+    </div>
   );
 }
