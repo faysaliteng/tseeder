@@ -148,8 +148,8 @@ install_agent_source() {
       "${SCRIPT_DIR}/src/" "${INSTALL_DIR}/src/"
     rsync -a \
       "${SCRIPT_DIR}/package.json" \
-      "${SCRIPT_DIR}/tsconfig.json" \
       "${INSTALL_DIR}/"
+    [[ -f "${SCRIPT_DIR}/tsconfig.json" ]] && cp "${SCRIPT_DIR}/tsconfig.json" "${INSTALL_DIR}/"
   else
     cp -r "${SCRIPT_DIR}/src" "${INSTALL_DIR}/"
     cp "${SCRIPT_DIR}/package.json" "${INSTALL_DIR}/"
