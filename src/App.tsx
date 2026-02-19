@@ -8,10 +8,18 @@ import NotFound from "./pages/NotFound";
 import LoginPage from "./pages/auth/Login";
 import RegisterPage from "./pages/auth/Register";
 import DashboardPage from "./pages/Dashboard";
+import JobDetailPage from "./pages/JobDetail";
 import AdminPage from "./pages/Admin";
 import SettingsPage from "./pages/Settings";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -24,6 +32,7 @@ const App = () => (
           <Route path="/auth/login" element={<LoginPage />} />
           <Route path="/auth/register" element={<RegisterPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/dashboard/:jobId" element={<JobDetailPage />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<NotFound />} />
@@ -34,3 +43,4 @@ const App = () => (
 );
 
 export default App;
+

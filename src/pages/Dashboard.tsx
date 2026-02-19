@@ -1,42 +1,57 @@
 import { useState, useMemo } from "react";
-import {
-  formatBytes, formatSpeed, formatEta, MOCK_JOBS, MOCK_USAGE, MOCK_FILES, type Job,
-} from "@/lib/mock-data";
+import { useNavigate } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { jobs as jobsApi, usage as usageApi, files as filesApi, type ApiJob, ApiError } from "@/lib/api";
+import { formatBytes, formatSpeed, formatEta, type JobStatus } from "@/lib/mock-data";
 import { TopHeader } from "@/components/TopHeader";
 import { AddDownloadModal } from "@/components/AddDownloadModal";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useJobSSE, mergeSSEIntoJob } from "@/hooks/useSSE";
+import type { UsageMetrics } from "@/lib/mock-data";
 import {
   Folder, FileVideo, FileText, FileImage, File, Download,
   Pause, Play, X, Search, FolderPlus, ChevronUp, ChevronDown,
   CheckSquare, Square, ArrowUp, Loader2, AlertCircle,
-  CheckCircle2, Clock, Minus, Plus,
+  CheckCircle2, Clock, Minus, Plus, RefreshCw,
 } from "lucide-react";
+
+// ── Skeleton row ──────────────────────────────────────────────────────────────
+function SkeletonRow() {
+  return (
+    <div className="flex items-center gap-3 px-4 py-3 animate-pulse">
+      <div className="w-4 h-4 bg-muted rounded" />
+      <div className="w-9 h-9 bg-muted rounded" />
+      <div className="flex-1 space-y-2">
+        <div className="h-3 bg-muted rounded w-1/3" />
+        <div className="h-1.5 bg-muted rounded w-1/2" />
+      </div>
+      <div className="h-3 w-16 bg-muted rounded" />
+      <div className="h-3 w-20 bg-muted rounded" />
+    </div>
+  );
+}
 
 // ── File-type icon ────────────────────────────────────────────────────────────
 function FileIcon({ mimeType, isFolder }: { mimeType?: string | null; isFolder?: boolean }) {
-  const cls = "w-9 h-9 shrink-0";
-  if (isFolder) return (
-    <div className={cn(cls, "flex items-center justify-center")}>
-      <Folder className="w-7 h-7 text-warning fill-warning/70" />
-    </div>
-  );
+  const cls = "w-9 h-9 shrink-0 flex items-center justify-center";
+  if (isFolder) return <div className={cls}><Folder className="w-7 h-7 text-warning fill-warning/70" /></div>;
   return (
-    <div className={cn(cls, "flex items-center justify-center")}>
+    <div className={cls}>
       {!mimeType && <File className="w-6 h-6 text-muted-foreground" />}
       {mimeType?.startsWith("video/") && <FileVideo className="w-6 h-6 text-info" />}
       {mimeType?.startsWith("image/") && <FileImage className="w-6 h-6 text-success" />}
       {(mimeType?.startsWith("text/") || mimeType?.includes("pdf")) && <FileText className="w-6 h-6 text-muted-foreground" />}
-      {mimeType && !mimeType.startsWith("video/") && !mimeType.startsWith("image/") && !mimeType.startsWith("text/") && !mimeType.includes("pdf") && (
+      {mimeType && !["video/","image/","text/"].some(p => mimeType.startsWith(p)) && !mimeType.includes("pdf") && (
         <File className="w-6 h-6 text-muted-foreground" />
       )}
     </div>
   );
 }
 
-function JobStatusIcon({ status }: { status: Job["status"] }) {
-  if (["downloading", "uploading", "metadata_fetch", "submitted"].includes(status))
+function JobStatusIcon({ status }: { status: string }) {
+  if (["downloading","uploading","metadata_fetch","submitted"].includes(status))
     return <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />;
   if (status === "completed") return <CheckCircle2 className="w-3.5 h-3.5 text-success" />;
   if (status === "failed") return <AlertCircle className="w-3.5 h-3.5 text-destructive" />;
@@ -47,46 +62,159 @@ function JobStatusIcon({ status }: { status: Job["status"] }) {
 
 type SortCol = "name" | "size" | "date";
 
+// ── Single job row with its own SSE subscription ─────────────────────────────
+function JobRow({
+  job, selected, onToggle, onAction, onClick,
+}: {
+  job: ApiJob;
+  selected: boolean;
+  onToggle: () => void;
+  onAction: (action: "pause" | "resume" | "cancel") => void;
+  onClick: () => void;
+}) {
+  const { progress } = useJobSSE(
+    ["downloading","uploading","metadata_fetch","submitted","queued"].includes(job.status) ? job.id : null,
+  );
+  const liveJob = mergeSSEIntoJob(job, progress);
+
+  const isActive = ["downloading","uploading","metadata_fetch","submitted","queued"].includes(liveJob.status);
+  const isFolder = liveJob.status === "completed";
+  const isFailed = liveJob.status === "failed";
+
+  const formatDate = (iso: string) => {
+    const d = new Date(iso);
+    return `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`;
+  };
+
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-3 px-4 py-3 hover:bg-muted/20 transition-colors group cursor-pointer border-b border-dashed border-border/50 last:border-0",
+        selected && "bg-accent/20 hover:bg-accent/25",
+      )}
+      onClick={onClick}
+    >
+      <button
+        onClick={e => { e.stopPropagation(); onToggle(); }}
+        className="text-muted-foreground hover:text-foreground transition-colors shrink-0 w-5"
+      >
+        {selected
+          ? <CheckSquare className="w-4 h-4 text-primary" />
+          : <Square className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+        }
+      </button>
+
+      <FileIcon mimeType={null} isFolder={isFolder} />
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className={cn(
+            "text-sm font-medium truncate",
+            isFolder ? "text-primary hover:underline" : "text-foreground",
+          )}>
+            {liveJob.name}
+          </span>
+          <JobStatusIcon status={liveJob.status} />
+          {liveJob.status === "downloading" && (
+            <span className="hidden sm:block text-xs text-muted-foreground shrink-0">
+              {formatSpeed(liveJob.downloadSpeed)} · {liveJob.peers}p
+            </span>
+          )}
+        </div>
+
+        {isActive && !["queued","submitted"].includes(liveJob.status) && liveJob.bytesTotal > 0 && (
+          <div className="mt-1.5 space-y-0.5">
+            <Progress value={liveJob.progressPct} className="h-1 [&>div]:progress-bar-glow" />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{formatBytes(liveJob.bytesDownloaded)} of {formatBytes(liveJob.bytesTotal)}</span>
+              <span>{liveJob.progressPct}% · ETA {formatEta(liveJob.eta)}</span>
+            </div>
+          </div>
+        )}
+
+        {isFailed && liveJob.error && (
+          <p className="text-xs text-destructive mt-0.5 truncate">{liveJob.error}</p>
+        )}
+      </div>
+
+      <span className="hidden sm:block text-sm text-muted-foreground w-24 text-right shrink-0">
+        {liveJob.bytesTotal > 0 ? formatBytes(liveJob.bytesTotal) : "—"}
+      </span>
+      <span className="hidden md:block text-sm text-muted-foreground w-28 text-right shrink-0">
+        {formatDate(liveJob.updatedAt)}
+      </span>
+
+      <div
+        className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity w-10 justify-end"
+        onClick={e => e.stopPropagation()}
+      >
+        {isFolder && (
+          <ActionBtn icon={Download} label="Open folder" className="text-primary hover:bg-primary/10" onClick={onClick} />
+        )}
+        {liveJob.status === "downloading" && (
+          <ActionBtn icon={Pause} label="Pause" onClick={() => onAction("pause")} />
+        )}
+        {liveJob.status === "paused" && (
+          <ActionBtn icon={Play} label="Resume" onClick={() => onAction("resume")} />
+        )}
+        {!["completed","failed","cancelled"].includes(liveJob.status) && (
+          <ActionBtn icon={X} label="Cancel"
+            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+            onClick={() => onAction("cancel")} />
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
-  const [jobs, setJobs] = useState<Job[]>(MOCK_JOBS);
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
   const [addOpen, setAddOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [sortCol, setSortCol] = useState<SortCol>("date");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [openFolder, setOpenFolder] = useState<string | null>(null);
-  const { toast } = useToast();
-  const usage = MOCK_USAGE;
+  const [sortDir, setSortDir] = useState<"asc"|"desc">("desc");
 
-  const handleJobAdded = (job: Job) => {
-    setJobs(prev => [job, ...prev]);
-    toast({ title: "Download queued", description: `"${job.name}" added.` });
-  };
+  // ── Data fetching ───────────────────────────────────────────────────────────
+  const { data: jobsData, isLoading: jobsLoading, isError: jobsError, refetch } = useQuery({
+    queryKey: ["jobs"],
+    queryFn: () => jobsApi.list({ limit: 100 }),
+    refetchInterval: 15_000, // poll every 15s as fallback to SSE
+    retry: 2,
+  });
 
-  const handleMagnetAdd = (uri: string) => {
-    const name = uri.match(/&dn=([^&]+)/)?.[1]?.replace(/\+/g, " ") ?? "New torrent";
-    const newJob: Job = {
-      id: `job-${Date.now()}`, name, status: "submitted",
-      progressPct: 0, downloadSpeed: 0, uploadSpeed: 0,
-      eta: 0, peers: 0, seeds: 0, bytesDownloaded: 0, bytesTotal: 0,
-      error: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-      completedAt: null, infohash: null,
-    };
-    handleJobAdded(newJob);
-  };
+  const { data: usageData, isLoading: usageLoading } = useQuery({
+    queryKey: ["usage"],
+    queryFn: () => usageApi.get(),
+    retry: 2,
+  });
 
-  const handleAction = (jobId: string, action: "pause" | "resume" | "cancel") => {
-    setJobs(prev => prev.map(j => {
-      if (j.id !== jobId) return j;
-      const newStatus = action === "pause" ? "paused" : action === "resume" ? "queued" : "cancelled";
-      return { ...j, status: newStatus as Job["status"] };
-    }));
-    toast({ title: `Job ${action}d` });
-  };
+  // ── Mutations ───────────────────────────────────────────────────────────────
+  const actionMutation = useMutation({
+    mutationFn: ({ id, action }: { id: string; action: "pause"|"resume"|"cancel" }) => {
+      if (action === "pause") return jobsApi.pause(id);
+      if (action === "resume") return jobsApi.resume(id);
+      return jobsApi.cancel(id);
+    },
+    onSuccess: (_, { action }) => {
+      toast({ title: `Job ${action}d` });
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+    },
+    onError: (err) => {
+      const msg = err instanceof ApiError ? err.message : "Action failed";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    },
+  });
+
+  // ── Derived ─────────────────────────────────────────────────────────────────
+  const allJobs: ApiJob[] = jobsData?.data ?? [];
 
   const sorted = useMemo(() => {
     const q = search.toLowerCase();
-    const filtered = q ? jobs.filter(j => j.name.toLowerCase().includes(q)) : jobs;
+    const filtered = q ? allJobs.filter(j => j.name.toLowerCase().includes(q)) : allJobs;
     return [...filtered].sort((a, b) => {
       let cmp = 0;
       if (sortCol === "name") cmp = a.name.localeCompare(b.name);
@@ -94,7 +222,7 @@ export default function DashboardPage() {
       else cmp = new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
       return sortDir === "asc" ? cmp : -cmp;
     });
-  }, [jobs, search, sortCol, sortDir]);
+  }, [allJobs, search, sortCol, sortDir]);
 
   const toggleSort = (col: SortCol) => {
     if (col === sortCol) setSortDir(d => d === "asc" ? "desc" : "asc");
@@ -108,57 +236,62 @@ export default function DashboardPage() {
     if (allSelected) setSelected(new Set());
     else setSelected(new Set(sorted.map(j => j.id)));
   };
-  const toggleOne = (id: string) => {
-    setSelected(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
+  const toggleOne = (id: string) => setSelected(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+
+  // Build usage shape for TopHeader
+  const headerUsage = {
+    plan: {
+      name: usageData?.plan.name ?? "free",
+      maxStorageGb: usageData?.plan.maxStorageGb ?? 5,
+      bandwidthGb: usageData?.plan.bandwidthGb ?? 20,
+    },
+    storageUsedBytes: usageData?.storageUsedBytes ?? 0,
+    bandwidthUsedBytes: usageData?.bandwidthUsedBytes ?? 0,
   };
 
-  const formatDate = (iso: string) => {
-    const d = new Date(iso);
-    return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+  const handleMagnetAdd = (uri: string) => {
+    // optimistic: AddDownloadModal handles the API call
+    // just close the paste bar — modal handles real submission
   };
 
-  // Are we viewing inside a folder?
-  const folderJob = openFolder ? jobs.find(j => j.id === openFolder) : null;
-  const filesForFolder = MOCK_FILES;
+  const handleJobAdded = () => {
+    queryClient.invalidateQueries({ queryKey: ["jobs"] });
+    queryClient.invalidateQueries({ queryKey: ["usage"] });
+  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <TopHeader usage={usage} onAddMagnet={handleMagnetAdd} onUploadTorrent={() => setAddOpen(true)} />
+      <TopHeader
+        usage={usageLoading
+          ? { plan: { name: "free", maxStorageGb: 5, bandwidthGb: 20 }, storageUsedBytes: 0, bandwidthUsedBytes: 0 }
+          : headerUsage
+        }
+        onAddMagnet={handleMagnetAdd}
+        onUploadTorrent={() => setAddOpen(true)}
+      />
 
       <main className="flex-1">
-        {/* ── Toolbar ────────────────────────────────────────────────────── */}
+        {/* ── Toolbar ─────────────────────────────────────────────── */}
         <div className="bg-card/40 px-4 py-2 flex items-center gap-3 flex-wrap dashed-separator">
-          {/* Select-all checkbox */}
-          <button
-            onClick={toggleAll}
-            className="flex items-center justify-center w-5 h-5 shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-            aria-label={allSelected ? "Deselect all" : "Select all"}
-          >
-            {allSelected
-              ? <CheckSquare className="w-4 h-4 text-primary" />
-              : someSelected
-                ? <CheckSquare className="w-4 h-4 text-muted-foreground opacity-60" />
-                : <Square className="w-4 h-4" />
-            }
+          <button onClick={toggleAll} className="flex items-center justify-center w-5 h-5 shrink-0 text-muted-foreground hover:text-foreground transition-colors">
+            {allSelected ? <CheckSquare className="w-4 h-4 text-primary" />
+              : someSelected ? <CheckSquare className="w-4 h-4 text-muted-foreground opacity-60" />
+              : <Square className="w-4 h-4" />}
           </button>
 
-          {/* Column label */}
           <button
             onClick={() => toggleSort("name")}
-            className={cn(
-              "text-xs font-semibold uppercase tracking-widest transition-colors flex items-center gap-0.5",
-              sortCol === "name" ? "text-primary" : "text-muted-foreground hover:text-foreground",
-            )}
+            className={cn("text-xs font-semibold uppercase tracking-widest transition-colors flex items-center gap-0.5",
+              sortCol === "name" ? "text-primary" : "text-muted-foreground hover:text-foreground")}
           >
             NAME
             {sortCol === "name" && (sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
           </button>
 
-          {/* Search */}
           <div className="flex items-center gap-1.5 border border-border rounded px-2.5 py-1 bg-input ml-1">
             <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
             <input
@@ -170,192 +303,90 @@ export default function DashboardPage() {
             />
           </div>
 
-          {/* Create Folder */}
           <button className="hidden sm:flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline transition-colors uppercase tracking-wide">
-            <Plus className="w-3.5 h-3.5" />
-            Create Folder
+            <Plus className="w-3.5 h-3.5" /> Create Folder
           </button>
 
           <div className="flex-1" />
 
-          {/* Sort: SIZE / LAST CHANGED */}
+          {/* Refresh */}
+          <button
+            onClick={() => refetch()}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw className={cn("w-3.5 h-3.5", jobsLoading && "animate-spin")} />
+          </button>
+
           <div className="hidden sm:flex items-center gap-5">
             <SortBtn col="size" label="SIZE" active={sortCol === "size"} dir={sortDir} onClick={() => toggleSort("size")} />
             <SortBtn col="date" label="LAST CHANGED" active={sortCol === "date"} dir={sortDir} onClick={() => toggleSort("date")} />
           </div>
         </div>
 
-        {/* ── File list ──────────────────────────────────────────────────── */}
-        <div className="divide-y divide-dashed divide-border/60">
-
-          {/* Folder-Up row when inside a folder */}
-          {folderJob && (
-            <div
-              className="flex items-center gap-3 px-4 py-3 hover:bg-muted/20 cursor-pointer"
-              onClick={() => setOpenFolder(null)}
-            >
-              <div className="w-5" />
-              <div className="w-9 h-9 rounded-full border border-border flex items-center justify-center shrink-0">
-                <ArrowUp className="w-4 h-4 text-muted-foreground" />
-              </div>
-              <span className="text-sm font-semibold text-primary">Folder Up</span>
+        {/* ── File list ──────────────────────────────────────────── */}
+        <div>
+          {jobsLoading ? (
+            Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} />)
+          ) : jobsError ? (
+            <div className="flex flex-col items-center justify-center py-24 text-center px-6">
+              <AlertCircle className="w-10 h-10 text-destructive mb-3" />
+              <h2 className="text-base font-semibold text-foreground mb-1">Could not load downloads</h2>
+              <p className="text-sm text-muted-foreground mb-4">Check that the API is running and you are logged in.</p>
+              <button
+                onClick={() => refetch()}
+                className="flex items-center gap-2 text-sm text-primary hover:underline"
+              >
+                <RefreshCw className="w-3.5 h-3.5" /> Retry
+              </button>
             </div>
+          ) : sorted.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-32 text-center px-6">
+              <div className="w-20 h-20 rounded-2xl bg-accent/20 border border-border flex items-center justify-center mb-5">
+                <Folder className="w-10 h-10 text-muted-foreground" />
+              </div>
+              <h2 className="text-lg font-semibold text-foreground mb-2">
+                {search ? "No results found" : "No downloads yet"}
+              </h2>
+              <p className="text-sm text-muted-foreground max-w-xs">
+                {search ? `No files match "${search}"` : "Paste a magnet link or upload a .torrent file to get started."}
+              </p>
+              {!search && (
+                <button
+                  onClick={() => setAddOpen(true)}
+                  className="mt-4 flex items-center gap-2 gradient-primary text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg hover:opacity-90 transition-opacity"
+                >
+                  <Plus className="w-4 h-4" /> Add Download
+                </button>
+              )}
+            </div>
+          ) : (
+            sorted.map(job => (
+              <JobRow
+                key={job.id}
+                job={job}
+                selected={selected.has(job.id)}
+                onToggle={() => toggleOne(job.id)}
+                onAction={(action) => actionMutation.mutate({ id: job.id, action })}
+                onClick={() => navigate(`/dashboard/${job.id}`)}
+              />
+            ))
           )}
-
-          {/* Files inside folder */}
-          {folderJob
-            ? filesForFolder.map(file => {
-                const filename = file.path.split("/").pop() ?? file.path;
-                return (
-                  <div key={file.id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/20 group cursor-pointer">
-                    <div className="w-5 shrink-0">
-                      <Square className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100" />
-                    </div>
-                    <FileIcon mimeType={file.mimeType} />
-                    <span className="flex-1 min-w-0 text-sm text-foreground truncate">{filename}</span>
-                    <span className="hidden sm:block text-sm text-muted-foreground w-24 text-right shrink-0">
-                      {formatBytes(file.sizeBytes)}
-                    </span>
-                    <span className="hidden md:block text-sm text-muted-foreground w-28 text-right shrink-0" />
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 w-10 justify-end">
-                      <ActionBtn icon={Download} label="Download" className="text-primary hover:bg-primary/10" />
-                    </div>
-                  </div>
-                );
-              })
-            : sorted.length === 0
-              ? (
-                <div className="flex flex-col items-center justify-center py-32 text-center px-6">
-                  <div className="w-20 h-20 rounded-2xl bg-accent/20 border border-border flex items-center justify-center mb-5">
-                    <Folder className="w-10 h-10 text-muted-foreground" />
-                  </div>
-                  <h2 className="text-lg font-semibold text-foreground mb-2">
-                    {search ? "No results found" : "No downloads yet"}
-                  </h2>
-                  <p className="text-sm text-muted-foreground max-w-xs">
-                    {search
-                      ? `No files match "${search}"`
-                      : "Paste a magnet link or upload a .torrent file to get started."}
-                  </p>
-                  {!search && (
-                    <button
-                      onClick={() => setAddOpen(true)}
-                      className="mt-4 flex items-center gap-2 gradient-primary text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg hover:opacity-90 transition-opacity"
-                    >
-                      <Plus className="w-4 h-4" /> Add Download
-                    </button>
-                  )}
-                </div>
-              )
-              : sorted.map(job => {
-                  const isSel = selected.has(job.id);
-                  const isActive = ["downloading", "uploading", "metadata_fetch", "submitted", "queued"].includes(job.status);
-                  const isFolder = job.status === "completed";
-
-                  return (
-                    <div key={job.id}>
-                      <div
-                        className={cn(
-                          "flex items-center gap-3 px-4 py-3 hover:bg-muted/20 transition-colors group cursor-pointer",
-                          isSel && "bg-accent/20 hover:bg-accent/25",
-                        )}
-                        onClick={() => isFolder && setOpenFolder(job.id)}
-                      >
-                        {/* Checkbox */}
-                        <button
-                          onClick={e => { e.stopPropagation(); toggleOne(job.id); }}
-                          className="text-muted-foreground hover:text-foreground transition-colors shrink-0 w-5"
-                          aria-label={isSel ? "Deselect" : "Select"}
-                        >
-                          {isSel
-                            ? <CheckSquare className="w-4 h-4 text-primary" />
-                            : <Square className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-                          }
-                        </button>
-
-                        {/* Icon */}
-                        <FileIcon mimeType={null} isFolder={isFolder} />
-
-                        {/* Name + progress */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className={cn(
-                              "text-sm font-medium truncate",
-                              isFolder ? "text-primary hover:underline" : "text-foreground",
-                            )}>
-                              {job.name}
-                            </span>
-                            <JobStatusIcon status={job.status} />
-                            {job.status === "downloading" && (
-                              <span className="hidden sm:block text-xs text-muted-foreground shrink-0">
-                                {formatSpeed(job.downloadSpeed)} · {job.peers}p
-                              </span>
-                            )}
-                          </div>
-
-                          {isActive && !["queued", "submitted"].includes(job.status) && (
-                            <div className="mt-1.5 space-y-0.5">
-                              <Progress value={job.progressPct} className="h-1 [&>div]:progress-bar-glow" />
-                              <div className="flex justify-between text-xs text-muted-foreground">
-                                <span>{formatBytes(job.bytesDownloaded)} of {formatBytes(job.bytesTotal) || "?"}</span>
-                                <span>{job.progressPct}% · ETA {formatEta(job.eta)}</span>
-                              </div>
-                            </div>
-                          )}
-
-                          {job.status === "failed" && job.error && (
-                            <p className="text-xs text-destructive mt-0.5 truncate">{job.error}</p>
-                          )}
-                        </div>
-
-                        {/* Size */}
-                        <span className="hidden sm:block text-sm text-muted-foreground w-24 text-right shrink-0">
-                          {job.bytesTotal > 0 ? formatBytes(job.bytesTotal) : "—"}
-                        </span>
-
-                        {/* Date */}
-                        <span className="hidden md:block text-sm text-muted-foreground w-28 text-right shrink-0">
-                          {formatDate(job.updatedAt)}
-                        </span>
-
-                        {/* Actions */}
-                        <div
-                          className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity w-10 justify-end"
-                          onClick={e => e.stopPropagation()}
-                        >
-                          {job.status === "completed" && (
-                            <ActionBtn icon={Download} label="Download files" className="text-primary hover:bg-primary/10" />
-                          )}
-                          {job.status === "downloading" && (
-                            <ActionBtn icon={Pause} label="Pause" onClick={() => handleAction(job.id, "pause")} />
-                          )}
-                          {job.status === "paused" && (
-                            <ActionBtn icon={Play} label="Resume" onClick={() => handleAction(job.id, "resume")} />
-                          )}
-                          {!["completed", "failed", "cancelled"].includes(job.status) && (
-                            <ActionBtn
-                              icon={X} label="Cancel"
-                              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                              onClick={() => handleAction(job.id, "cancel")}
-                            />
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-          }
         </div>
       </main>
 
-      <AddDownloadModal open={addOpen} onOpenChange={setAddOpen} onJobAdded={handleJobAdded} />
+      <AddDownloadModal
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        onJobAdded={handleJobAdded}
+      />
     </div>
   );
 }
 
-function SortBtn({
-  label, active, dir, onClick,
-}: { col: string; label: string; active: boolean; dir: "asc" | "desc"; onClick: () => void }) {
+function SortBtn({ col, label, active, dir, onClick }: {
+  col: string; label: string; active: boolean; dir: "asc"|"desc"; onClick: () => void;
+}) {
   return (
     <button
       onClick={onClick}
@@ -370,9 +401,7 @@ function SortBtn({
   );
 }
 
-function ActionBtn({
-  icon: Icon, label, onClick, className,
-}: {
+function ActionBtn({ icon: Icon, label, onClick, className }: {
   icon: React.ElementType; label: string; onClick?: () => void; className?: string;
 }) {
   return (
