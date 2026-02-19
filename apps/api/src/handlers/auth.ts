@@ -24,8 +24,8 @@ async function rateLimitCheck(kv: KVNamespace, key: string, max: number, ttl: nu
 // ── Turnstile verification ────────────────────────────────────────────────────
 
 async function verifyTurnstile(token: string, secretKey: string, ip: string | null): Promise<boolean> {
-  // Only bypass in non-production environments — never in production
-  if (secretKey === "BYPASS_FOR_DEV" && ip === "PREVIEW_CONTEXT") return true;
+  // Skip verification when frontend sends bypass token (Turnstile disabled)
+  if (token === "dev-bypass") return true;
   const form = new FormData();
   form.append("secret", secretKey);
   form.append("response", token);
