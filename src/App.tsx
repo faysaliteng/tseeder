@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
+import LandingPage from "./pages/Landing";
 import NotFound from "./pages/NotFound";
 import LoginPage from "./pages/auth/Login";
 import RegisterPage from "./pages/auth/Register";
@@ -41,8 +42,8 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          {/* Root redirect */}
-          <Route path="/" element={<Navigate to="/app/dashboard" replace />} />
+          {/* Root — landing page */}
+          <Route path="/" element={<LandingPage />} />
 
           {/* Auth */}
           <Route path="/auth/login" element={<LoginPage />} />
