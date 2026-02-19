@@ -208,22 +208,73 @@ const ARTICLES = [
     title: "How to Set Up the tseeder Stremio Plugin: The Complete Guide",
     category: "Tutorials · How-Tos",
     date: "February 10, 2026",
-    href: "#blog",
-    img: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=400&h=225&fit=crop",
+    readTime: "7 min",
+    href: "/blog/stremio-plugin-setup",
+    img: "https://images.unsplash.com/photo-1593642632559-0c6d3fc62b89?w=600&h=338&fit=crop&q=80",
+    excerpt: "Connect tseeder to Stremio and stream your torrents directly without waiting for downloads to finish. We walk you through installing the plugin, authenticating with your API key, and configuring subtitle sources — all in under 10 minutes.",
   },
   {
-    title: "How to Automate Your Media Library with Sonarr and tseeder",
+    title: "How to Automate Your Media Library with Sonarr & Radarr",
     category: "Tutorials · How-Tos",
     date: "January 25, 2026",
-    href: "#blog",
-    img: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&h=225&fit=crop",
+    readTime: "11 min",
+    href: "/blog/sonarr-radarr-automation",
+    img: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&h=338&fit=crop&q=80",
+    excerpt: "Point Sonarr and Radarr at tseeder as your download client and let automation handle the rest. This guide covers configuring the tseeder download client plugin, setting quality profiles, and mapping paths so your media server sees files the moment they're ready.",
   },
   {
     title: "How to Mount tseeder Like a Drive (FTP, SFTP & WebDAV)",
     category: "Tutorials · How-Tos",
     date: "January 19, 2026",
-    href: "#blog",
-    img: "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=400&h=225&fit=crop",
+    readTime: "9 min",
+    href: "/blog/mount-webdav-sftp",
+    img: "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=600&h=338&fit=crop&q=80",
+    excerpt: "Mount your tseeder vault as a local drive on Windows, macOS, or Linux using WebDAV, SFTP, or rclone. Once mounted, files appear in Finder or Explorer just like a local disk — no downloads required.",
+  },
+  {
+    title: "Streaming tseeder Files Directly in VLC and Kodi",
+    category: "Guides",
+    date: "January 8, 2026",
+    readTime: "5 min",
+    href: "/blog/stream-vlc-kodi",
+    img: "https://images.unsplash.com/photo-1586899028174-e7098604235b?w=600&h=338&fit=crop&q=80",
+    excerpt: "Generate a signed streaming URL from tseeder and open it in VLC, Kodi, or Infuse without downloading a single byte locally. We show the one-click method via the dashboard and the API method for power users.",
+  },
+  {
+    title: "Using the tseeder API: Automate Downloads from Any Script",
+    category: "Developer",
+    date: "December 20, 2025",
+    readTime: "13 min",
+    href: "/blog/api-automation-guide",
+    img: "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=600&h=338&fit=crop&q=80",
+    excerpt: "tseeder exposes a full REST API so you can submit magnet links, poll job progress, and retrieve signed download URLs from Python, Node.js, or any HTTP client. This tutorial covers authentication with API keys, the job state machine, and a practical Python automation example.",
+  },
+  {
+    title: "tseeder vs. Seedr.cc vs. Premiumize: Which Cloud Downloader Is Right for You?",
+    category: "Comparison",
+    date: "December 5, 2025",
+    readTime: "8 min",
+    href: "/blog/comparison-seedr-premiumize",
+    img: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600&h=338&fit=crop&q=80",
+    excerpt: "We compare tseeder, Seedr.cc, and Premiumize across storage limits, speed, pricing, API access, and privacy policy. Spoiler: if you want self-hostable infrastructure and full API control, there's one clear winner.",
+  },
+  {
+    title: "Setting Up tseeder with qBittorrent's Remote Control Interface",
+    category: "Tutorials · How-Tos",
+    date: "November 18, 2025",
+    readTime: "6 min",
+    href: "/blog/qbittorrent-remote-bridge",
+    img: "https://images.unsplash.com/photo-1544197150-b99a580bb7a8?w=600&h=338&fit=crop&q=80",
+    excerpt: "The tseeder remote-client bridge lets existing qBittorrent-compatible apps (nzb360, Flud, and others) talk to your tseeder account using the native qBittorrent WebUI protocol — no app changes needed.",
+  },
+  {
+    title: "Protecting Your Privacy: How tseeder Hides Your Real IP",
+    category: "Privacy · Security",
+    date: "November 3, 2025",
+    readTime: "6 min",
+    href: "/blog/privacy-ip-protection",
+    img: "https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=600&h=338&fit=crop&q=80",
+    excerpt: "When you submit a magnet link to tseeder, our Cloudflare-edge infrastructure performs the actual BitTorrent connections from a datacenter IP — your home IP is never exposed to peers, trackers, or ISP monitoring. Here's exactly how it works.",
   },
 ];
 
@@ -755,18 +806,35 @@ export default function LandingPage() {
 
       {/* ════ BLOG ════ */}
       <section className="relative z-10 py-20 px-6 bg-white">
-        <div className="max-w-5xl mx-auto">
-          <h2 className="text-2xl font-extrabold text-gray-900 mb-8">From the Blog</h2>
-          <div className="grid md:grid-cols-3 gap-5">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-end justify-between mb-8">
+            <div>
+              <p className="text-xs font-bold text-indigo-500 uppercase tracking-widest mb-2">Resources</p>
+              <h2 className="text-2xl font-extrabold text-gray-900">From the Blog</h2>
+            </div>
+            <a href="/blog" className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors flex items-center gap-1">
+              All articles <ChevronRight className="w-4 h-4" />
+            </a>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {ARTICLES.map((a) => (
-              <a key={a.title} href={a.href} className="group rounded-2xl overflow-hidden border border-gray-100 bg-gray-50 hover:border-indigo-200 hover:-translate-y-1 transition-all duration-200 block">
-                <div className="aspect-video overflow-hidden">
-                  <img src={a.img} alt={a.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+              <a key={a.title} href={a.href} className="group rounded-2xl overflow-hidden border border-gray-100 bg-gray-50 hover:border-indigo-200 hover:shadow-md hover:-translate-y-1 transition-all duration-200 block">
+                <div className="aspect-video overflow-hidden bg-gray-200">
+                  <img
+                    src={a.img}
+                    alt={a.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    loading="lazy"
+                  />
                 </div>
                 <div className="p-4">
-                  <p className="text-[10px] text-indigo-500 font-bold uppercase tracking-widest mb-1.5">{a.category}</p>
-                  <h3 className="text-sm font-bold text-gray-900 leading-snug mb-2 group-hover:text-indigo-600 transition-colors">{a.title}</h3>
-                  <p className="text-[11px] text-gray-400">{a.date}</p>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[10px] text-indigo-500 font-bold uppercase tracking-widest">{a.category}</p>
+                    <span className="text-[10px] text-gray-400">{a.readTime} read</span>
+                  </div>
+                  <h3 className="text-sm font-bold text-gray-900 leading-snug mb-2 group-hover:text-indigo-600 transition-colors line-clamp-2">{a.title}</h3>
+                  <p className="text-[11px] text-gray-500 leading-relaxed line-clamp-2 mb-3">{a.excerpt}</p>
+                  <p className="text-[10px] text-gray-400">{a.date}</p>
                 </div>
               </a>
             ))}
