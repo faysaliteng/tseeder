@@ -91,11 +91,17 @@ export function AddDownloadModal({ open, onOpenChange, onJobAdded, initialMagnet
 
   const torrentMutation = useMutation({
     mutationFn: () => {
-      // Seedr doesn't support .torrent file upload via our client yet — fall back to CF
+      if (isSeedr) {
+        return seedr.addTorrentFile(torrentFile!).then(r => {
+          if (!r.result) throw new SeedrError(400, r.code ?? "FAILED", r.error ?? "Seedr rejected the file.");
+          return { id: "seedr-" + Date.now(), name: torrentFile!.name, status: "queued" } as never;
+        });
+      }
       return jobsApi.createTorrent(torrentFile!);
     },
     onSuccess: (job) => {
-      toast({ title: "Download queued", description: `"${job.name}" has been added.` });
+      const name = (job as { name?: string }).name ?? torrentFile?.name ?? "Download";
+      toast({ title: isSeedr ? "Sent to Seedr.cc ⚡" : "Download queued", description: `"${name}" has been added.` });
       queryClient.invalidateQueries({ queryKey: ["jobs"] });
       queryClient.invalidateQueries({ queryKey: ["usage"] });
       onJobAdded();
@@ -104,7 +110,7 @@ export function AddDownloadModal({ open, onOpenChange, onJobAdded, initialMagnet
       onOpenChange(false);
     },
     onError: (err) => {
-      const msg = err instanceof ApiError ? err.message : "Failed to add download";
+      const msg = err instanceof ApiError || err instanceof SeedrError ? err.message : "Failed to add download";
       setApiError(msg);
     },
   });

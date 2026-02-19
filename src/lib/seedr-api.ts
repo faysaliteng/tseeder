@@ -1,50 +1,50 @@
 /**
- * Seedr.cc API Client
- * Uses the unofficial API (same endpoints as the Chrome extension).
- * Credentials are stored in localStorage — no server required.
+ * Seedr.cc REST API v1 Client
+ * Official docs: https://www.seedr.cc/docs/api/rest/v1/
  *
- * Docs / reverse-engineered: https://github.com/hemantapkh/seedrcc
- * OAuth endpoint: https://www.seedr.cc/oauth_test/token.php
+ * Auth: HTTP Basic Auth (email:password) — credentials stored in localStorage.
+ * Base URL: https://www.seedr.cc/rest/
+ *
+ * NOTE: REST API v1 is premium-only and uses Basic Auth, so it is only
+ * suitable for personal/trusted use. Credentials never leave the browser
+ * except to Seedr's servers over HTTPS.
  */
 
-const SEEDR_BASE = "https://www.seedr.cc/api";
-const SEEDR_OAUTH = "https://www.seedr.cc/oauth_test/token.php";
-const STORAGE_KEY = "seedr_token";
+const SEEDR_REST = "https://www.seedr.cc/rest";
+const CREDS_KEY  = "seedr_creds";    // { email, password }
+const PROVIDER_KEY = "download_provider";
 
-// ── Token storage ─────────────────────────────────────────────────────────────
+// ── Credential storage ────────────────────────────────────────────────────────
 
-export interface SeedrToken {
-  access_token: string;
-  refresh_token: string;
-  expires_at: number; // unix ms
+export interface SeedrCreds {
+  email: string;
+  password: string;
 }
 
-export function getSeedrToken(): SeedrToken | null {
+export function getSeedrCreds(): SeedrCreds | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as SeedrToken) : null;
+    const raw = localStorage.getItem(CREDS_KEY);
+    return raw ? (JSON.parse(raw) as SeedrCreds) : null;
   } catch {
     return null;
   }
 }
 
-export function setSeedrToken(t: SeedrToken) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(t));
+export function setSeedrCreds(creds: SeedrCreds) {
+  localStorage.setItem(CREDS_KEY, JSON.stringify(creds));
 }
 
-export function clearSeedrToken() {
-  localStorage.removeItem(STORAGE_KEY);
+export function clearSeedrCreds() {
+  localStorage.removeItem(CREDS_KEY);
 }
 
 export function isSeedrConnected(): boolean {
-  return !!getSeedrToken();
+  return !!getSeedrCreds();
 }
 
-// ── Provider setting ──────────────────────────────────────────────────────────
+// ── Provider toggle ───────────────────────────────────────────────────────────
 
 export type DownloadProvider = "cloudflare" | "seedr";
-
-const PROVIDER_KEY = "download_provider";
 
 export function getDownloadProvider(): DownloadProvider {
   return (localStorage.getItem(PROVIDER_KEY) as DownloadProvider) ?? "cloudflare";
@@ -52,74 +52,6 @@ export function getDownloadProvider(): DownloadProvider {
 
 export function setDownloadProvider(p: DownloadProvider) {
   localStorage.setItem(PROVIDER_KEY, p);
-}
-
-// ── OAuth helpers ─────────────────────────────────────────────────────────────
-
-async function oauthRequest(body: Record<string, string>): Promise<{
-  access_token: string;
-  refresh_token: string;
-  expires_in: number;
-  token_type: string;
-}> {
-  const form = new URLSearchParams({ ...body, client_id: "seedr_chrome_addon" });
-  const res = await fetch(SEEDR_OAUTH, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: form.toString(),
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText);
-    throw new SeedrError(res.status, "AUTH_FAILED", text || "OAuth failed");
-  }
-  return res.json();
-}
-
-async function ensureToken(): Promise<string> {
-  let token = getSeedrToken();
-  if (!token) throw new SeedrError(401, "NO_TOKEN", "Seedr not connected. Please sign in.");
-
-  // Refresh if expired (with 30 s buffer)
-  if (Date.now() > token.expires_at - 30_000) {
-    const data = await oauthRequest({
-      grant_type: "refresh_token",
-      refresh_token: token.refresh_token,
-    });
-    token = {
-      access_token: data.access_token,
-      refresh_token: data.refresh_token,
-      expires_at: Date.now() + data.expires_in * 1000,
-    };
-    setSeedrToken(token);
-  }
-
-  return token.access_token;
-}
-
-// ── Core request ──────────────────────────────────────────────────────────────
-
-async function seedrRequest<T>(
-  path: string,
-  params: Record<string, string> = {},
-  method: "GET" | "POST" = "GET",
-  body?: Record<string, string>,
-): Promise<T> {
-  const token = await ensureToken();
-  const qs = new URLSearchParams({ access_token: token, ...params }).toString();
-  const url = `${SEEDR_BASE}${path}?${qs}`;
-
-  const opts: RequestInit = { method };
-  if (body && method === "POST") {
-    opts.headers = { "Content-Type": "application/x-www-form-urlencoded" };
-    opts.body = new URLSearchParams(body).toString();
-  }
-
-  const res = await fetch(url, opts);
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText);
-    throw new SeedrError(res.status, "REQUEST_FAILED", text || "Seedr request failed");
-  }
-  return res.json() as Promise<T>;
 }
 
 // ── Error class ───────────────────────────────────────────────────────────────
@@ -131,27 +63,89 @@ export class SeedrError extends Error {
   }
 }
 
-// ── Auth ──────────────────────────────────────────────────────────────────────
+// ── Core request ──────────────────────────────────────────────────────────────
+
+function basicAuth(creds: SeedrCreds) {
+  return "Basic " + btoa(`${creds.email}:${creds.password}`);
+}
+
+async function restRequest<T>(
+  endpoint: string,
+  method: "GET" | "POST" | "DELETE" = "GET",
+  formData?: Record<string, string>,
+): Promise<T> {
+  const creds = getSeedrCreds();
+  if (!creds) throw new SeedrError(401, "NO_CREDS", "Seedr.cc not connected. Please sign in in Settings.");
+
+  const headers: Record<string, string> = {
+    Authorization: basicAuth(creds),
+  };
+
+  let body: string | FormData | undefined;
+  if (formData && method !== "GET") {
+    headers["Content-Type"] = "application/x-www-form-urlencoded";
+    body = new URLSearchParams(formData).toString();
+  }
+
+  const res = await fetch(`${SEEDR_REST}/${endpoint}`, { method, headers, body });
+
+  if (res.status === 401) {
+    throw new SeedrError(401, "AUTH_FAILED", "Invalid Seedr.cc credentials. Please reconnect.");
+  }
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new SeedrError(res.status, "REQUEST_FAILED", text || `Seedr API error ${res.status}`);
+  }
+
+  // Some endpoints (download) return binary — caller handles those separately
+  const ct = res.headers.get("Content-Type") ?? "";
+  if (ct.includes("application/json")) return res.json() as Promise<T>;
+  // Return empty object for non-JSON success responses
+  return {} as T;
+}
+
+// ── Auth helpers ──────────────────────────────────────────────────────────────
 
 export const seedrAuth = {
-  /** Sign in with username + password */
-  loginPassword: async (username: string, password: string): Promise<void> => {
-    const data = await oauthRequest({
-      grant_type: "password",
-      username,
-      password,
-    });
-    setSeedrToken({
-      access_token: data.access_token,
-      refresh_token: data.refresh_token,
-      expires_at: Date.now() + data.expires_in * 1000,
-    });
+  /**
+   * Verify credentials by hitting GET /rest/user.
+   * Saves them to localStorage on success.
+   */
+  login: async (email: string, password: string): Promise<SeedrUser> => {
+    // Temporarily store to use restRequest
+    setSeedrCreds({ email, password });
+    try {
+      const user = await restRequest<SeedrUser>("user");
+      return user;
+    } catch (err) {
+      clearSeedrCreds();
+      throw err;
+    }
   },
 
-  logout: () => clearSeedrToken(),
+  logout: () => {
+    clearSeedrCreds();
+    if (getDownloadProvider() === "seedr") setDownloadProvider("cloudflare");
+  },
 };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+
+export interface SeedrUser {
+  username: string;
+  email: string;
+  space_max: number;   // bytes
+  space_used: number;  // bytes
+}
+
+export interface SeedrFile {
+  id: number;
+  name: string;
+  size: number;        // bytes
+  play_video_url: string | null;
+  stream_video_url: string | null;
+  download_url: string | null;
+}
 
 export interface SeedrFolder {
   id: number;
@@ -162,102 +156,142 @@ export interface SeedrFolder {
   files: SeedrFile[];
 }
 
-export interface SeedrFile {
+export interface SeedrRootFolder {
   id: number;
   name: string;
-  size: number;
-  play_video_url: string | null;
-  stream_video_url: string | null;
-  download_url: string | null;
-}
-
-export interface SeedrSettings {
-  username: string;
+  folders: SeedrFolder[];
+  files: SeedrFile[];
+  space_max: number;
+  space_used: number;
   email: string;
-  space_max: number;    // bytes
-  space_used: number;   // bytes
+  username: string;
 }
 
-export interface SeedrTorrent {
+export interface SeedrTransfer {
   id: number;
   name: string;
   size: number;
-  progress: number; // 0-100
+  progress: number;  // 0-100 (101 = moved to folder)
   status: string;
   added: string;
+}
+
+export interface SeedrAddResult {
+  result: boolean | string;
+  error?: string;
+  code?: string;
 }
 
 // ── API methods ───────────────────────────────────────────────────────────────
 
 export const seedr = {
-  /** Get account info + root folder contents */
-  getRoot: () =>
-    seedrRequest<{
-      result: boolean;
-      folders: SeedrFolder[];
-      files: SeedrFile[];
-      space_max: number;
-      space_used: number;
-      email: string;
-      username: string;
-    }>("/folder"),
+  // ── User ───────────────────────────────────────────────────────────────────
 
-  /** Add a torrent via magnet URI */
-  addMagnet: (magnetUri: string) =>
-    seedrRequest<{ result: boolean; code?: string; error?: string }>(
-      "/transfer/add",
-      {},
-      "POST",
-      { torrent_magnet: magnetUri },
-    ),
+  /** GET /rest/user — account info */
+  getUser: () => restRequest<SeedrUser>("user"),
 
-  /** Add a torrent by infohash or plain magnet */
-  addTorrentUrl: (url: string) =>
-    seedrRequest<{ result: boolean; code?: string }>(
-      "/transfer/add",
-      {},
-      "POST",
-      { torrent_magnet: url },
-    ),
+  // ── Folders ────────────────────────────────────────────────────────────────
 
-  /** List active transfers (downloads) */
-  listTransfers: () =>
-    seedrRequest<{
-      result: boolean;
-      transfers: SeedrTorrent[];
-    }>("/transfer/list"),
+  /** GET /rest/folder — root folder + account storage info */
+  getRoot: () => restRequest<SeedrRootFolder>("folder"),
 
-  /** Delete a transfer */
+  /** GET /rest/folder/{id} — contents of a specific folder */
+  getFolder: (id: number) => restRequest<SeedrFolder>(`folder/${id}`),
+
+  /** GET /rest/folder/{id}/download — returns a redirect to ZIP */
+  getFolderDownloadUrl: (id: number) => `${SEEDR_REST}/folder/${id}/download`,
+
+  /** POST /rest/folder — create folder */
+  createFolder: (path: string) =>
+    restRequest<{ result: boolean }>("folder", "POST", { path }),
+
+  /** POST /rest/folder/{id}/rename */
+  renameFolder: (id: number, renameTo: string) =>
+    restRequest<{ result: boolean }>(`folder/${id}/rename`, "POST", { rename_to: renameTo }),
+
+  /** DELETE /rest/folder/{id} */
+  deleteFolder: (id: number) =>
+    restRequest<{ result: boolean }>(`folder/${id}`, "DELETE"),
+
+  // ── Files ──────────────────────────────────────────────────────────────────
+
+  /** GET /rest/file/{id} — direct download URL (follows redirect) */
+  getFileDownloadUrl: (id: number) => {
+    const creds = getSeedrCreds();
+    if (!creds) throw new SeedrError(401, "NO_CREDS", "Seedr not connected");
+    // Return a URL with Basic Auth encoded (opens in new tab via anchor)
+    return `${SEEDR_REST}/file/${id}`;
+  },
+
+  /**
+   * Fetch a signed download link by hitting the file endpoint with credentials.
+   * Returns the final redirect URL from Seedr.
+   */
+  getSignedDownloadUrl: async (id: number): Promise<string> => {
+    const creds = getSeedrCreds();
+    if (!creds) throw new SeedrError(401, "NO_CREDS", "Seedr not connected");
+    // Seedr returns a redirect — we follow it and grab the URL
+    const res = await fetch(`${SEEDR_REST}/file/${id}`, {
+      method: "GET",
+      headers: { Authorization: basicAuth(creds) },
+      redirect: "manual",
+    });
+    const location = res.headers.get("Location");
+    if (location) return location;
+    // If no redirect, the content streams directly from this URL
+    return `${SEEDR_REST}/file/${id}`;
+  },
+
+  /** GET /rest/file/{id}/hls — HLS stream URL for video */
+  getHlsUrl: (id: number) => `${SEEDR_REST}/file/${id}/hls`,
+
+  /** GET /rest/file/{id}/image — preview image */
+  getImageUrl: (id: number) => `${SEEDR_REST}/file/${id}/image`,
+
+  /** GET /rest/file/{id}/thumbnail */
+  getThumbnailUrl: (id: number) => `${SEEDR_REST}/file/${id}/thumbnail`,
+
+  /** POST /rest/file/{id}/rename */
+  renameFile: (id: number, renameTo: string) =>
+    restRequest<{ result: boolean }>(`file/${id}/rename`, "POST", { rename_to: renameTo }),
+
+  /** DELETE /rest/file/{id} */
+  deleteFile: (id: number) =>
+    restRequest<{ result: boolean }>(`file/${id}`, "DELETE"),
+
+  // ── Transfers ──────────────────────────────────────────────────────────────
+
+  /** GET /rest/transfer/{id} */
+  getTransfer: (id: number) =>
+    restRequest<SeedrTransfer>(`transfer/${id}`),
+
+  /** POST /rest/transfer/magnet */
+  addMagnet: (magnet: string) =>
+    restRequest<SeedrAddResult>("transfer/magnet", "POST", { magnet }),
+
+  /** POST /rest/transfer/url */
+  addUrl: (url: string) =>
+    restRequest<SeedrAddResult>("transfer/url", "POST", { url }),
+
+  /**
+   * POST /rest/transfer/file — upload a .torrent file.
+   * Uses raw fetch (not restRequest) because it needs multipart/form-data.
+   */
+  addTorrentFile: async (file: File): Promise<SeedrAddResult> => {
+    const creds = getSeedrCreds();
+    if (!creds) throw new SeedrError(401, "NO_CREDS", "Seedr not connected");
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch(`${SEEDR_REST}/transfer/file`, {
+      method: "POST",
+      headers: { Authorization: basicAuth(creds) },
+      body: form,
+    });
+    if (!res.ok) throw new SeedrError(res.status, "UPLOAD_FAILED", `Upload failed: ${res.status}`);
+    return res.json();
+  },
+
+  /** DELETE /rest/transfer/{id} */
   deleteTransfer: (id: number) =>
-    seedrRequest<{ result: boolean }>(
-      "/transfer/delete",
-      {},
-      "POST",
-      { transfer_id: String(id) },
-    ),
-
-  /** Get signed download URL for a file */
-  getDownloadUrl: (fileId: number) =>
-    seedrRequest<{ url: string }>(
-      "/file/download",
-      { file_id: String(fileId) },
-    ),
-
-  /** Delete a file */
-  deleteFile: (fileId: number) =>
-    seedrRequest<{ result: boolean }>(
-      "/file/delete",
-      {},
-      "POST",
-      { file_id: String(fileId) },
-    ),
-
-  /** Delete a folder */
-  deleteFolder: (folderId: number) =>
-    seedrRequest<{ result: boolean }>(
-      "/folder/delete",
-      {},
-      "POST",
-      { folder_id: String(folderId) },
-    ),
+    restRequest<{ result: boolean }>(`transfer/${id}`, "DELETE"),
 };
