@@ -1,12 +1,13 @@
 import { useState, useCallback, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { jobs as jobsApi, ApiError } from "@/lib/api";
+import { seedr, SeedrError, getDownloadProvider } from "@/lib/seedr-api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Magnet, Upload, X, FileIcon, Loader2, AlertCircle } from "lucide-react";
+import { Magnet, Upload, X, FileIcon, Loader2, AlertCircle, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -29,6 +30,8 @@ export function AddDownloadModal({ open, onOpenChange, onJobAdded, initialMagnet
   const [dragActive, setDragActive] = useState(false);
   const [torrentFile, setTorrentFile] = useState<File | null>(null);
   const [apiError, setApiError] = useState("");
+
+  const isSeedr = getDownloadProvider() === "seedr";
 
   // Sync initialMagnetUri when modal opens
   useEffect(() => {
@@ -61,9 +64,18 @@ export function AddDownloadModal({ open, onOpenChange, onJobAdded, initialMagnet
   };
 
   const magnetMutation = useMutation({
-    mutationFn: () => jobsApi.createMagnet(magnetUri),
+    mutationFn: () => {
+      if (isSeedr) {
+        return seedr.addMagnet(magnetUri).then(r => {
+          if (!r.result) throw new SeedrError(400, r.code ?? "FAILED", "Seedr rejected the magnet link.");
+          return { id: "seedr-" + Date.now(), name: "Seedr Download", status: "queued" } as never;
+        });
+      }
+      return jobsApi.createMagnet(magnetUri);
+    },
     onSuccess: (job) => {
-      toast({ title: "Download queued", description: `"${job.name}" has been added.` });
+      const name = (job as { name?: string }).name ?? "Download";
+      toast({ title: isSeedr ? "Sent to Seedr.cc ⚡" : "Download queued", description: `"${name}" has been added.` });
       queryClient.invalidateQueries({ queryKey: ["jobs"] });
       queryClient.invalidateQueries({ queryKey: ["usage"] });
       onJobAdded();
@@ -72,13 +84,16 @@ export function AddDownloadModal({ open, onOpenChange, onJobAdded, initialMagnet
       onOpenChange(false);
     },
     onError: (err) => {
-      const msg = err instanceof ApiError ? err.message : "Failed to add download";
+      const msg = err instanceof ApiError || err instanceof SeedrError ? err.message : "Failed to add download";
       setApiError(msg);
     },
   });
 
   const torrentMutation = useMutation({
-    mutationFn: () => jobsApi.createTorrent(torrentFile!),
+    mutationFn: () => {
+      // Seedr doesn't support .torrent file upload via our client yet — fall back to CF
+      return jobsApi.createTorrent(torrentFile!);
+    },
     onSuccess: (job) => {
       toast({ title: "Download queued", description: `"${job.name}" has been added.` });
       queryClient.invalidateQueries({ queryKey: ["jobs"] });
@@ -115,7 +130,14 @@ export function AddDownloadModal({ open, onOpenChange, onJobAdded, initialMagnet
     <Dialog open={open} onOpenChange={v => { if (!isPending) onOpenChange(v); }}>
       <DialogContent className="sm:max-w-lg bg-card border-border">
         <DialogHeader>
-          <DialogTitle className="text-foreground">Add Download</DialogTitle>
+          <DialogTitle className="text-foreground flex items-center gap-2">
+            Add Download
+            {isSeedr && (
+              <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-[hsl(142_71%_45%)] border border-[hsl(142_71%_45%/0.4)] rounded px-1.5 py-0.5">
+                <Zap className="w-2.5 h-2.5" /> Seedr.cc
+              </span>
+            )}
+          </DialogTitle>
         </DialogHeader>
 
         <Tabs value={tab} onValueChange={v => setTab(v as "magnet" | "torrent")} className="mt-2">

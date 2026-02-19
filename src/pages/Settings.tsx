@@ -1,7 +1,11 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usage as usageApi, auth as authApi, apiKeys as apiKeysApi, type ApiKey, ApiError } from "@/lib/api";
+import {
+  seedrAuth, seedr, isSeedrConnected, clearSeedrToken,
+  getDownloadProvider, setDownloadProvider, type DownloadProvider,
+} from "@/lib/seedr-api";
 import { TopHeader } from "@/components/TopHeader";
 import { formatBytes } from "@/lib/mock-data";
 import { Input } from "@/components/ui/input";
@@ -10,7 +14,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import {
   TrendingUp, Languages, User, Lock, Bell, Trash2, Check, X, Loader2, Eye, EyeOff,
-  Key, Plus, Copy, AlertTriangle, Clock,
+  Key, Plus, Copy, AlertTriangle, Clock, Zap, CloudLightning, ExternalLink,
 } from "lucide-react";
 import logoImg from "@/assets/logo.png";
 
@@ -88,6 +92,56 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const qc = useQueryClient();
+
+  // ── Seedr.cc state ───────────────────────────────────────────────────────
+  const [provider, setProviderState] = useState<DownloadProvider>(getDownloadProvider);
+  const [seedrConnected, setSeedrConnected] = useState(isSeedrConnected);
+  const [seedrEmail, setSeedrEmail] = useState("");
+  const [seedrPass, setSeedrPass] = useState("");
+  const [seedrShowPass, setSeedrShowPass] = useState(false);
+  const [seedrLoginLoading, setSeedrLoginLoading] = useState(false);
+  const [seedrInfo, setSeedrInfo] = useState<{ username: string; space_max: number; space_used: number } | null>(null);
+
+  const handleProviderChange = useCallback((p: DownloadProvider) => {
+    if (p === "seedr" && !seedrConnected) {
+      toast({ title: "Connect Seedr.cc first", description: "Sign in to your Seedr.cc account below.", variant: "destructive" });
+      return;
+    }
+    setDownloadProvider(p);
+    setProviderState(p);
+    toast({ title: p === "seedr" ? "Switched to Seedr.cc" : "Switched to Cloudflare Workers" });
+  }, [seedrConnected, toast]);
+
+  const handleSeedrLogin = async () => {
+    if (!seedrEmail.trim() || !seedrPass.trim()) return;
+    setSeedrLoginLoading(true);
+    try {
+      await seedrAuth.loginPassword(seedrEmail.trim(), seedrPass.trim());
+      setSeedrConnected(true);
+      setSeedrEmail("");
+      setSeedrPass("");
+      toast({ title: "Seedr.cc connected!" });
+      // Fetch account info
+      const root = await seedr.getRoot();
+      setSeedrInfo({ username: root.username, space_max: root.space_max, space_used: root.space_used });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Login failed";
+      toast({ title: "Seedr.cc login failed", description: msg, variant: "destructive" });
+    } finally {
+      setSeedrLoginLoading(false);
+    }
+  };
+
+  const handleSeedrDisconnect = () => {
+    seedrAuth.logout();
+    setSeedrConnected(false);
+    setSeedrInfo(null);
+    if (provider === "seedr") {
+      setDownloadProvider("cloudflare");
+      setProviderState("cloudflare");
+    }
+    toast({ title: "Seedr.cc disconnected" });
+  };
 
   const { data: usageData, isLoading: usageLoading } = useQuery({
     queryKey: ["usage"],
@@ -398,6 +452,207 @@ export default function SettingsPage() {
               ))
             )}
           </div>
+        </SectionCard>
+
+        {/* ── Download Provider ─────────────────────────────────────── */}
+        <SectionCard>
+          <SectionHeader title="Download Provider" icon={Zap} accent="bg-slate-700" />
+          <div className="h-0.5 bg-primary" />
+          <div className="px-4 py-4 space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Choose which backend handles torrent downloads. Seedr.cc is a premium cloud torrent service with blazing-fast speeds.
+            </p>
+
+            {/* Provider toggle */}
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => handleProviderChange("cloudflare")}
+                className={cn(
+                  "flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all text-left",
+                  provider === "cloudflare"
+                    ? "border-primary bg-primary/10 shadow-[0_0_16px_hsl(var(--primary)/0.2)]"
+                    : "border-border bg-muted/10 hover:border-primary/40"
+                )}
+              >
+                <CloudLightning className={cn("w-6 h-6", provider === "cloudflare" ? "text-primary" : "text-muted-foreground")} />
+                <div>
+                  <p className={cn("text-sm font-bold", provider === "cloudflare" ? "text-primary" : "text-foreground")}>Cloudflare</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Self-hosted workers</p>
+                </div>
+                {provider === "cloudflare" && (
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-primary border border-primary/40 rounded px-1.5 py-0.5">Active</span>
+                )}
+              </button>
+
+              <button
+                onClick={() => handleProviderChange("seedr")}
+                className={cn(
+                  "flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all text-left",
+                  provider === "seedr"
+                    ? "border-[hsl(142_71%_45%)] bg-[hsl(142_71%_45%/0.1)] shadow-[0_0_16px_hsl(142_71%_45%/0.2)]"
+                    : "border-border bg-muted/10 hover:border-[hsl(142_71%_45%/0.5)]",
+                  !seedrConnected && "opacity-60"
+                )}
+              >
+                <Zap className={cn("w-6 h-6", provider === "seedr" ? "text-[hsl(142_71%_45%)]" : "text-muted-foreground")} />
+                <div>
+                  <p className={cn("text-sm font-bold", provider === "seedr" ? "text-[hsl(142_71%_45%)]" : "text-foreground")}>Seedr.cc</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Cloud torrent · fast</p>
+                </div>
+                {provider === "seedr" ? (
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-[hsl(142_71%_45%)] border border-[hsl(142_71%_45%/0.4)] rounded px-1.5 py-0.5">Active</span>
+                ) : !seedrConnected ? (
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground border border-border rounded px-1.5 py-0.5">Not connected</span>
+                ) : null}
+              </button>
+            </div>
+          </div>
+        </SectionCard>
+
+        {/* ── Seedr.cc Integration ──────────────────────────────────── */}
+        <SectionCard>
+          <div className="flex items-center justify-between px-4 py-3 bg-[hsl(142_71%_15%)] rounded-t-lg">
+            <div className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-[hsl(142_71%_55%)]" />
+              <span className="text-sm font-bold text-white uppercase tracking-wide">Seedr.cc Integration</span>
+            </div>
+            <a
+              href="https://www.seedr.cc"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[hsl(142_71%_55%)] hover:text-[hsl(142_71%_70%)] transition-colors"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          </div>
+          <div className="h-0.5 bg-[hsl(142_71%_45%)]" />
+
+          {seedrConnected ? (
+            <div className="px-4 py-4 space-y-4">
+              {/* Connected state */}
+              <div className="flex items-center gap-3 p-3 bg-[hsl(142_71%_45%/0.08)] border border-[hsl(142_71%_45%/0.3)] rounded-lg">
+                <div className="w-2.5 h-2.5 rounded-full bg-[hsl(142_71%_45%)] shadow-[0_0_8px_hsl(142_71%_45%/0.7)] animate-pulse shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground">
+                    {seedrInfo?.username ?? "Connected"}
+                  </p>
+                  {seedrInfo && (
+                    <p className="text-xs text-muted-foreground">
+                      {formatBytes(seedrInfo.space_used)} / {formatBytes(seedrInfo.space_max)} used
+                    </p>
+                  )}
+                </div>
+                <span className="text-xs font-bold text-[hsl(142_71%_45%)]">CONNECTED</span>
+              </div>
+
+              {seedrInfo && (
+                <div className="h-2 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${Math.min(100, (seedrInfo.space_used / seedrInfo.space_max) * 100)}%`,
+                      background: "hsl(142 71% 45%)",
+                      boxShadow: "0 0 8px hsl(142 71% 45% / 0.5)",
+                    }}
+                  />
+                </div>
+              )}
+
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 text-xs border-border"
+                  onClick={() => {
+                    setSeedrLoginLoading(true);
+                    seedr.getRoot()
+                      .then(root => setSeedrInfo({ username: root.username, space_max: root.space_max, space_used: root.space_used }))
+                      .catch(() => toast({ title: "Failed to refresh Seedr info", variant: "destructive" }))
+                      .finally(() => setSeedrLoginLoading(false));
+                  }}
+                  disabled={seedrLoginLoading}
+                >
+                  {seedrLoginLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  Refresh
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 text-xs border-destructive/50 text-destructive hover:bg-destructive/10"
+                  onClick={handleSeedrDisconnect}
+                >
+                  <X className="w-3.5 h-3.5" /> Disconnect
+                </Button>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Switch your provider to <strong>Seedr.cc</strong> above to route new downloads through Seedr's fast infrastructure.
+                Completed files will be stored in your Seedr storage and streamed via signed URLs.
+              </p>
+            </div>
+          ) : (
+            <div className="px-4 py-4 space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Connect your <strong className="text-foreground">Seedr.cc</strong> account to use their premium cloud torrent infrastructure —
+                typically <span className="text-[hsl(142_71%_55%)] font-semibold">10–100× faster</span> than self-hosted workers.
+              </p>
+
+              <div className="p-3 bg-muted/20 border border-border rounded-lg text-xs text-muted-foreground space-y-1">
+                <p className="font-semibold text-foreground text-xs">Why Seedr.cc?</p>
+                <ul className="space-y-0.5 list-disc list-inside">
+                  <li>Premium CDN seeding — saturates most connections instantly</li>
+                  <li>No compute agent required — zero infrastructure</li>
+                  <li>Files stored in Seedr cloud, streamed via signed URLs</li>
+                  <li>Free tier: 2 GB storage · Paid plans up to 2 TB</li>
+                </ul>
+              </div>
+
+              {/* Login form */}
+              <div className="space-y-2">
+                <div className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Seedr.cc Account</div>
+                <Input
+                  type="email"
+                  placeholder="Email"
+                  value={seedrEmail}
+                  onChange={e => setSeedrEmail(e.target.value)}
+                  className="bg-input text-sm h-9"
+                  autoComplete="email"
+                />
+                <div className="relative">
+                  <Input
+                    type={seedrShowPass ? "text" : "password"}
+                    placeholder="Password"
+                    value={seedrPass}
+                    onChange={e => setSeedrPass(e.target.value)}
+                    className="bg-input text-sm h-9 pr-9"
+                    autoComplete="current-password"
+                    onKeyDown={e => { if (e.key === "Enter") handleSeedrLogin(); }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setSeedrShowPass(s => !s)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {seedrShowPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+                <Button
+                  className="w-full h-9 gap-2 bg-[hsl(142_71%_35%)] hover:bg-[hsl(142_71%_30%)] text-white border-0"
+                  onClick={handleSeedrLogin}
+                  disabled={seedrLoginLoading || !seedrEmail.trim() || !seedrPass.trim()}
+                >
+                  {seedrLoginLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                  Connect Seedr.cc
+                </Button>
+                <p className="text-[10px] text-muted-foreground text-center">
+                  Credentials authenticate directly with Seedr.cc OAuth. Tokens are stored in your browser only.{" "}
+                  <a href="https://www.seedr.cc" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">
+                    Create account ↗
+                  </a>
+                </p>
+              </div>
+            </div>
+          )}
         </SectionCard>
 
         {/* ── Danger Zone ───────────────────────────────────────────── */}
