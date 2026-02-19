@@ -1,7 +1,7 @@
 import type { Env } from "./index";
-import { hashToken } from "./crypto";
+import { hashToken, verifyCsrfToken } from "./crypto";
 import { getSessionByTokenHash } from "./d1-helpers";
-import { extractCookie, verifyCsrfToken } from "./handlers/auth";
+import { extractCookie } from "./handlers/auth";
 
 type Ctx = { params: Record<string, string>; query: Record<string, string>; user?: { id: string; role: string } };
 type Middleware = (req: Request, env: Env, ctx: Ctx) => Promise<Response | null>;
