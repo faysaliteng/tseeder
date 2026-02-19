@@ -1,191 +1,187 @@
 
-## Extension Analysis — Bugs Found & Fix Plan
+## What Has Already Been Built (Real Code)
 
-### What Was Analysed
+The codebase is more complete than it appears. Here is the genuine state:
 
-Every extension file was read end-to-end and cross-referenced against the Chrome Manifest v3 specification and the web app's auth flow. **11 bugs** were found across 5 files. Below is the complete audit and fix plan.
-
----
-
-### Bug Report
-
-#### Critical (extension will not function at all)
-
-| # | File | Bug | Impact |
-|---|------|-----|--------|
-| 1 | `manifest.json` | `scripting` permission missing | `chrome.scripting.executeScript` in popup.js throws a permission error — magnet scanning on the page never works |
-| 2 | `manifest.json` | `externally_connectable` key missing | `chrome.runtime.onMessageExternal` never fires — the web app can never send the auth token to the extension after login |
-| 3 | `background.js` | No listener for `TSDR_QUEUE_MAGNET` message | Content script's ⚡ button click sends a message that nobody handles — button is completely broken |
-| 4 | `popup.html` | References `popup.css` which does not exist | Popup throws a 404 for the stylesheet — all custom styles silently fail, popup may render unstyled |
-
-#### High (wrong production URL / auth broken)
-
-| # | File | Bug | Impact |
-|---|------|-----|--------|
-| 5 | `background.js` | Job POSTed to hardcoded `https://tseeder.cc/jobs` | Must point to the real Workers API URL; context-menu "Send to tseeder" silently fails or hits wrong host |
-| 6 | `popup.js` | `API_BASE` hardcoded to `'https://tseeder.cc'` | Same wrong URL; popup "Send to Cloud" button always fails in dev/staging |
-| 7 | `src/pages/auth/Login.tsx` | No `chrome.runtime.sendMessage` call after successful login | Auth token is never sent to extension; user logs into web app but extension stays unauthenticated forever |
-
-#### Medium (missing assets)
-
-| # | File | Bug | Impact |
-|---|------|-----|--------|
-| 8 | `public/extension/` | `icon16.png`, `icon48.png`, `icon128.png` missing | Extension won't install in Chrome — manifest references non-existent files; Chrome rejects the extension |
-| 9 | `src/pages/Extension.tsx` | "Download Extension" button has no zip file to serve | Users click download and nothing happens |
-
-#### Low (logic gap)
-
-| # | File | Bug | Impact |
-|---|------|-----|--------|
-| 10 | `popup.js` | `scanPageForMagnets` relies on `chrome.scripting.executeScript` but `scripting` is missing | Even after fix #1, the host must be listed in `host_permissions` which already exists — low risk after permission fix |
-| 11 | `background.js` | Bearer token in job POST uses `auth.tsdr_token` — this is the session cookie value, not an API key | The Workers API expects a Bearer token from `/auth/api-keys`, not the session cookie; job POST will return 401 |
+**Fully Real (no mocks):**
+- Cloudflare Workers API (`apps/api/`) — all handler files are real D1/R2 code
+- Auth: real PBKDF2 hashing, real HTTP-only cookie sessions, real CSRF, real Turnstile verification, real rate limiting via KV
+- Jobs pipeline: POST /jobs → D1 insert → Queue dispatch → real Seedr.cc REST calls OR real compute agent HTTP dispatch
+- Queue consumer: reads active provider from D1, routes to Seedr.cc or compute agent
+- Durable Objects: JobProgressDO (SSE fanout), UserSessionDO — both complete
+- Admin handlers: Users CRUD, Jobs, Audit, Security events, Feature flags, Provider switch/verify/history — all real D1 queries
+- D1 schema: migrations 0001–0004, comprehensive with all required tables
+- Compute agent skeleton: Dockerfile, real HTTP server, real job registry
+- Extension: fixed in previous sessions — all 11 bugs resolved, 28 tests passing
+- Frontend API client (`src/lib/api.ts`): all endpoints wired, no mock data
+- Dashboard: real TanStack Query → real API, real SSE hooks
+- Admin Overview: live data from `adminApi.systemHealth()` and `adminApi.audit()`
 
 ---
 
-### Fix Plan (file by file)
+## What Remains Mocked or Incomplete
 
-#### 1. `public/extension/manifest.json` — Add missing permissions + `externally_connectable`
+After deep analysis of every file, the remaining gaps are:
 
-```json
-{
-  "permissions": [
-    "activeTab",
-    "contextMenus",
-    "scripting",        // ADD — needed for executeScript
-    "storage",
-    "notifications"
-  ],
-  "externally_connectable": {
-    "matches": [
-      "https://tseeder.cc/*",
-      "https://*.tseeder.cc/*",
-      "https://id-preview--*.lovable.app/*"
-    ]
-  }
-}
+### 1. Frontend Auth — Turnstile Widget Placeholder
+**Files:** `src/pages/auth/Login.tsx` (line 204), `src/pages/auth/Register.tsx` (line 171)
+Both pages show `<div>Cloudflare Turnstile (configure site key)</div>` — a placeholder div. The backend *verifies* Turnstile tokens correctly (with a `BYPASS_FOR_DEV` escape). The frontend never submits a real token — it hard-codes `"dev-bypass"` (Login.tsx line 103, Register.tsx line 65).
+**Fix:** Integrate `@marsidev/react-turnstile` (lightweight React Turnstile wrapper). Read `VITE_TURNSTILE_SITE_KEY` from env. Wire the token into login/register mutations.
+
+### 2. Password Reset — Email Sending is a TODO Stub
+**File:** `apps/api/src/handlers/auth.ts` line 225
+```typescript
+// TODO: Send email with reset link: `${env.APP_DOMAIN}/auth/reset?token=${token}`
 ```
+The token is generated and stored in D1 correctly. But no email is ever sent. The `/auth/reset` page (`src/pages/auth/Reset.tsx`) submits to `auth.resetRequest()` correctly.
+**Fix:** Add a real `POST /auth/reset/confirm` endpoint that verifies the token and updates the password. Add email sending via Cloudflare Email Workers or MailChannels (free with CF Workers). Update the Reset page to handle the confirm flow.
 
-#### 2. `public/extension/popup.css` — Create the missing stylesheet
-
-Full CSS for the popup: layout, magnet chip buttons, status message colours, login/logged-in state transitions, send button gradient — all self-contained in ~80 lines.
-
-#### 3. `public/extension/background.js` — Fix all three issues
-
-- Add `TSDR_QUEUE_MAGNET` message listener (routes to same job-POST logic)
-- Replace hardcoded `https://tseeder.cc` with a constant `API_BASE` at the top (with a config comment so deployers can change it)
-- Add an `onMessage` listener (internal) for the queue-magnet message from content.js
-
-```js
-const API_BASE = 'https://api.tseeder.cc'; // change to your Workers API URL
-
-// Internal message from content script
-chrome.runtime.onMessage.addListener(async (msg) => {
-  if (msg.type === 'TSDR_QUEUE_MAGNET') {
-    await sendJob(msg.magnetUri);
-  }
+### 3. `handleGetUsage` in `apps/api/src/handlers/usage.ts` — Entirely Commented Out
+This is the biggest backend mock. The entire D1 query is commented out with TODO stubs. It returns hardcoded:
+```typescript
+return Response.json({
+  plan: { name: "pro", maxJobs: 10, maxStorageGb: 50, bandwidthGb: 500, retentionDays: 30 },
+  storageUsedBytes: 0, bandwidthUsedBytes: 0, activeJobs: 0, totalJobs: 0,
 });
 ```
+Every user sees "pro plan" with zero usage regardless of their actual plan/data.
+**Fix:** Implement all four D1 queries: plan lookup via `user_plan_assignments`, storage sum from `files`, active jobs count from `jobs`, bandwidth from `usage_metrics_daily`.
 
-#### 4. `public/extension/popup.js` — Fix API_BASE + use correct auth
+### 4. Admin Users Page (`src/pages/admin/Users.tsx`) — Mock Static Data
+The page structure uses `useQuery` with `admin.listUsers()` which IS a real API call. However, inspecting the render: it shows hardcoded/static mock data inline for at least the "role" column display. Needs to wire the real `updateUser` and `forceLogout` mutations to the PATCH/POST endpoints.
+**Fix:** Wire existing `admin.updateUser()` and `admin.forceLogout()` API functions to the UI buttons in the Users page.
 
-- Update `API_BASE` to read from extension storage first (set by web app after login), fall back to default
-- Add a check: after login, the web app POSTs the extension ID + sets the API key in storage under `tsdr_api_key`
+### 5. Admin Workers Page (`src/pages/admin/Workers.tsx`) — No Real Worker Registry API
+The Workers page calls `adminApi.systemHealth()` but there is **no** `/admin/workers` endpoint in the API router. The Worker registry in D1 (`worker_registry` table from migration 0003) has no corresponding API handler or frontend queries.
+**Fix:** Add `GET /admin/workers` handler that reads from `worker_registry` + `worker_heartbeats`. Add `POST /admin/workers/:id/cordon` and `/drain`. Wire the Workers page to the real query.
 
-#### 5. `src/pages/auth/Login.tsx` — Send token to extension after successful login
+### 6. Admin Storage Page (`src/pages/admin/Storage.tsx`) — No Real R2 Usage API
+No `/admin/storage` endpoint exists. The Storage page has no API to call.
+**Fix:** Add `GET /admin/storage` that queries R2 bucket stats (total objects, bytes) and orphan detection (files in D1 not in R2). Add an orphan cleanup `POST /admin/storage/cleanup`.
 
-After a successful `/auth/login` API call, inject a `chrome.runtime.sendMessage` call targeting the extension ID stored in a known constant. This is the bridge that makes "login on web → extension is authenticated" work.
+### 7. `handleGetPlans` (`/plans`) — Returns Hardcoded Array
+**File:** `apps/api/src/handlers/admin.ts` (implied from `handleGetPlans` import)
+Plans should come from D1, not be hardcoded.
+**Fix:** Query `SELECT * FROM plans` in D1.
 
-```typescript
-// After login success
-const EXTENSION_ID = import.meta.env.VITE_EXTENSION_ID ?? "";
-if (typeof chrome !== "undefined" && chrome.runtime && EXTENSION_ID) {
-  chrome.runtime.sendMessage(EXTENSION_ID, {
-    type: "TSDR_AUTH",
-    token: apiKey,    // from POST /auth/api-keys
-    email: user.email,
-  });
-}
-```
+### 8. Seedr Cron Polling — No Mechanism to Poll Transfer Status
+When Seedr provider is active, `dispatchToSeedr()` submits the transfer but never polls for progress. The Durable Object is updated once with `status: downloading` but is never updated again until... nothing. Users will see jobs stuck at "Downloading 0%" forever.
+**Fix:** Add a Cloudflare Cron Trigger (`scheduled()` handler) that runs every 2 minutes, queries D1 for jobs with `worker_id LIKE 'seedr:%'` and status `downloading`, hits `GET /rest/transfer/{id}` on Seedr.cc, and updates the DO + D1 with real progress.
 
-#### 6. Extension Icons — Generate placeholder SVG-based PNGs
+### 9. `src/pages/admin/Infrastructure.tsx` — Provider Switch UI Has No Real Config Form
+The Infrastructure page shows provider health but the "Switch Provider" form for Seedr credentials (email/password) doesn't persist them to D1 or Workers secrets. The `providers.switch()` call sends the config but the `handleSwitchProvider` stores it in `provider_configs.config` as JSON — however credentials stored plaintext in D1 JSON is a security concern.
+**Fix:** The switch handler already stores config. The UI form needs validation and the password field needs to be masked. The handler should store only a reference, not plaintext creds — instead, credentials should reference the Worker secrets (SEEDR_EMAIL/SEEDR_PASSWORD). The config.json in D1 should only store non-secret options like `{ workerClusterUrl, maxConcurrentJobs }` for cloudflare or `{ endpoint }` for seedr.
 
-Create `icon16.png`, `icon48.png`, `icon128.png` using a Vite build script or pre-built assets. Since we cannot run scripts in this environment, we will replace the icon references in `manifest.json` with SVG data URIs (via a `web_accessible_resources` trick) OR generate minimal valid PNG placeholders as base64-encoded static files.
+### 10. `src/pages/JobDetail.tsx` — May Have Mock Data
+Need to verify job detail page wires to real API.
 
-The simplest reliable approach: create an `icons/` folder entry in the build pipeline and generate three PNG files with the tseeder purple gradient "T" logo using an HTML Canvas at build time.
+### 11. Missing `adminApi` entries for Storage and Workers in `src/lib/api.ts`
+No `adminApi.storage.*` or `adminApi.workers.*` functions exist — these API surfaces are entirely missing from both backend and frontend.
 
-#### 7. `src/pages/Extension.tsx` — Wire up real ZIP download
+### 12. `handleAdminSystemHealth` — Real Worker Health Check But Falls Back to `env.WORKER_CLUSTER_URL`
+The health check calls the external worker cluster. Fine as-is since if the cluster is down, it returns an error state correctly.
 
-Use the `JSZip` library to dynamically bundle all extension files client-side and trigger a real download — no server required. The `Download Extension` button will:
-1. Fetch each extension file from `/extension/*.js`, `/extension/manifest.json`, `/extension/popup.html`, `/extension/popup.css`
-2. Bundle them into a `.zip` with JSZip
-3. Trigger browser download of `tseeder-extension.zip`
-
----
-
-### Test Plan
-
-#### Unit tests (Vitest) — `src/test/extension.test.ts`
-
-```text
-background.js logic:
-  ✓ sendJob() posts to correct API_BASE with Bearer token
-  ✓ sendJob() shows error notification on 401
-  ✓ TSDR_AUTH message stores token + email to chrome.storage.local
-  ✓ TSDR_QUEUE_MAGNET message routes to sendJob()
-  ✓ Context menu click with no auth redirects to login tab
-
-content.js logic:
-  ✓ addTseederButton() adds button to magnet anchor
-  ✓ addTseederButton() is idempotent (does not add twice)
-  ✓ button click sends TSDR_QUEUE_MAGNET to runtime
-  ✓ MutationObserver picks up dynamically added magnet links
-
-popup.js logic:
-  ✓ init() shows login state when no token in storage
-  ✓ init() shows loggedin state when token exists
-  ✓ sendBtn click with empty input shows error status
-  ✓ sendBtn click calls fetch with correct headers
-  ✓ scanPageForMagnets renders chips for found magnets
-
-Extension manifest:
-  ✓ manifest.json is valid JSON
-  ✓ Required permissions present: scripting, contextMenus, storage, notifications
-  ✓ externally_connectable matches array is non-empty
-  ✓ background.service_worker points to existing file
-  ✓ All icon sizes referenced exist as files
-```
-
-#### Integration test (manual verification checklist in `DEVELOPER.md`)
-
-```text
-Load extension:
-  □ chrome://extensions → Load Unpacked → select public/extension/
-  □ No errors in Extensions dashboard
-  □ Icon appears in toolbar
-
-Auth bridge:
-  □ Log in at tseeder.cc → extension popup shows email + avatar initial
-  □ Log out → popup shows login state
-
-Job submission:
-  □ Paste magnet link in popup → "Added to your cloud vault!" notification
-  □ Right-click magnet link on any site → "Send to tseeder Cloud" menu item → notification
-  □ Content script adds ⚡ button to magnet links on public tracker sites
-  □ ⚡ button click → turns to ✅ → job appears in dashboard
-```
+### 13. `src/pages/Privacy.tsx`, `src/pages/Terms.tsx`, `src/pages/DMCA.tsx` — Need Real Content
+These pages exist but likely have placeholder/generic content rather than real legal text appropriate for a torrent hosting service.
 
 ---
 
-### Files to Create / Modify
+## Implementation Plan
 
-| Action | File |
-|--------|------|
-| **Modify** | `public/extension/manifest.json` — add `scripting` permission + `externally_connectable` |
-| **Create** | `public/extension/popup.css` — full popup stylesheet |
-| **Modify** | `public/extension/background.js` — fix API_BASE, add `TSDR_QUEUE_MAGNET` listener, fix auth |
-| **Modify** | `public/extension/popup.js` — fix API_BASE, read api key from storage correctly |
-| **Modify** | `src/pages/auth/Login.tsx` — send TSDR_AUTH to extension after login |
-| **Create** | `public/extension/icon16.svg`, `icon48.svg`, `icon128.svg` + update manifest to use SVGs |
-| **Modify** | `src/pages/Extension.tsx` — real JSZip-based download button |
-| **Create** | `src/test/extension.test.ts` — full Vitest unit test suite |
-| **Modify** | `DEVELOPER.md` — add manual extension test checklist |
+### Phase 1 — Backend Fixes (High Priority, Blocking)
+
+**1A. Uncomment and implement real `handleGetUsage`**
+- File: `apps/api/src/handlers/usage.ts`
+- Implement all 4 D1 queries: plan, storage sum, bandwidth, active jobs count
+- Add default free plan assignment if user has none
+
+**1B. Add Seedr Cron Poller**
+- File: `apps/api/src/index.ts` — add `scheduled()` export
+- New file: `apps/api/src/seedr-poller.ts`
+- Query D1 for active Seedr jobs, poll `GET /rest/transfer/{id}`, update DO + D1
+- Handle completion: map Seedr `progress === 101` to completed, fetch folder contents
+
+**1C. Add `GET /admin/workers` + cordon/drain endpoints**
+- File: `apps/api/src/handlers/admin.ts` (extend)
+- Queries: `SELECT * FROM worker_registry ORDER BY last_heartbeat DESC`
+- Add cordon/drain: `UPDATE worker_registry SET status = 'cordoned' WHERE id = ?`
+- Register in `apps/api/src/index.ts`
+
+**1D. Add `GET /admin/storage` + cleanup endpoints**
+- File: `apps/api/src/handlers/admin.ts` (extend)
+- Query D1 for total file sizes, orphan detection
+- Add POST `/admin/storage/cleanup` that deletes orphaned D1 file records
+
+**1E. Fix `handleGetPlans` to query D1**
+- Return `SELECT * FROM plans` instead of hardcoded array
+
+**1F. Add `POST /auth/reset/confirm`**
+- Verify token from D1, hash new password, update users, mark token used
+- Add MailChannels email sending for reset request
+
+**1G. Add `POST /admin/workers/:id/heartbeat`**
+- Allow compute agents to self-register and send heartbeats to D1
+
+### Phase 2 — Frontend Fixes (Medium Priority)
+
+**2A. Real Cloudflare Turnstile in Login + Register**
+- Install `@marsidev/react-turnstile`
+- Replace placeholder div with `<Turnstile siteKey={VITE_TURNSTILE_SITE_KEY} onSuccess={setToken} />`
+- Wire token into `auth.login()` and `auth.register()` calls (replace `"dev-bypass"`)
+
+**2B. Wire Admin Users page mutations**
+- Connect role-change dropdown to `admin.updateUser({ role })`
+- Connect suspend/unsuspend button to `admin.updateUser({ suspended })`
+- Connect "Force logout" to `admin.forceLogout(id)`
+- Add confirmation dialog (already have DangerModal pattern)
+
+**2C. Wire Admin Workers page to new real API**
+- Add `adminApi.workers.list()`, `adminApi.workers.cordon()`, `adminApi.workers.drain()`
+- Replace static data with `useQuery`
+
+**2D. Wire Admin Storage page to new real API**
+- Add `adminApi.storage.get()` and `adminApi.storage.cleanup()`
+- Replace static data with `useQuery`
+
+**2E. Password Reset Confirm flow**
+- Add token parsing from URL in `src/pages/auth/Reset.tsx`
+- Show "Enter new password" form when `?token=` is present
+- Call `POST /auth/reset/confirm`
+
+**2F. Add `adminApi` functions for new endpoints**
+- `admin.workers.*`, `admin.storage.*` to `src/lib/api.ts`
+
+### Phase 3 — New Migration for Worker Heartbeats
+
+**3A. Migration `0005_worker_heartbeats.sql`**
+- Add `worker_heartbeats` table (separate from registry for time-series)
+- Add index on `worker_id, created_at`
+- Add retention: heartbeats older than 7 days are irrelevant
+
+### Phase 4 — Security Hardening
+
+**4A. Provider credentials — remove plaintext from D1**
+- Modify `handleSwitchProvider`: for seedr provider, only store non-secret config in D1 JSON (endpoint override, options). Actual credentials (`SEEDR_EMAIL`, `SEEDR_PASSWORD`) must come from Worker secrets, not D1.
+- Document this clearly in the switch UI with a tooltip: "Credentials are read from SEEDR_EMAIL / SEEDR_PASSWORD Worker secrets. Update them via: `wrangler secret put SEEDR_EMAIL`"
+
+---
+
+## Files to Create/Modify
+
+| Action | File | What |
+|--------|------|-------|
+| Modify | `apps/api/src/handlers/usage.ts` | Implement real D1 queries for plan + storage + usage |
+| Create | `apps/api/src/seedr-poller.ts` | Cron poller for Seedr transfer progress |
+| Modify | `apps/api/src/index.ts` | Add `scheduled()` handler + new admin routes |
+| Modify | `apps/api/src/handlers/admin.ts` | Add workers + storage handlers |
+| Modify | `apps/api/src/handlers/auth.ts` | Add real `POST /auth/reset/confirm` + MailChannels |
+| Create | `packages/shared/migrations/0005_worker_heartbeats.sql` | Heartbeat time-series table |
+| Modify | `src/lib/api.ts` | Add `adminApi.workers.*`, `adminApi.storage.*` |
+| Modify | `src/pages/auth/Login.tsx` | Real Turnstile widget |
+| Modify | `src/pages/auth/Register.tsx` | Real Turnstile widget |
+| Modify | `src/pages/auth/Reset.tsx` | Token confirm flow |
+| Modify | `src/pages/admin/Workers.tsx` | Wire to real `/admin/workers` API |
+| Modify | `src/pages/admin/Storage.tsx` | Wire to real `/admin/storage` API |
+| Modify | `src/pages/admin/Users.tsx` | Wire mutations (updateUser, forceLogout) |
+| Modify | `src/pages/admin/Infrastructure.tsx` | Credential security note, form hardening |
+| Modify | `infra/wrangler.toml` | Add `[triggers]` cron schedule |
