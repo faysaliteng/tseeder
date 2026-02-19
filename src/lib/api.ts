@@ -147,6 +147,30 @@ export const authMe = {
   me: () => request<{ user: { id: string; role: string } }>("/auth/me"),
 };
 
+// ── API Keys ──────────────────────────────────────────────────────────────────
+
+export interface ApiKey {
+  id: string;
+  name: string;
+  prefix: string;          // first 8 chars visible, rest masked
+  createdAt: string;
+  lastUsedAt: string | null;
+  expiresAt: string | null;
+}
+
+export const apiKeys = {
+  list: () => request<{ keys: ApiKey[] }>("/auth/api-keys"),
+  create: (name: string, expiresIn?: number) =>
+    request<{ key: ApiKey; secret: string }>("/auth/api-keys", {
+      method: "POST",
+      body: JSON.stringify({ name, expiresIn }),
+    }),
+  revoke: (id: string) =>
+    request<{ message: string }>(`/auth/api-keys/${id}`, { method: "DELETE" }),
+};
+
+
+
 // ── Admin ─────────────────────────────────────────────────────────────────────
 
 export const admin = {

@@ -1,14 +1,17 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { admin as adminApi, usage as usageApi, files as filesApi, auth as authApi, ApiError } from "@/lib/api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { usage as usageApi, auth as authApi, apiKeys as apiKeysApi, type ApiKey, ApiError } from "@/lib/api";
 import { TopHeader } from "@/components/TopHeader";
 import { formatBytes } from "@/lib/mock-data";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { TrendingUp, Languages, User, Lock, Bell, Trash2, Check, X, Loader2, Eye, EyeOff } from "lucide-react";
+import {
+  TrendingUp, Languages, User, Lock, Bell, Trash2, Check, X, Loader2, Eye, EyeOff,
+  Key, Plus, Copy, AlertTriangle, Clock,
+} from "lucide-react";
 import logoImg from "@/assets/logo.png";
 
 function SectionHeader({ title, icon: Icon, accent = "bg-slate-700" }: { title: string; icon: React.ElementType; accent?: string }) {
@@ -84,10 +87,43 @@ function EditableField({
 export default function SettingsPage() {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const qc = useQueryClient();
 
   const { data: usageData, isLoading: usageLoading } = useQuery({
     queryKey: ["usage"],
     queryFn: () => usageApi.get(),
+  });
+
+  const { data: keysData, isLoading: keysLoading } = useQuery({
+    queryKey: ["api-keys"],
+    queryFn: () => apiKeysApi.list(),
+  });
+
+  const [newKeyName, setNewKeyName] = useState("");
+  const [createdSecret, setCreatedSecret] = useState<string | null>(null);
+  const [copiedSecret, setCopiedSecret] = useState(false);
+
+  const createKeyMutation = useMutation({
+    mutationFn: (name: string) => apiKeysApi.create(name),
+    onSuccess: ({ secret }) => {
+      setCreatedSecret(secret);
+      setNewKeyName("");
+      qc.invalidateQueries({ queryKey: ["api-keys"] });
+    },
+    onError: (err) => {
+      toast({ title: "Error", description: err instanceof ApiError ? err.message : "Failed to create key", variant: "destructive" });
+    },
+  });
+
+  const revokeKeyMutation = useMutation({
+    mutationFn: (id: string) => apiKeysApi.revoke(id),
+    onSuccess: () => {
+      toast({ title: "API key revoked" });
+      qc.invalidateQueries({ queryKey: ["api-keys"] });
+    },
+    onError: (err) => {
+      toast({ title: "Error", description: err instanceof ApiError ? err.message : "Failed to revoke", variant: "destructive" });
+    },
   });
 
   const logoutMutation = useMutation({
@@ -255,6 +291,112 @@ export default function SettingsPage() {
             <Button variant="outline" className="w-full justify-start gap-2 border-border hover:border-primary/50">
               <Bell className="w-4 h-4 text-muted-foreground" /> Notification Preferences
             </Button>
+          </div>
+        </SectionCard>
+
+        {/* ── API Keys ──────────────────────────────────────────────── */}
+        <SectionCard>
+          <SectionHeader title="API Keys" icon={Key} accent="bg-slate-700" />
+          <div className="h-0.5 bg-destructive" />
+
+          {/* One-time secret reveal */}
+          {createdSecret && (
+            <div className="mx-4 mt-4 p-3 bg-success/10 border border-success/30 rounded-lg space-y-2">
+              <p className="text-xs font-semibold text-success flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5" /> Copy your secret now — it will never be shown again.
+              </p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-xs font-mono bg-background border border-border rounded px-2 py-1.5 text-foreground break-all select-all">
+                  {createdSecret}
+                </code>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(createdSecret);
+                    setCopiedSecret(true);
+                    setTimeout(() => setCopiedSecret(false), 2000);
+                  }}
+                  className="shrink-0 p-2 rounded border border-border hover:border-primary/50 text-muted-foreground hover:text-foreground transition-colors"
+                  title="Copy secret"
+                >
+                  {copiedSecret ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+              <button
+                onClick={() => setCreatedSecret(null)}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          {/* Create new key */}
+          <div className="px-4 py-3 border-b border-dashed border-border/60">
+            <div className="text-xs text-muted-foreground uppercase tracking-widest mb-2">Create New Key</div>
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder="Key name (e.g. ci-deploy)"
+                value={newKeyName}
+                onChange={e => setNewKeyName(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && newKeyName.trim()) createKeyMutation.mutate(newKeyName.trim()); }}
+                className="bg-input text-sm h-8 flex-1"
+                maxLength={64}
+              />
+              <Button
+                size="sm"
+                className="h-8 gap-1.5 gradient-primary text-white border-0 shrink-0"
+                disabled={!newKeyName.trim() || createKeyMutation.isPending}
+                onClick={() => createKeyMutation.mutate(newKeyName.trim())}
+              >
+                {createKeyMutation.isPending
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : <Plus className="w-3.5 h-3.5" />}
+                Generate
+              </Button>
+            </div>
+          </div>
+
+          {/* Key list */}
+          <div>
+            {keysLoading ? (
+              Array.from({ length: 2 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 px-4 py-3 animate-pulse border-b border-dashed border-border/60 last:border-0">
+                  <div className="h-3 bg-muted rounded flex-1" />
+                  <div className="h-3 bg-muted rounded w-24" />
+                </div>
+              ))
+            ) : (keysData?.keys ?? []).length === 0 ? (
+              <div className="px-4 py-5 text-sm text-muted-foreground text-center">No API keys yet.</div>
+            ) : (
+              (keysData?.keys ?? []).map((key: ApiKey) => (
+                <div key={key.id} className="flex items-center gap-3 px-4 py-3 border-b border-dashed border-border/60 last:border-0">
+                  <Key className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{key.name}</p>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      <code className="text-xs text-muted-foreground font-mono">{key.prefix}••••••••</code>
+                      {key.lastUsedAt && (
+                        <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                          <Clock className="w-2.5 h-2.5" /> Used {new Date(key.lastUsedAt).toLocaleDateString()}
+                        </span>
+                      )}
+                      {key.expiresAt && (
+                        <span className="text-xs text-muted-foreground">
+                          Expires {new Date(key.expiresAt).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => revokeKeyMutation.mutate(key.id)}
+                    disabled={revokeKeyMutation.isPending}
+                    className="text-xs text-destructive border border-destructive/40 rounded px-2 py-1 hover:bg-destructive/10 transition-colors shrink-0 disabled:opacity-40"
+                  >
+                    Revoke
+                  </button>
+                </div>
+              ))
+            )}
           </div>
         </SectionCard>
 
