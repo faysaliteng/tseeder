@@ -256,6 +256,74 @@ export async function handleVerifyEmail(req: Request, env: Env): Promise<Respons
   return Response.json({ message: "Email verified successfully." });
 }
 
+// ── GET /auth/api-keys ────────────────────────────────────────────────────────
+
+export async function handleListApiKeys(req: Request, env: Env, ctx: { user?: { id: string; role: string } }): Promise<Response> {
+  const userId = ctx.user!.id;
+  const rows = await env.DB.prepare(`
+    SELECT id, name, key_prefix, created_at, last_used_at, expires_at
+    FROM api_keys WHERE user_id = ? AND revoked = 0
+    ORDER BY created_at DESC LIMIT 50
+  `).bind(userId).all<{ id: string; name: string; key_prefix: string; created_at: string; last_used_at: string | null; expires_at: string | null }>();
+
+  const keys = (rows.results ?? []).map(r => ({
+    id: r.id,
+    name: r.name,
+    prefix: r.key_prefix,
+    createdAt: r.created_at,
+    lastUsedAt: r.last_used_at,
+    expiresAt: r.expires_at,
+  }));
+  return Response.json({ keys });
+}
+
+// ── POST /auth/api-keys ───────────────────────────────────────────────────────
+
+export async function handleCreateApiKey(req: Request, env: Env, ctx: { user?: { id: string; role: string } }): Promise<Response> {
+  const correlationId = req.headers.get("X-Correlation-ID") ?? crypto.randomUUID();
+  const userId = ctx.user!.id;
+  const body = await req.json().catch(() => null) as { name?: string; expiresIn?: number } | null;
+  const name = body?.name?.slice(0, 64) ?? "Unnamed key";
+  const expiresInDays = body?.expiresIn ? Math.min(Math.max(body.expiresIn, 1), 365) : null;
+
+  // Check count limit
+  const countRow = await env.DB.prepare("SELECT COUNT(*) as cnt FROM api_keys WHERE user_id = ? AND revoked = 0").bind(userId).first<{ cnt: number }>();
+  if ((countRow?.cnt ?? 0) >= 10) {
+    return apiError("LIMIT_EXCEEDED", "Maximum of 10 API keys per account", 422, correlationId);
+  }
+
+  const rawSecret = generateToken();
+  const secretHash = await hashToken(rawSecret);
+  const id = crypto.randomUUID();
+  const prefix = rawSecret.slice(0, 8);
+  const expiresAt = expiresInDays ? new Date(Date.now() + expiresInDays * 86400000).toISOString() : null;
+
+  await env.DB.prepare(`
+    INSERT INTO api_keys (id, user_id, name, key_hash, key_prefix, expires_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).bind(id, userId, name, secretHash, prefix, expiresAt).run();
+
+  return Response.json({
+    key: { id, name, prefix, createdAt: new Date().toISOString(), lastUsedAt: null, expiresAt },
+    secret: rawSecret,
+  }, { status: 201 });
+}
+
+// ── DELETE /auth/api-keys/:id ─────────────────────────────────────────────────
+
+export async function handleRevokeApiKey(req: Request, env: Env, ctx: { params: Record<string, string>; user?: { id: string; role: string } }): Promise<Response> {
+  const correlationId = req.headers.get("X-Correlation-ID") ?? crypto.randomUUID();
+  const userId = ctx.user!.id;
+  const keyId = ctx.params.id;
+  const result = await env.DB.prepare(
+    "UPDATE api_keys SET revoked = 1 WHERE id = ? AND user_id = ?"
+  ).bind(keyId, userId).run();
+  if (!result.meta.changes) {
+    return apiError("NOT_FOUND", "API key not found", 404, correlationId);
+  }
+  return Response.json({ message: "API key revoked", id: keyId });
+}
+
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
 export function apiError(

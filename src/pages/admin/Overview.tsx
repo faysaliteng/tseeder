@@ -19,29 +19,31 @@ interface Health {
   ts?: string;
 }
 
-// Live activity ticker
-const EVENTS = [
-  "Job #4821 completed — ubuntu-22.iso (4.2 GB)",
-  "User user@demo.com logged in",
-  "Job #4820 started downloading — debian-12.torrent",
-  "API key generated — ci-deploy",
-  "Job #4819 failed — connection timeout",
-  "Storage GC run — freed 1.2 GB",
-  "Job #4818 queued — archlinux-2024.torrent",
-  "User admin@tf.io switched provider to Seedr.cc",
-];
-
+// Live activity feed from real audit log
 function LiveFeed() {
+  const { data: auditData } = useQuery({
+    queryKey: ["admin-audit-live"],
+    queryFn: () => adminApi.audit(1),
+    refetchInterval: 10_000,
+  });
+
+  const events: any[] = (auditData?.data as any[] ?? []).slice(0, 8);
   const [idx, setIdx] = useState(0);
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
+    if (events.length === 0) return;
     const t = setInterval(() => {
       setVisible(false);
-      setTimeout(() => { setIdx(i => (i + 1) % EVENTS.length); setVisible(true); }, 300);
-    }, 3000);
+      setTimeout(() => { setIdx(i => (i + 1) % Math.max(events.length, 1)); setVisible(true); }, 300);
+    }, 4000);
     return () => clearInterval(t);
-  }, []);
+  }, [events.length]);
+
+  const current = events[idx % Math.max(events.length, 1)];
+  const label = current
+    ? `${current.action ?? "event"} — ${current.target_type ?? ""} ${current.target_id ?? ""}`.trim()
+    : "No recent activity";
 
   return (
     <div className="glass-card rounded-xl p-4 overflow-hidden">
@@ -54,7 +56,7 @@ function LiveFeed() {
           className="text-sm text-foreground font-mono truncate transition-all duration-300"
           style={{ opacity: visible ? 1 : 0, transform: visible ? "translateY(0)" : "translateY(8px)" }}
         >
-          <span className="text-primary mr-2">›</span>{EVENTS[idx]}
+          <span className="text-primary mr-2">›</span>{label}
         </p>
       </div>
     </div>
