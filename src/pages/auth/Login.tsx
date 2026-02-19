@@ -15,7 +15,7 @@ declare const chrome: {
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Eye, EyeOff, Loader2, AlertCircle, Zap } from "lucide-react";
+import { Eye, EyeOff, Loader2, AlertCircle, Zap, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import fseederLogo from "@/assets/fseeder-logo.png";
 
@@ -133,6 +133,10 @@ export default function LoginPage() {
       <AuthBlobs />
 
       <div className="w-full max-w-sm space-y-6 relative z-10">
+        {/* Back to Home */}
+        <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors animate-slide-up-fade">
+          <ArrowLeft className="w-4 h-4" /> Back to Home
+        </Link>
         {/* Logo */}
         <div className="text-center animate-slide-up-fade">
           <div className="flex items-center justify-center w-20 h-20 rounded-2xl overflow-hidden border border-primary/20 mx-auto mb-5 shadow-glow-primary animate-float">
