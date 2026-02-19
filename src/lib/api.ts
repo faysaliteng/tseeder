@@ -461,3 +461,70 @@ export const adminArticles = {
     request<{ id: string; status: string; publishedAt: string | null }>(`/admin/articles/${id}/publish`, { method: "POST" }),
 };
 
+// ── Uptime History (public) ───────────────────────────────────────────────────
+
+export interface UptimeSnapshot {
+  date: string;
+  operational: boolean;
+  note: string | null;
+}
+
+export const statusHistory = {
+  get: (days = 90) =>
+    request<{
+      components: Record<string, UptimeSnapshot[]>;
+      uptimePct: Record<string, Record<string, number>>;
+      days: number;
+      generatedAt: string;
+    }>(`/status/history?days=${days}`),
+};
+
+// ── Admin — Observability ─────────────────────────────────────────────────────
+
+export interface ObservabilityData {
+  apiLatency: { p50: number; p95: number; trend: { bucket: string; p50: number; p95: number; requests: number }[] };
+  errorRates: { trend: { hour_bucket: string; status_class: string; count: number }[] };
+  queueDepth: { current: number; trend: { captured_at: string; queue_depth: number; dlq_depth: number }[] };
+  workerFleet: { total: number; healthy: number; stale: number; totalCapacity: number; usedCapacity: number; workers: any[] };
+  dlqGrowth: { current: number; change24h: number };
+}
+
+export const adminObservability = {
+  get: () => request<ObservabilityData>("/admin/observability"),
+};
+
+// ── Organizations ─────────────────────────────────────────────────────────────
+
+export interface ApiOrg {
+  id: string; name: string; slug: string;
+  plan_id: string | null; plan_name: string | null;
+  created_at: string; role?: string; member_count?: number;
+}
+
+export const orgs = {
+  list: () => request<{ orgs: ApiOrg[] }>("/orgs"),
+  create: (name: string) =>
+    request<{ org: ApiOrg }>("/orgs", { method: "POST", body: JSON.stringify({ name }) }),
+  get: (slug: string) =>
+    request<{ org: ApiOrg; members: any[]; usage: { storageBytes: number } }>(`/orgs/${slug}`),
+  update: (slug: string, name: string) =>
+    request<{ message: string; slug: string }>(`/orgs/${slug}`, {
+      method: "PATCH", body: JSON.stringify({ name }),
+    }),
+  invite: (slug: string, email: string, role = "member") =>
+    request<{ message: string; token: string; email: string; role: string; expiresIn: string }>(
+      `/orgs/${slug}/invites`, { method: "POST", body: JSON.stringify({ email, role }) }
+    ),
+  removeMember: (slug: string, userId: string) =>
+    request<{ message: string }>(`/orgs/${slug}/members/${userId}`, { method: "DELETE" }),
+  acceptInvite: (token: string) =>
+    request<{ message: string; slug: string; role: string }>(`/orgs/accept-invite/${token}`, {
+      method: "POST", body: JSON.stringify({}),
+    }),
+};
+
+export const adminOrgs = {
+  list: (page = 1) => request<PaginatedResponse<ApiOrg>>(`/admin/orgs?page=${page}`),
+};
+
+

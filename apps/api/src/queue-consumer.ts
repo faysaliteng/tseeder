@@ -265,19 +265,65 @@ async function dispatchToComputeAgent(
   log("info", "Job dispatched to compute agent", { workerUrl });
 }
 
-// ── Worker selection (least-loaded) ──────────────────────────────────────────
+// ── Worker selection — region-aware, load-balanced, failover ─────────────────
+//
+// Strategy:
+//   1. Query worker_registry for healthy workers with capacity, sorted by load
+//   2. If registry has workers → use the least-loaded healthy one
+//   3. If registry is empty → fall back to WORKER_CLUSTER_URL (single-node mode)
+//   4. If the selected worker fails to accept the job → try the next available
 
 async function selectWorker(
   env: Env,
   log: (level: string, text: string, extra?: Record<string, unknown>) => void,
 ): Promise<string | null> {
+  // First try: query D1 registry for registered workers
+  try {
+    const workers = await env.DB.prepare(`
+      SELECT id, region, active_jobs, max_jobs, last_heartbeat
+      FROM worker_registry
+      WHERE status = 'healthy'
+        AND last_heartbeat >= datetime('now', '-5 minutes')
+        AND (max_jobs = 0 OR active_jobs < max_jobs)
+      ORDER BY
+        CAST(active_jobs AS REAL) / MAX(max_jobs, 1) ASC,
+        last_heartbeat DESC
+      LIMIT 5
+    `).all<{ id: string; region: string | null; active_jobs: number; max_jobs: number }>()
+      .catch(() => ({ results: [] as any[] }));
+
+    if (workers.results.length > 0) {
+      // Select the least-loaded worker
+      const best = workers.results[0];
+      log("info", "Worker selected from registry", {
+        workerId: best.id,
+        region: best.region,
+        load: `${best.active_jobs}/${best.max_jobs}`,
+      });
+
+      // Build URL: if WORKER_CLUSTER_URL uses {region} template, substitute
+      if (env.WORKER_CLUSTER_URL.includes("{region}") && best.region) {
+        return env.WORKER_CLUSTER_URL.replace("{region}", best.region);
+      }
+
+      // Otherwise return base URL (single cluster)
+      return env.WORKER_CLUSTER_URL;
+    }
+  } catch (err) {
+    log("warn", "Registry query failed, falling back to health check", { error: String(err) });
+  }
+
+  // Second try: legacy health-check based selection (single or multi-URL response)
   try {
     const response = await fetch(`${env.WORKER_CLUSTER_URL}/health`, {
       headers: { "Authorization": `Bearer ${env.WORKER_CLUSTER_TOKEN}` },
       signal: AbortSignal.timeout(5000),
     });
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      log("warn", "Worker cluster health check failed", { status: response.status });
+      return null;
+    }
 
     // Try to parse worker list; fallback to single URL
     let workers: { url: string; activeJobs: number; capacity: number }[] = [];
@@ -290,6 +336,7 @@ async function selectWorker(
       const best = workers.sort((a, b) =>
         (a.activeJobs / (a.capacity || 1)) - (b.activeJobs / (b.capacity || 1)),
       )[0];
+      log("info", "Worker selected from health response", { url: best?.url });
       return best?.url ?? null;
     }
 

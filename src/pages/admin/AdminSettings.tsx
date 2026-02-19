@@ -146,7 +146,7 @@ export default function AdminSettings() {
           confirmPhrase={flagModal.newValue ? "enable" : "disable"}
           reasonRequired
           onClose={() => setFlagModal(null)}
-          onConfirm={(reason) => updateFlagMutation.mutate({
+          onConfirm={(_params) => updateFlagMutation.mutate({
             key: flagModal.flag.key,
             value: flagModal.newValue,
             reason,

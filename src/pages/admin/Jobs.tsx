@@ -167,7 +167,7 @@ export default function AdminJobs() {
         confirmPhrase="terminate"
         reasonRequired
         onClose={() => setTerminating(null)}
-        onConfirm={() => { if (terminating) terminateMutation.mutate(terminating.id); }}
+        onConfirm={(_p) => { if (terminating) terminateMutation.mutate(terminating.id); }}
         isPending={terminateMutation.isPending}
       />
     </AdminLayout>

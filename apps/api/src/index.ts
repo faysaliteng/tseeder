@@ -38,6 +38,12 @@ import {
 import {
   handleAdminDlqList, handleAdminDlqReplay, handleAdminGlobalSearch, handleAdminConfigHistory,
 } from "./handlers/admin";
+import {
+  handleListOrgs, handleCreateOrg, handleGetOrg, handleUpdateOrg,
+  handleListOrgMembers, handleInviteOrgMember, handleRemoveOrgMember,
+  handleAcceptOrgInvite, handleAdminListOrgs, handleAdminObservability,
+  handleUptimeHistory,
+} from "./handlers/orgs";
 import { JobProgressDO, UserSessionDO } from "./durable-objects";
 
 export { JobProgressDO, UserSessionDO };
@@ -184,6 +190,25 @@ router.post("/admin/dlq/:id/replay",        [authMiddleware, rbacMiddleware("adm
 router.get("/admin/search",                 [authMiddleware, rbacMiddleware("support")],                     handleAdminGlobalSearch);
 router.get("/admin/config-history",         [authMiddleware, rbacMiddleware("admin")],                       handleAdminConfigHistory);
 
+// ── Admin — Observability ─────────────────────────────────────────────────────
+router.get("/admin/observability",          [authMiddleware, rbacMiddleware("admin")],                       handleAdminObservability);
+
+// ── Admin — Organizations ─────────────────────────────────────────────────────
+router.get("/admin/orgs",                   [authMiddleware, rbacMiddleware("admin")],                       handleAdminListOrgs);
+
+// ── Orgs (user-facing) ────────────────────────────────────────────────────────
+router.get("/orgs",                         [authMiddleware],                             handleListOrgs);
+router.post("/orgs",                        [authMiddleware, csrfMiddleware],             handleCreateOrg);
+router.get("/orgs/:slug",                   [authMiddleware],                             handleGetOrg);
+router.patch("/orgs/:slug",                 [authMiddleware, csrfMiddleware],             handleUpdateOrg);
+router.get("/orgs/:slug/members",           [authMiddleware],                             handleListOrgMembers);
+router.post("/orgs/:slug/invites",          [authMiddleware, csrfMiddleware],             handleInviteOrgMember);
+router.delete("/orgs/:slug/members/:userId",[authMiddleware, csrfMiddleware],             handleRemoveOrgMember);
+router.post("/orgs/accept-invite/:token",   [authMiddleware, csrfMiddleware],             handleAcceptOrgInvite);
+
+// ── Public — Uptime History ────────────────────────────────────────────────────
+router.get("/status/history",               [],                                           handleUptimeHistory);
+
 // ── Durable Object SSE proxy ───────────────────────────────────────────────────
 router.get("/do/job/:id/sse", [authMiddleware], async (req, env, ctx) => {
   const id = env.JOB_PROGRESS_DO.idFromName(ctx.params.id);
@@ -227,7 +252,9 @@ export default {
   },
 
   // ── Cron Triggers ────────────────────────────────────────────────────────────
-  // Polls Seedr.cc every 2 minutes for active Seedr-provider job progress
+  // */2 * * * *  — Seedr.cc job progress polling
+  // 0 * * * *   — Hourly uptime snapshot + queue depth snapshot
+  // 0 3 * * *   — Daily retention sweeper + orphan cleanup
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil((async () => {
       console.log(JSON.stringify({
@@ -237,15 +264,34 @@ export default {
         scheduledTime: new Date(event.scheduledTime).toISOString(),
       }));
 
+      const runTask = async (name: string, fn: () => Promise<void>) => {
+        try {
+          await fn();
+        } catch (err) {
+          console.error(JSON.stringify({
+            ts: new Date().toISOString(), level: "error",
+            service: "workers-api", event: "cron_error",
+            task: name, error: String(err), stack: (err as Error).stack,
+          }));
+        }
+      };
+
+      // Every 2 minutes: Seedr poller
       const { runSeedrPoller } = await import("./seedr-poller");
-      try {
-        await runSeedrPoller(env);
-      } catch (err) {
-        console.error(JSON.stringify({
-          ts: new Date().toISOString(), level: "error",
-          service: "workers-api", event: "cron_error",
-          error: String(err), stack: (err as Error).stack,
-        }));
+      await runTask("seedr_poller", () => runSeedrPoller(env));
+
+      // Hourly: uptime + queue depth snapshot
+      const isHourly = event.cron === "0 * * * *" || !event.cron;
+      if (isHourly) {
+        const { runUptimeSweeper } = await import("./uptime-sweeper");
+        await runTask("uptime_sweeper", () => runUptimeSweeper(env));
+      }
+
+      // Daily at 3 AM: retention sweeper
+      const isDaily = event.cron === "0 3 * * *";
+      if (isDaily) {
+        const { runRetentionSweeper } = await import("./retention-sweeper");
+        await runTask("retention_sweeper", () => runRetentionSweeper(env));
       }
     })());
   },

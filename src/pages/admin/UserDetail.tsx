@@ -254,7 +254,7 @@ export default function AdminUserDetail() {
         confirmPhrase={user.suspended ? "reinstate" : "suspend"}
         reasonRequired={!user.suspended}
         onClose={() => setDangerModal(null)}
-        onConfirm={() => updateMutation.mutate({ suspended: !user.suspended })}
+        onConfirm={(_p) => updateMutation.mutate({ suspended: !user.suspended })}
         isPending={updateMutation.isPending}
       />
 
@@ -264,7 +264,7 @@ export default function AdminUserDetail() {
         description={`Terminate all active sessions for ${user.email}. They will be immediately signed out of all devices.`}
         confirmPhrase="force-logout"
         onClose={() => setDangerModal(null)}
-        onConfirm={() => forceLogoutMutation.mutate()}
+        onConfirm={(_p) => forceLogoutMutation.mutate()}
         isPending={forceLogoutMutation.isPending}
       />
 
@@ -275,7 +275,7 @@ export default function AdminUserDetail() {
         confirmPhrase="change-role"
         reasonRequired
         onClose={() => { setDangerModal(null); setPendingRole(""); }}
-        onConfirm={() => updateMutation.mutate({ role: pendingRole })}
+        onConfirm={(_p) => updateMutation.mutate({ role: pendingRole })}
         isPending={updateMutation.isPending}
       />
     </AdminLayout>
