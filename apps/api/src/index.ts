@@ -5,7 +5,7 @@
 
 import { Router } from "./router";
 import { authMiddleware, rbacMiddleware, csrfMiddleware, rateLimitMiddleware } from "./middleware";
-import { handleRegister, handleLogin, handleLogout, handleReset, handleVerifyEmail } from "./handlers/auth";
+import { handleRegister, handleLogin, handleLogout, handleReset, handleVerifyEmail, handleListApiKeys, handleCreateApiKey, handleRevokeApiKey } from "./handlers/auth";
 import { handleCreateJob, handleListJobs, handleGetJob, handleJobAction, handleJobCallback } from "./handlers/jobs";
 import { handleGetFiles, handleSignedUrl, handleDeleteFile } from "./handlers/files";
 import { handleGetUsage, handleGetPlans } from "./handlers/admin";
@@ -62,6 +62,11 @@ router.post("/auth/login",        [rateLimitMiddleware("login", 10, 60)],     ha
 router.post("/auth/logout",       [authMiddleware],                           handleLogout);
 router.post("/auth/reset",        [rateLimitMiddleware("reset", 3, 3600)],    handleReset);
 router.post("/auth/verify-email", [],                                         handleVerifyEmail);
+
+// ── API Keys (authenticated) ───────────────────────────────────────────────────
+router.get("/auth/api-keys",           [authMiddleware],                           handleListApiKeys);
+router.post("/auth/api-keys",          [authMiddleware, csrfMiddleware],           handleCreateApiKey);
+router.delete("/auth/api-keys/:id",    [authMiddleware, csrfMiddleware],           handleRevokeApiKey);
 
 // ── Session info ──────────────────────────────────────────────────────────────
 router.get("/auth/me", [authMiddleware], async (_req, _env, ctx) =>
