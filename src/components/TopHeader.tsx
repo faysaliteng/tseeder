@@ -47,8 +47,8 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
     setTimeout(() => pasteRef.current?.focus(), 50);
   };
 
-  const isSettings = location.pathname === "/settings";
-  const isDashboard = location.pathname === "/dashboard" || location.pathname === "/";
+  const isSettings = location.pathname === "/app/settings";
+  const isDashboard = location.pathname === "/app/dashboard" || location.pathname === "/";
 
   return (
     <header className="sticky top-0 z-50 bg-card border-b border-dashed border-border shadow-card">
@@ -57,7 +57,7 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
 
         {/* Avatar / Logo circle */}
         <Link
-          to="/dashboard"
+          to="/app/dashboard"
           className="flex items-center justify-center w-14 h-14 rounded-full overflow-hidden border-2 border-border shrink-0 hover:border-primary/60 transition-colors bg-secondary"
         >
           <img src={logoImg} alt="TorrentFlow" className="w-full h-full object-cover" />
@@ -98,10 +98,10 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
 
         {/* Seedr-style nav tabs (Files / Settings) */}
         <nav className="hidden sm:flex items-center gap-1 mr-2 h-full">
-          <NavTab to="/dashboard" active={isDashboard}>
+          <NavTab to="/app/dashboard" active={isDashboard}>
             <Star className="w-4 h-4" />
           </NavTab>
-          <NavTab to="/settings" active={isSettings}>
+          <NavTab to="/app/settings" active={isSettings}>
             <Settings className="w-4 h-4" />
           </NavTab>
         </nav>
@@ -191,9 +191,9 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
             <div className="py-1.5">
               <DropdownLink icon="👥" label="Invite For Space" onClick={() => setMenuOpen(false)} />
               <div className="mx-3 my-1 dashed-separator" />
-              <DropdownLink icon={null} label="Files" lucideIcon={Star} onClick={() => { navigate("/dashboard"); setMenuOpen(false); }} />
-              <DropdownLink icon={null} label="Account" lucideIcon={User} onClick={() => { navigate("/settings"); setMenuOpen(false); }} />
-              <DropdownLink icon={null} label="Admin" lucideIcon={Shield} onClick={() => { navigate("/admin"); setMenuOpen(false); }} />
+              <DropdownLink icon={null} label="Files" lucideIcon={Star} onClick={() => { navigate("/app/dashboard"); setMenuOpen(false); }} />
+              <DropdownLink icon={null} label="Account" lucideIcon={User} onClick={() => { navigate("/app/settings"); setMenuOpen(false); }} />
+              <DropdownLink icon={null} label="Admin Console" lucideIcon={Shield} onClick={() => { navigate("/admin/overview"); setMenuOpen(false); }} />
               <DropdownLink icon={null} label="Tutorials" lucideIcon={HelpCircle} onClick={() => setMenuOpen(false)} />
             </div>
             <div className="mx-3 dashed-separator" />

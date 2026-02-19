@@ -207,7 +207,7 @@ export default function JobDetailPage() {
 
         {/* Breadcrumb */}
         <nav className="flex items-center gap-1.5 text-sm text-muted-foreground">
-          <Link to="/dashboard" className="hover:text-foreground transition-colors flex items-center gap-1">
+          <Link to="/app/dashboard" className="hover:text-foreground transition-colors flex items-center gap-1">
             <ArrowLeft className="w-3.5 h-3.5" /> Files
           </Link>
           <ChevronRight className="w-3.5 h-3.5 opacity-40" />
@@ -228,7 +228,7 @@ export default function JobDetailPage() {
             <AlertCircle className="w-8 h-8 text-destructive mx-auto mb-3" />
             <p className="text-foreground font-medium mb-1">Job not found</p>
             <p className="text-sm text-muted-foreground mb-4">This job may have been deleted or does not exist.</p>
-            <Button variant="outline" onClick={() => navigate("/dashboard")} className="gap-2">
+            <Button variant="outline" onClick={() => navigate("/app/dashboard")} className="gap-2">
               <ArrowLeft className="w-4 h-4" /> Back to Files
             </Button>
           </div>
