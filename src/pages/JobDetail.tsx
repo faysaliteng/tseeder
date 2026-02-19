@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { jobs as jobsApi, files as filesApi, usage as usageApi, type ApiJob, type ApiFile, ApiError } from "@/lib/api";
-import { formatBytes, formatSpeed, formatEta } from "@/lib/mock-data";
+import { formatBytes, formatSpeed, formatEta } from "@/lib/utils";
 import { useJobSSE, mergeSSEIntoJob } from "@/hooks/useSSE";
 import { StatusBadge } from "@/components/StatusBadge";
 import { TopHeader } from "@/components/TopHeader";
@@ -15,7 +15,7 @@ import {
   ChevronRight, ChevronDown, RefreshCw,
   Wifi, WifiOff, Users, Gauge, CheckCircle2,
 } from "lucide-react";
-import type { JobStatus } from "@/lib/mock-data";
+import type { JobStatus } from "@/lib/utils";
 
 // ── File-type icon ─────────────────────────────────────────────────────────
 function FileTypeIcon({ mimeType, isFolder }: { mimeType?: string | null; isFolder?: boolean }) {

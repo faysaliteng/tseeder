@@ -176,7 +176,7 @@ export default function RegisterPage() {
             <Checkbox id="aup" checked={accepted} onCheckedChange={v => setAccepted(!!v)} className="mt-0.5" />
             <label htmlFor="aup" className="text-xs text-muted-foreground leading-relaxed cursor-pointer">
               I accept the{" "}
-              <a href="#" className="text-primary hover:underline">Acceptable Use Policy</a>{" "}
+              <a href="/terms" className="text-primary hover:underline">Terms of Service</a>{" "}
               and acknowledge that downloading copyrighted content without permission is prohibited.
             </label>
           </div>

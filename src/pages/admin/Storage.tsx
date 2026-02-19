@@ -3,7 +3,7 @@ import { admin as adminApi } from "@/lib/api";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { AdminPageHeader, StatCard } from "@/components/admin/AdminUI";
 import { HardDrive, Database, Trash2, AlertTriangle } from "lucide-react";
-import { formatBytes } from "@/lib/mock-data";
+import { formatBytes } from "@/lib/utils";
 
 interface Health {
   agent?: {

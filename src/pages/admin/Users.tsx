@@ -6,7 +6,7 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import { AdminPageHeader, AdminTable, Paginator, DangerModal } from "@/components/admin/AdminUI";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { formatBytes } from "@/lib/mock-data";
+import { formatBytes } from "@/lib/utils";
 import { Search, ShieldCheck, ShieldOff, UserX, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 

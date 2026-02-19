@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { jobs as jobsApi, usage as usageApi, type ApiJob, ApiError } from "@/lib/api";
-import { formatBytes, formatSpeed, formatEta } from "@/lib/mock-data";
+import { formatBytes, formatSpeed, formatEta } from "@/lib/utils";
 import { TopHeader } from "@/components/TopHeader";
 import { AddDownloadModal } from "@/components/AddDownloadModal";
 import { cn } from "@/lib/utils";

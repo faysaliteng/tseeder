@@ -12,6 +12,10 @@ import ResetPage from "./pages/auth/Reset";
 import DashboardPage from "./pages/Dashboard";
 import JobDetailPage from "./pages/JobDetail";
 import SettingsPage from "./pages/Settings";
+import PrivacyPage from "./pages/Privacy";
+import TermsPage from "./pages/Terms";
+import DMCAPage from "./pages/DMCA";
+import StatusPage from "./pages/Status";
 
 // Admin pages
 import AdminOverview from "./pages/admin/Overview";
@@ -35,6 +39,7 @@ const queryClient = new QueryClient({
   },
 });
 
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -49,6 +54,12 @@ const App = () => (
           <Route path="/auth/login" element={<LoginPage />} />
           <Route path="/auth/register" element={<RegisterPage />} />
           <Route path="/auth/reset" element={<ResetPage />} />
+
+          {/* Legal + Status — public pages */}
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/dmca" element={<DMCAPage />} />
+          <Route path="/status" element={<StatusPage />} />
 
           {/* User app under /app/* */}
           <Route path="/app/dashboard" element={<DashboardPage />} />
