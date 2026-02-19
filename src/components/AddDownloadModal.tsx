@@ -1,32 +1,32 @@
 import { useState, useCallback } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { jobs as jobsApi, ApiError } from "@/lib/api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Magnet, Upload, X, FileIcon } from "lucide-react";
+import { Magnet, Upload, X, FileIcon, Loader2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Job } from "@/lib/mock-data";
-import { MOCK_JOBS } from "@/lib/mock-data";
-import { JobStatus } from "@/lib/mock-data";
 import { useToast } from "@/hooks/use-toast";
 
 interface AddDownloadModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onJobAdded: (job: Job) => void;
+  onJobAdded: () => void;
 }
 
-const MAGNET_REGEX = /^magnet:\?xt=urn:btih:[a-f0-9]{40}/i;
+const MAGNET_REGEX = /^magnet:\?xt=urn:btih:[a-f0-9]{32,40}/i;
 
 export function AddDownloadModal({ open, onOpenChange, onJobAdded }: AddDownloadModalProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<"magnet" | "torrent">("magnet");
   const [magnetUri, setMagnetUri] = useState("");
   const [magnetError, setMagnetError] = useState("");
   const [dragActive, setDragActive] = useState(false);
   const [torrentFile, setTorrentFile] = useState<File | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState("");
 
   const validateMagnet = (val: string) => {
     if (!val) { setMagnetError(""); return; }
@@ -47,45 +47,59 @@ export function AddDownloadModal({ open, onOpenChange, onJobAdded }: AddDownload
     if (file) setTorrentFile(file);
   };
 
-  const handleSubmit = async () => {
-    if (tab === "magnet" && (!magnetUri || magnetError)) return;
-    if (tab === "torrent" && !torrentFile) return;
+  const magnetMutation = useMutation({
+    mutationFn: () => jobsApi.createMagnet(magnetUri),
+    onSuccess: (job) => {
+      toast({ title: "Download queued", description: `"${job.name}" has been added.` });
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["usage"] });
+      onJobAdded();
+      setMagnetUri("");
+      setApiError("");
+      onOpenChange(false);
+    },
+    onError: (err) => {
+      const msg = err instanceof ApiError ? err.message : "Failed to add download";
+      setApiError(msg);
+    },
+  });
 
-    setLoading(true);
-    // Simulate instant job creation (optimistic UI)
-    await new Promise(r => setTimeout(r, 600));
+  const torrentMutation = useMutation({
+    mutationFn: () => jobsApi.createTorrent(torrentFile!),
+    onSuccess: (job) => {
+      toast({ title: "Download queued", description: `"${job.name}" has been added.` });
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["usage"] });
+      onJobAdded();
+      setTorrentFile(null);
+      setApiError("");
+      onOpenChange(false);
+    },
+    onError: (err) => {
+      const msg = err instanceof ApiError ? err.message : "Failed to add download";
+      setApiError(msg);
+    },
+  });
 
-    const newJob: Job = {
-      id: `job-${Date.now()}`,
-      name: tab === "magnet"
-        ? magnetUri.match(/&dn=([^&]+)/)?.[1]?.replace(/\+/g, " ") ?? "New torrent"
-        : torrentFile!.name.replace(".torrent", ""),
-      status: "submitted",
-      progressPct: 0,
-      downloadSpeed: 0,
-      uploadSpeed: 0,
-      eta: 0,
-      peers: 0,
-      seeds: 0,
-      bytesDownloaded: 0,
-      bytesTotal: 0,
-      error: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      completedAt: null,
-      infohash: null,
-    };
+  const isPending = magnetMutation.isPending || torrentMutation.isPending;
 
-    onJobAdded(newJob);
-    toast({ title: "Download queued", description: `"${newJob.name}" has been added.` });
-    setLoading(false);
-    setMagnetUri("");
-    setTorrentFile(null);
-    onOpenChange(false);
+  const handleSubmit = () => {
+    setApiError("");
+    if (tab === "magnet") {
+      if (!magnetUri || magnetError) return;
+      magnetMutation.mutate();
+    } else {
+      if (!torrentFile) return;
+      torrentMutation.mutate();
+    }
   };
 
+  const canSubmit = tab === "magnet"
+    ? !!(magnetUri && !magnetError && !isPending)
+    : !!(torrentFile && !isPending);
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={v => { if (!isPending) onOpenChange(v); }}>
       <DialogContent className="sm:max-w-lg bg-card border-border">
         <DialogHeader>
           <DialogTitle className="text-foreground">Add Download</DialogTitle>
@@ -100,6 +114,12 @@ export function AddDownloadModal({ open, onOpenChange, onJobAdded }: AddDownload
               <FileIcon className="w-4 h-4" /> Torrent File
             </TabsTrigger>
           </TabsList>
+
+          {apiError && (
+            <div className="flex items-center gap-2 mt-3 p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-xs text-destructive">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {apiError}
+            </div>
+          )}
 
           <TabsContent value="magnet" className="mt-4 space-y-3">
             <div className="space-y-1.5">
@@ -144,7 +164,9 @@ export function AddDownloadModal({ open, onOpenChange, onJobAdded }: AddDownload
                 </div>
               ) : (
                 <>
-                  <p className="text-sm text-muted-foreground">Drag & drop a <span className="text-foreground">.torrent</span> file here</p>
+                  <p className="text-sm text-muted-foreground">
+                    Drag & drop a <span className="text-foreground">.torrent</span> file here
+                  </p>
                   <p className="text-xs text-muted-foreground mt-1">or click to browse</p>
                 </>
               )}
@@ -161,15 +183,17 @@ export function AddDownloadModal({ open, onOpenChange, onJobAdded }: AddDownload
         </Tabs>
 
         <div className="flex gap-2 pt-2">
-          <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)} disabled={isPending}>
             Cancel
           </Button>
           <Button
             className="flex-1 gradient-primary text-white border-0"
-            disabled={loading || (tab === "magnet" ? (!magnetUri || !!magnetError) : !torrentFile)}
+            disabled={!canSubmit}
             onClick={handleSubmit}
           >
-            {loading ? "Adding…" : "Add Download"}
+            {isPending
+              ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Adding…</>
+              : "Add Download"}
           </Button>
         </div>
       </DialogContent>
