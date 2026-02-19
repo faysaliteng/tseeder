@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Eye, EyeOff, Loader2, AlertCircle, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import nexloadLogo from "@/assets/nexload-logo.png";
+import gravlLogo from "@/assets/gravl-logo.png";
 
 // Animated background blobs
 function AuthBlobs() {
@@ -92,9 +92,9 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center animate-slide-up-fade">
           <div className="flex items-center justify-center w-20 h-20 rounded-2xl overflow-hidden border border-primary/20 mx-auto mb-5 shadow-glow-primary animate-float">
-            <img src={nexloadLogo} alt="Nexload" className="w-full h-full object-cover" />
+            <img src={gravlLogo} alt="Gravl" className="w-full h-full object-cover" />
           </div>
-          <h1 className="text-3xl font-bold text-gradient">Nexload</h1>
+          <h1 className="text-3xl font-bold text-gradient">Gravl</h1>
           <p className="text-sm text-muted-foreground mt-1.5">Your personal remote download manager</p>
         </div>
 

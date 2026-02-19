@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, AlertCircle, CheckCircle2, Mail, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import nexloadLogo from "@/assets/nexload-logo.png";
+import gravlLogo from "@/assets/gravl-logo.png";
 
 function AuthBlobs() {
   return (
@@ -76,7 +76,7 @@ export default function ResetPage() {
       <div className="w-full max-w-sm space-y-6 relative z-10">
         <div className="text-center animate-slide-up-fade">
           <div className="flex items-center justify-center w-16 h-16 rounded-2xl overflow-hidden border border-primary/20 mx-auto mb-4 shadow-glow-primary animate-float">
-            <img src={nexloadLogo} alt="Nexload" className="w-full h-full object-cover" />
+            <img src={gravlLogo} alt="Gravl" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-2xl font-bold text-gradient">Reset password</h1>
           <p className="text-sm text-muted-foreground mt-1.5">We'll send a reset link to your inbox</p>
