@@ -33,12 +33,12 @@ export function AdminPageHeader({
   title: string; description?: string; actions?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between mb-6">
+    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4 sm:mb-6">
       <div>
-        <h1 className="text-xl font-bold text-foreground">{title}</h1>
-        {description && <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>}
+        <h1 className="text-lg sm:text-xl font-bold text-foreground">{title}</h1>
+        {description && <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">{description}</p>}
       </div>
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
+      {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
     </div>
   );
 }

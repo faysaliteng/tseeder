@@ -126,7 +126,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-8">
+      <main className="flex-1 max-w-2xl mx-auto w-full px-3 sm:px-4 py-6 sm:py-8">
 
         {/* ── Account ──────────────────────────────────────────────── */}
         <SectionCard>

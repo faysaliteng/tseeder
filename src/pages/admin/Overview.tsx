@@ -42,7 +42,7 @@ export default function AdminOverview() {
 
   return (
     <AdminLayout>
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-5 sm:space-y-6">
         <AdminPageHeader
           title="System Overview"
           description="Real-time health and KPIs for the TorrentFlow platform"
@@ -58,7 +58,7 @@ export default function AdminOverview() {
         />
 
         {/* KPI grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <StatCard label="Total Jobs" value={isLoading ? "…" : totalJobs} icon={Briefcase} />
           <StatCard label="Active Jobs" value={isLoading ? "…" : activeJobs} icon={Activity} variant={activeJobs > 0 ? "default" : "default"} />
           <StatCard label="Failed (24h)" value={isLoading ? "…" : health?.failedLast24h ?? 0} icon={AlertTriangle} variant={(health?.failedLast24h ?? 0) > 0 ? "warn" : "default"} />
