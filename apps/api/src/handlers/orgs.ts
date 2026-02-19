@@ -284,6 +284,30 @@ export async function handleAcceptOrgInvite(req: Request, env: Env, ctx: Ctx): P
   return Response.json({ message: "Joined organization", slug: invite.org_slug, role: invite.role });
 }
 
+// ── DELETE /orgs/:slug ────────────────────────────────────────────────────────
+
+export async function handleDeleteOrg(req: Request, env: Env, ctx: Ctx): Promise<Response> {
+  const correlationId = req.headers.get("X-Correlation-ID") ?? crypto.randomUUID();
+  const userId = ctx.user!.id;
+  const { slug } = ctx.params;
+
+  const org = await env.DB.prepare("SELECT id FROM organizations WHERE slug = ? LIMIT 1").bind(slug).first<{ id: string }>();
+  if (!org) return apiError("NOT_FOUND", "Organization not found", 404, correlationId);
+
+  const membership = await env.DB.prepare(
+    "SELECT role FROM org_members WHERE org_id = ? AND user_id = ?"
+  ).bind(org.id, userId).first<{ role: string }>();
+
+  if (!membership || membership.role !== "owner") {
+    return apiError("FORBIDDEN", "Only the org owner can delete an organization", 403, correlationId);
+  }
+
+  // Cascade delete: org_members + org_invites handled by FK ON DELETE CASCADE
+  await env.DB.prepare("DELETE FROM organizations WHERE id = ?").bind(org.id).run();
+
+  return Response.json({ message: "Organization deleted", slug });
+}
+
 // ── GET /admin/orgs ───────────────────────────────────────────────────────────
 
 export async function handleAdminListOrgs(req: Request, env: Env, _ctx: Ctx): Promise<Response> {

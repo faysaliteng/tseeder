@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { admin as adminApi, statusHistory, type UptimeSnapshot } from "@/lib/api";
+import { systemStatus, statusHistory, type UptimeSnapshot } from "@/lib/api";
 import { CheckCircle2, AlertTriangle, XCircle, RefreshCw, Clock } from "lucide-react";
 import { PublicNav, PublicFooter } from "@/components/PublicNav";
 
@@ -75,7 +75,7 @@ function UptimeBar({ snaps }: { snaps: UptimeSnapshot[] }) {
 export default function StatusPage() {
   const { data: health, isLoading, dataUpdatedAt, refetch, isFetching } = useQuery({
     queryKey: ["status-health"],
-    queryFn: () => adminApi.systemHealth() as Promise<any>,
+    queryFn: () => systemStatus.get(),
     refetchInterval: 60_000,
     retry: 1,
   });
@@ -241,12 +241,11 @@ export default function StatusPage() {
             <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
               <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Live Metrics</h2>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y divide-gray-100">
+            <div className="grid grid-cols-2 sm:grid-cols-3 divide-x divide-y divide-gray-100">
               {[
-                { label: "Active Jobs",    value: (Object.values(health.jobs ?? {}) as number[]).reduce((a: number, b: number) => a + b, 0) },
-                { label: "Failed (24h)",   value: health.failedLast24h ?? 0 },
-                { label: "Agent Capacity", value: health.agent ? `${health.agent.activeJobs ?? 0}/${health.agent.maxJobs ?? 0}` : "N/A" },
-                { label: "Agent Version",  value: health.agent?.version ?? "N/A" },
+                { label: "Queue Depth",    value: health.queueDepth ?? 0 },
+                { label: "Failed (DLQ)",   value: health.dlqDepth ?? 0 },
+                { label: "Agent Status",   value: health.agent ? "Online" : "Offline" },
               ].map(({ label, value }) => (
                 <div key={label} className="p-4 text-center">
                   <p className="text-[10px] text-gray-400 uppercase tracking-widest font-semibold mb-1">{label}</p>
