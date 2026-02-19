@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   TrendingUp, User, Lock, Bell, Trash2, Check, X, Loader2, Eye, EyeOff,
   Key, Plus, Copy, AlertTriangle, Clock, Zap, CloudLightning, ExternalLink, Languages,
-  Info,
+  Info, Plug, Server, HardDrive, Wifi, Terminal, ChevronDown, ChevronUp,
 } from "lucide-react";
 
 
@@ -103,6 +103,247 @@ function StorageArc({ pct, color, size = 80 }: { pct: number; color: string; siz
         style={{ transition: "stroke-dashoffset 0.8s ease", filter: `drop-shadow(0 0 6px ${color})` }}
       />
     </svg>
+  );
+}
+
+// ── Copy button helper ──────────────────────────────────────────────────────
+function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+      className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors font-semibold shrink-0"
+    >
+      {copied ? <Check className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3" />}
+      {copied ? "Copied!" : label}
+    </button>
+  );
+}
+
+// ── Collapsible integration panel ───────────────────────────────────────────
+function IntegrationPanel({
+  title, icon: Icon, iconColor = "text-info", badgeColor = "bg-info/10 border-info/30",
+  description, children,
+}: {
+  title: string; icon: React.ElementType; iconColor?: string; badgeColor?: string;
+  description: string; children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border border-border/50 rounded-xl overflow-hidden">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-muted/5 transition-colors text-left"
+      >
+        <div className={cn("w-9 h-9 rounded-xl border flex items-center justify-center shrink-0", badgeColor)}>
+          <Icon className={cn("w-4 h-4", iconColor)} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-foreground">{title}</p>
+          <p className="text-xs text-muted-foreground mt-0.5 truncate">{description}</p>
+        </div>
+        {open
+          ? <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
+          : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />}
+      </button>
+      {open && (
+        <div className="border-t border-border/40 px-4 py-4 bg-muted/5 space-y-3">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Config row ─────────────────────────────────────────────────────────────
+function ConfigRow({ label, value, mono = true }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-xs text-muted-foreground w-28 shrink-0 font-medium">{label}</span>
+      <div className="flex-1 min-w-0 flex items-center gap-2 bg-background/60 border border-border/40 rounded-lg px-3 py-1.5">
+        <span className={cn("text-xs flex-1 truncate", mono ? "font-mono text-foreground" : "text-foreground")}>{value}</span>
+        <CopyButton text={value} />
+      </div>
+    </div>
+  );
+}
+
+// ── The full integrations section ───────────────────────────────────────────
+function IntegrationsSection({ apiKeys, userEmail }: { apiKeys: ApiKey[]; userEmail: string }) {
+  const apiBase = import.meta.env.VITE_API_BASE_URL ?? "https://api.tseeder.com";
+  const webdavUrl = apiBase.replace("api.", "webdav.") + "/" + (userEmail !== "—" ? userEmail.split("@")[0] : "your-username");
+  const qbtHost = "qbt.tseeder.com";
+  const stremioAddonUrl = "https://stremio.tseeder.com/YOUR_API_KEY/manifest.json";
+  const firstKey = apiKeys[0];
+  const apiKeyDisplay = firstKey ? `${firstKey.prefix}••••••••` : "Generate an API key above first";
+
+  return (
+    <SectionCard>
+      <SectionHeader title="Integrations" icon={Plug} gradient="from-info/60 to-primary/60" />
+      <div className="px-4 py-4 space-y-3">
+        <p className="text-xs text-muted-foreground">
+          Connect tseeder to your media stack. Each integration uses your API key for authentication.
+          {!firstKey && <span className="text-warning font-semibold"> Generate an API key in the section above to get your personal URLs.</span>}
+        </p>
+
+        {/* ── Stremio ── */}
+        <IntegrationPanel
+          title="Stremio Plugin"
+          icon={Wifi}
+          iconColor="text-primary"
+          badgeColor="bg-primary/10 border-primary/30"
+          description="Stream torrents directly in Stremio without waiting for downloads"
+        >
+          <p className="text-xs text-muted-foreground">
+            Install the tseeder addon in Stremio. Open the URL below in your browser or paste it into Stremio's "Install addon from URL" field.
+          </p>
+          <ConfigRow label="Addon URL" value={firstKey ? stremioAddonUrl.replace("YOUR_API_KEY", firstKey.prefix + "…") : stremioAddonUrl} />
+          <div className="flex gap-2 pt-1">
+            <a
+              href="https://www.stremio.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs text-primary border border-primary/30 rounded-lg px-3 py-1.5 hover:bg-primary/10 transition-all font-semibold"
+            >
+              <ExternalLink className="w-3 h-3" /> Open Stremio
+            </a>
+          </div>
+          <div className="p-3 rounded-xl bg-info/5 border border-info/20 text-xs text-muted-foreground space-y-1">
+            <p className="font-semibold text-foreground">Setup steps:</p>
+            <ol className="list-decimal ml-4 space-y-0.5">
+              <li>Open Stremio → Add-ons → Community Add-ons</li>
+              <li>Click "Install addon from URL"</li>
+              <li>Paste the Addon URL above</li>
+              <li>Your tseeder library will appear under the tseeder catalog</li>
+            </ol>
+          </div>
+        </IntegrationPanel>
+
+        {/* ── Sonarr / Radarr ── */}
+        <IntegrationPanel
+          title="Sonarr & Radarr"
+          icon={Server}
+          iconColor="text-warning"
+          badgeColor="bg-warning/10 border-warning/30"
+          description="Use tseeder as the download client for your media automation stack"
+        >
+          <p className="text-xs text-muted-foreground">
+            In Sonarr or Radarr go to <strong className="text-foreground">Settings → Download Clients → Add → tseeder</strong> and enter these values:
+          </p>
+          <div className="space-y-2">
+            <ConfigRow label="Host" value={apiBase.replace("https://", "").replace("http://", "")} />
+            <ConfigRow label="Port" value="443" mono />
+            <ConfigRow label="API Key" value={firstKey ? `${firstKey.prefix}………` : "Your API key"} />
+            <ConfigRow label="Category" value="sonarr" />
+            <ConfigRow label="Use SSL" value="✓ Yes" mono={false} />
+          </div>
+          <div className="p-3 rounded-xl bg-warning/5 border border-warning/20 text-xs text-muted-foreground">
+            <strong className="text-foreground">Path mapping:</strong> Set the remote path to <code className="font-mono bg-muted/40 px-1 rounded">/downloads</code> and map it to your local media library path. tseeder exposes completed files via WebDAV.
+          </div>
+        </IntegrationPanel>
+
+        {/* ── WebDAV ── */}
+        <IntegrationPanel
+          title="WebDAV / Drive Mount"
+          icon={HardDrive}
+          iconColor="text-success"
+          badgeColor="bg-success/10 border-success/30"
+          description="Mount your tseeder vault as a local drive on Windows, macOS or Linux"
+        >
+          <p className="text-xs text-muted-foreground">
+            Use these credentials to mount your tseeder vault via WebDAV, SFTP, or rclone.
+          </p>
+          <div className="space-y-2">
+            <ConfigRow label="WebDAV URL" value={webdavUrl} />
+            <ConfigRow label="Username" value={userEmail !== "—" ? userEmail : "your@email.com"} mono={false} />
+            <ConfigRow label="Password" value="Your account password" mono={false} />
+            <ConfigRow label="Protocol" value="HTTPS (port 443)" mono={false} />
+          </div>
+          <div className="p-3 rounded-xl bg-success/5 border border-success/20 text-xs space-y-2">
+            <p className="font-semibold text-foreground">Platform instructions:</p>
+            <div className="space-y-1.5 text-muted-foreground">
+              <p><strong className="text-foreground">Windows:</strong> File Explorer → Map network drive → enter WebDAV URL</p>
+              <p><strong className="text-foreground">macOS:</strong> Finder → ⌘K → enter WebDAV URL → Connect</p>
+              <p><strong className="text-foreground">Linux (rclone):</strong></p>
+              <code className="block bg-muted/30 rounded p-2 font-mono text-[11px] whitespace-pre">{`rclone config  # select WebDAV
+rclone mount tseeder: ~/tseeder --vfs-cache-mode full`}</code>
+            </div>
+          </div>
+        </IntegrationPanel>
+
+        {/* ── qBittorrent Bridge ── */}
+        <IntegrationPanel
+          title="qBittorrent Remote Bridge"
+          icon={Terminal}
+          iconColor="text-info"
+          badgeColor="bg-info/10 border-info/30"
+          description="Control tseeder from nzb360, Flud, LunaSea and other qBittorrent-compatible apps"
+        >
+          <p className="text-xs text-muted-foreground">
+            The tseeder qBittorrent bridge speaks the native qBittorrent WebUI protocol. Enter these settings in any compatible remote app — no plugin needed.
+          </p>
+          <div className="space-y-2">
+            <ConfigRow label="Host" value={qbtHost} />
+            <ConfigRow label="Port" value="443" />
+            <ConfigRow label="Username" value={userEmail !== "—" ? userEmail : "your@email.com"} mono={false} />
+            <ConfigRow label="Password" value="Your account password" mono={false} />
+            <ConfigRow label="Use HTTPS" value="✓ Yes" mono={false} />
+          </div>
+          <div className="p-3 rounded-xl bg-info/5 border border-info/20 text-xs text-muted-foreground">
+            <strong className="text-foreground">Supported apps:</strong> nzb360, Flud, LunaSea, Sonarr/Radarr (via qBittorrent download client), Transmission Remote, and any app that supports qBittorrent WebUI.
+          </div>
+        </IntegrationPanel>
+
+        {/* ── VLC / Kodi Streaming ── */}
+        <IntegrationPanel
+          title="VLC / Kodi Streaming"
+          icon={Zap}
+          iconColor="text-primary-glow"
+          badgeColor="bg-primary/10 border-primary/20"
+          description="Generate signed streaming URLs to open files directly in VLC, Kodi, or Infuse"
+        >
+          <p className="text-xs text-muted-foreground">
+            For any completed file, click the <strong className="text-foreground">⚡ Stream</strong> button in the file browser to get a signed streaming URL (valid 1 hour). Open it directly in your media player:
+          </p>
+          <div className="space-y-1.5 text-xs text-muted-foreground">
+            <div className="flex items-start gap-2">
+              <span className="shrink-0 font-bold text-foreground w-16">VLC:</span>
+              <span>Media → Open Network Stream → paste URL → Play</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="shrink-0 font-bold text-foreground w-16">Kodi:</span>
+              <span>Videos → Enter Location → paste URL</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="shrink-0 font-bold text-foreground w-16">API:</span>
+              <code className="bg-muted/40 px-1.5 py-0.5 rounded font-mono text-[10px]">POST /files/{"{"} fileId {"}"}/signed-url</code>
+            </div>
+          </div>
+          <div className="p-3 rounded-xl bg-muted/20 border border-border/40 text-xs text-muted-foreground">
+            Streaming URLs are time-limited and signed with your session. For persistent access, use the <strong className="text-foreground">WebDAV mount</strong> instead.
+          </div>
+        </IntegrationPanel>
+
+        {/* ── SFTP ── */}
+        <IntegrationPanel
+          title="SFTP / SSH Access"
+          icon={Key}
+          iconColor="text-muted-foreground"
+          badgeColor="bg-muted/20 border-border"
+          description="SSH key-based SFTP access — Business plan and above"
+        >
+          <p className="text-xs text-muted-foreground">
+            SFTP access is available on Business plans. Generate an SSH key pair locally and add your public key here. Then connect with:
+          </p>
+          <code className="block bg-muted/30 rounded-lg p-3 font-mono text-[11px] text-foreground break-all">
+            {`sftp -P 22 ${userEmail !== "—" ? userEmail : "you@email.com"}@sftp.tseeder.com`}
+          </code>
+          <Button variant="outline" size="sm" className="gap-1.5 text-xs w-full rounded-xl" disabled>
+            <Plus className="w-3.5 h-3.5" /> Add SSH Public Key — Upgrade to Business
+          </Button>
+        </IntegrationPanel>
+      </div>
+    </SectionCard>
   );
 }
 
@@ -450,6 +691,9 @@ export default function SettingsPage() {
               </div>
             )}
           </SectionCard>
+
+          {/* ── Integrations ─────────────────────────────────────────── */}
+          <IntegrationsSection apiKeys={keysData?.keys ?? []} userEmail={userEmail} />
 
           {/* ── Security ─────────────────────────────────────────────── */}
           <SectionCard>
