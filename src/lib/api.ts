@@ -141,22 +141,56 @@ export const usage = {
   getPlans: () => request<{ plans: unknown[] }>("/plans"),
 };
 
+// ── Auth (me) ─────────────────────────────────────────────────────────────────
+
+export const authMe = {
+  me: () => request<{ user: { id: string; role: string } }>("/auth/me"),
+};
+
 // ── Admin ─────────────────────────────────────────────────────────────────────
 
 export const admin = {
-  listUsers: (params?: { page?: number; q?: string }) => {
+  listUsers: (params?: { page?: number; q?: string; role?: string; suspended?: string }) => {
     const qs = new URLSearchParams(Object.entries(params ?? {}).filter(([,v]) => v !== undefined).map(([k,v]) => [k, String(v)])).toString();
     return request<PaginatedResponse<unknown>>(`/admin/users${qs ? `?${qs}` : ""}`);
   },
-  updateUser: (id: string, body: { role?: string; suspended?: boolean }) =>
+  getUser: (id: string) => request<{
+    user: unknown; plan: unknown; usage: unknown;
+    sessions: unknown[]; recentJobs: unknown[]; auditTimeline: unknown[];
+  }>(`/admin/users/${id}`),
+  updateUser: (id: string, body: { role?: string; suspended?: boolean; planId?: string }) =>
     request<unknown>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
-  listJobs: (params?: { status?: string; page?: number }) => {
+  forceLogout: (id: string) =>
+    request<{ message: string }>(`/admin/users/${id}/force-logout`, { method: "POST" }),
+
+  listJobs: (params?: { status?: string; page?: number; userId?: string; q?: string }) => {
     const qs = new URLSearchParams(Object.entries(params ?? {}).filter(([,v]) => v !== undefined).map(([k,v]) => [k, String(v)])).toString();
     return request<PaginatedResponse<unknown>>(`/admin/jobs${qs ? `?${qs}` : ""}`);
   },
-  terminateJob: (id: string) => request<unknown>(`/admin/jobs/${id}/terminate`, { method: "POST" }),
+  terminateJob: (id: string, reason?: string) =>
+    request<unknown>(`/admin/jobs/${id}/terminate`, { method: "POST", body: JSON.stringify({ reason }) }),
+
   systemHealth: () => request<unknown>("/admin/system-health"),
-  audit: (page = 1) => request<PaginatedResponse<unknown>>(`/admin/audit?page=${page}`),
+
+  audit: (page = 1, params?: { action?: string; actorId?: string }) => {
+    const qs = new URLSearchParams({ page: String(page), ...(params ?? {}) }).toString();
+    return request<PaginatedResponse<unknown>>(`/admin/audit?${qs}`);
+  },
+
+  listBlocklist: (page = 1) =>
+    request<PaginatedResponse<unknown>>(`/admin/blocklist?page=${page}`),
   addBlocklist: (infohash: string, reason?: string) =>
-    request<{ message: string }>("/admin/blocklist", { method: "POST", body: JSON.stringify({ infohash, reason }) }),
+    request<{ message: string; jobsTerminated: number }>("/admin/blocklist", { method: "POST", body: JSON.stringify({ infohash, reason }) }),
+
+  securityEvents: (page = 1, severity?: string) => {
+    const qs = new URLSearchParams({ page: String(page), ...(severity ? { severity } : {}) }).toString();
+    return request<PaginatedResponse<unknown>>(`/admin/security-events?${qs}`);
+  },
+
+  listFlags: () => request<{ flags: unknown[] }>("/admin/feature-flags"),
+  updateFlag: (key: string, value: number, reason?: string) =>
+    request<{ key: string; value: number }>(`/admin/feature-flags/${key}`, {
+      method: "PATCH", body: JSON.stringify({ value, reason }),
+    }),
 };
+

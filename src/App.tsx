@@ -20,6 +20,7 @@ import AdminStorage from "./pages/admin/Storage";
 import AdminSecurity from "./pages/admin/Security";
 import AdminAudit from "./pages/admin/Audit";
 import AdminSettingsPage from "./pages/admin/AdminSettings";
+import AdminUserDetail from "./pages/admin/UserDetail";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -58,6 +59,7 @@ const App = () => (
           <Route path="/admin" element={<Navigate to="/admin/overview" replace />} />
           <Route path="/admin/overview" element={<AdminOverview />} />
           <Route path="/admin/users" element={<AdminUsers />} />
+          <Route path="/admin/users/:id" element={<AdminUserDetail />} />
           <Route path="/admin/jobs" element={<AdminJobs />} />
           <Route path="/admin/workers" element={<AdminWorkers />} />
           <Route path="/admin/storage" element={<AdminStorage />} />
