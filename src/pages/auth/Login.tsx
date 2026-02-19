@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Eye, EyeOff, Loader2, AlertCircle, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import tseederLogo from "@/assets/tseeder-logo.png";
+import fseederLogo from "@/assets/fseeder-logo.png";
 
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY ?? "";
 const EXTENSION_ID = import.meta.env.VITE_EXTENSION_ID ?? "";
@@ -136,9 +136,9 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center animate-slide-up-fade">
           <div className="flex items-center justify-center w-20 h-20 rounded-2xl overflow-hidden border border-primary/20 mx-auto mb-5 shadow-glow-primary animate-float">
-            <img src={tseederLogo} alt="tseeder" className="w-full h-full object-cover" />
+            <img src={fseederLogo} alt="fseeder" className="w-full h-full object-cover" />
           </div>
-          <h1 className="text-3xl font-bold text-gradient">tseeder</h1>
+          <h1 className="text-3xl font-bold text-gradient">fseeder</h1>
           <p className="text-sm text-muted-foreground mt-1.5">Your personal remote download manager</p>
         </div>
 

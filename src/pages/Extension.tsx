@@ -6,7 +6,7 @@ import {
   ArrowRight, CheckCircle2, Code2, Globe, ExternalLink,
   Puzzle, RefreshCw, Lock, Loader2, Star,
 } from "lucide-react";
-import tseederLogo from "@/assets/tseeder-logo.png";
+import fseederLogo from "@/assets/fseeder-logo.png";
 import { PublicNav, PublicFooter } from "@/components/PublicNav";
 
 // ── Steps ────────────────────────────────────────────────────────────────────
@@ -16,7 +16,7 @@ const STEPS = [
     n: "01",
     icon: Download,
     title: "Download the extension",
-    desc: "Click the button below to download the tseeder extension package (.zip). It's free and open source.",
+    desc: "Click the button below to download the fseeder extension package (.zip). It's free and open source.",
     color: "#6366f1",
     bg: "#eef2ff",
   },
@@ -32,7 +32,7 @@ const STEPS = [
     n: "03",
     icon: Puzzle,
     title: "Load unpacked",
-    desc: 'Click "Load unpacked" and select the unzipped tseeder-extension folder. The icon will appear in your toolbar.',
+    desc: 'Click "Load unpacked" and select the unzipped fseeder-extension folder. The icon will appear in your toolbar.',
     color: "#10b981",
     bg: "#ecfdf5",
   },
@@ -40,7 +40,7 @@ const STEPS = [
     n: "04",
     icon: Zap,
     title: "Sign in & start seeding",
-    desc: "Click the tseeder icon, sign in with your account, and send any magnet link to your cloud vault instantly.",
+    desc: "Click the fseeder icon, sign in with your account, and send any magnet link to your cloud vault instantly.",
     color: "#8b5cf6",
     bg: "#f5f3ff",
   },
@@ -52,7 +52,7 @@ const FEATURES = [
   {
     icon: MousePointer,
     title: "One-click send",
-    desc: "Right-click any magnet link → Send to tseeder. Or click the toolbar icon and paste any URL.",
+    desc: "Right-click any magnet link → Send to fseeder. Or click the toolbar icon and paste any URL.",
     color: "#6366f1",
     bg: "#eef2ff",
   },
@@ -117,7 +117,7 @@ export default function ExtensionPage() {
     setDownloading(true);
     try {
       const zip = new JSZip();
-      const folder = zip.folder("tseeder-extension")!;
+      const folder = zip.folder("fseeder-extension")!;
       await Promise.all(
         EXTENSION_FILES.map(async (filename) => {
           const res = await fetch(`/extension/${filename}`);
@@ -129,7 +129,7 @@ export default function ExtensionPage() {
       const url = URL.createObjectURL(content);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "tseeder-extension.zip";
+      a.download = "fseeder-extension.zip";
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
@@ -158,10 +158,10 @@ export default function ExtensionPage() {
             <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5"
               style={{ background: "linear-gradient(135deg,rgba(99,102,241,.08),transparent)" }}>
               <div className="w-9 h-9 rounded-xl overflow-hidden border border-indigo-500/30 shrink-0">
-                <img src={tseederLogo} alt="tseeder" className="w-full h-full object-cover" />
+                <img src={fseederLogo} alt="fseeder" className="w-full h-full object-cover" />
               </div>
               <div>
-                <p className="text-sm font-black text-white">tseeder</p>
+                <p className="text-sm font-black text-white">fseeder</p>
                 <p className="text-[10px] text-white/40">Cloud Torrent Manager</p>
               </div>
             </div>
@@ -193,7 +193,7 @@ export default function ExtensionPage() {
             <span className="text-indigo-600">Right from your browser.</span>
           </h1>
           <p className="text-lg text-gray-500 max-w-2xl mx-auto mb-10 leading-relaxed">
-            The tseeder browser extension adds a ⚡ button next to every magnet link on the web. One click — your torrent is queued in our datacenter. Your IP never touches a peer.
+            The fseeder browser extension adds a ⚡ button next to every magnet link on the web. One click — your torrent is queued in our datacenter. Your IP never touches a peer.
           </p>
 
           <div className="flex items-center justify-center gap-4 flex-wrap mb-6">
@@ -275,7 +275,7 @@ export default function ExtensionPage() {
               disabled={downloading}
               className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed">
               {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-              {downloading ? "Bundling extension…" : "Download tseeder Extension (.zip)"}
+              {downloading ? "Bundling extension…" : "Download fseeder Extension (.zip)"}
             </button>
           </div>
         </div>
@@ -319,8 +319,8 @@ export default function ExtensionPage() {
           <div className="space-y-3">
             {[
               { perm: "activeTab",    why: "Read the current tab URL to detect and list magnet links.",                               icon: Globe,        color: "#6366f1", bg: "#eef2ff" },
-              { perm: "contextMenus", why: "Add a 'Send to tseeder' right-click menu item on magnet links.",                          icon: MousePointer, color: "#f59e0b", bg: "#fefce8" },
-              { perm: "storage",      why: "Save your auth token locally — never sent anywhere except tseeder.cc.",                    icon: Lock,         color: "#10b981", bg: "#ecfdf5" },
+              { perm: "contextMenus", why: "Add a 'Send to fseeder' right-click menu item on magnet links.",                          icon: MousePointer, color: "#f59e0b", bg: "#fefce8" },
+              { perm: "storage",      why: "Save your auth token locally — never sent anywhere except fseeder.cc.",                    icon: Lock,         color: "#10b981", bg: "#ecfdf5" },
               { perm: "notifications",why: "Show a desktop notification when your torrent is successfully queued.",                    icon: Bell,         color: "#8b5cf6", bg: "#f5f3ff" },
             ].map(({ perm, why, icon: Icon, color, bg }) => (
               <div key={perm} className="flex items-center gap-4 p-4 rounded-xl bg-white border border-gray-100 shadow-sm hover:border-indigo-100 transition-colors">

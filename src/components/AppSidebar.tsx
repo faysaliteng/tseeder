@@ -30,7 +30,7 @@ export function AppSidebar() {
         </div>
         {!collapsed && (
           <span className="font-bold text-sm text-foreground tracking-tight">
-            tseeder
+            fseeder
           </span>
         )}
       </div>

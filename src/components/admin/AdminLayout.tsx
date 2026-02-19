@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import tseederLogo from "@/assets/tseeder-logo.png";
+import fseederLogo from "@/assets/fseeder-logo.png";
 import { useQuery } from "@tanstack/react-query";
 import { admin as adminApi } from "@/lib/api";
 import {
@@ -108,11 +108,11 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         <Link to="/admin/overview" onClick={() => setMobileOpen(false)} className="flex items-center gap-2.5 min-w-0">
           <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 border border-primary/20"
             style={{ boxShadow: "0 0 8px hsl(239 84% 67% / 0.2)" }}>
-            <img src={tseederLogo} alt="tseeder" className="w-full h-full object-cover" />
+            <img src={fseederLogo} alt="fseeder" className="w-full h-full object-cover" />
           </div>
           {(mobile || !collapsed) && (
             <div className="min-w-0">
-              <p className="text-xs font-bold text-sidebar-foreground tracking-widest uppercase leading-tight">tseeder</p>
+              <p className="text-xs font-bold text-sidebar-foreground tracking-widest uppercase leading-tight">fseeder</p>
               <p className="text-[10px] text-primary font-bold tracking-widest uppercase leading-tight">Admin Console</p>
             </div>
           )}

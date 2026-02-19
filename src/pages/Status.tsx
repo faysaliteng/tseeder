@@ -119,7 +119,7 @@ export default function StatusPage() {
         <div className="mb-10">
           <p className="text-xs font-bold text-indigo-500 uppercase tracking-widest mb-3">Platform</p>
           <h1 className="text-4xl font-black tracking-tight text-gray-900 mb-2">System Status</h1>
-          <p className="text-sm text-gray-500">Real-time health and 90-day uptime history for the tseeder platform.</p>
+          <p className="text-sm text-gray-500">Real-time health and 90-day uptime history for the fseeder platform.</p>
         </div>
 
         {/* Banner */}
