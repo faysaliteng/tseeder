@@ -29,7 +29,7 @@ import {
 } from "./handlers/providers";
 import {
   handleListArticles, handleGetArticle,
-  handleAdminListArticles, handleAdminCreateArticle, handleAdminUpdateArticle,
+  handleAdminListArticles, handleAdminGetArticle, handleAdminCreateArticle, handleAdminUpdateArticle,
   handleAdminDeleteArticle, handleAdminTogglePublish,
 } from "./handlers/articles";
 import { JobProgressDO, UserSessionDO } from "./durable-objects";
@@ -154,6 +154,7 @@ router.get("/blog/articles/:slug",          [],                                 
 
 // ── Admin — Blog / CMS ─────────────────────────────────────────────────────────
 router.get("/admin/articles",               [authMiddleware, rbacMiddleware("admin")],                       handleAdminListArticles);
+router.get("/admin/articles/:id",           [authMiddleware, rbacMiddleware("admin")],                       handleAdminGetArticle);
 router.post("/admin/articles",              [authMiddleware, rbacMiddleware("admin"), csrfMiddleware],        handleAdminCreateArticle);
 router.patch("/admin/articles/:id",         [authMiddleware, rbacMiddleware("admin"), csrfMiddleware],        handleAdminUpdateArticle);
 router.delete("/admin/articles/:id",        [authMiddleware, rbacMiddleware("superadmin"), csrfMiddleware],   handleAdminDeleteArticle);
