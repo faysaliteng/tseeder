@@ -1,17 +1,44 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { admin as adminApi, ApiError } from "@/lib/api";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { AdminPageHeader } from "@/components/admin/AdminUI";
-import { Settings, Flag, Key, Shield } from "lucide-react";
+import { AdminPageHeader, DangerModal } from "@/components/admin/AdminUI";
+import { useToast } from "@/hooks/use-toast";
+import { Settings, Flag, Key, Shield, Loader2 } from "lucide-react";
 
-// Feature flags (static config for now — can be wired to a D1 table later)
-const FEATURE_FLAGS = [
-  { key: "registration_open", label: "Open Registration", description: "Allow new users to sign up", enabled: true },
-  { key: "email_verification", label: "Email Verification Required", description: "Require email verification before login", enabled: true },
-  { key: "torrent_upload", label: "Torrent File Upload", description: "Allow .torrent file uploads", enabled: true },
-  { key: "magnet_links", label: "Magnet Links", description: "Allow magnet link submissions", enabled: true },
-  { key: "free_plan_active", label: "Free Plan Available", description: "Allow users to sign up on the Free plan", enabled: true },
-];
+interface FeatureFlag {
+  key: string;
+  value: number;
+  description?: string;
+  updated_by?: string;
+  updated_at?: string;
+}
 
 export default function AdminSettings() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [flagModal, setFlagModal] = useState<{ flag: FeatureFlag; newValue: number } | null>(null);
+
+  const { data: flagsData, isLoading } = useQuery({
+    queryKey: ["admin-flags"],
+    queryFn: () => adminApi.listFlags(),
+  });
+
+  const updateFlagMutation = useMutation({
+    mutationFn: ({ key, value, reason }: { key: string; value: number; reason: string }) =>
+      adminApi.updateFlag(key, value, reason),
+    onSuccess: () => {
+      toast({ title: "Feature flag updated" });
+      qc.invalidateQueries({ queryKey: ["admin-flags"] });
+      setFlagModal(null);
+    },
+    onError: (err) => {
+      toast({ title: "Error", description: err instanceof ApiError ? err.message : "Failed", variant: "destructive" });
+    },
+  });
+
+  const flags = (flagsData?.flags ?? []) as FeatureFlag[];
+
   return (
     <AdminLayout>
       <div className="p-6 space-y-6">
@@ -20,26 +47,54 @@ export default function AdminSettings() {
           description="Feature flags, configuration, and operational controls."
         />
 
-        {/* Feature flags */}
+        {/* Feature flags — live from D1 */}
         <div className="bg-card border border-border rounded-xl shadow-card overflow-hidden">
           <div className="px-4 py-3 border-b border-border flex items-center gap-2">
             <Flag className="w-4 h-4 text-primary" />
             <h2 className="text-sm font-semibold text-foreground">Feature Flags</h2>
-            <span className="text-xs text-muted-foreground ml-1">(read-only — configure in D1 or wrangler.toml)</span>
+            <span className="text-xs text-muted-foreground ml-1">— live from D1 · superadmin only</span>
           </div>
           <div className="divide-y divide-border">
-            {FEATURE_FLAGS.map(flag => (
+            {isLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-4 px-4 py-3">
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-3 bg-muted rounded w-32 animate-pulse" />
+                    <div className="h-2 bg-muted rounded w-56 animate-pulse" />
+                  </div>
+                  <div className="h-6 w-16 bg-muted rounded animate-pulse" />
+                </div>
+              ))
+            ) : flags.map(flag => (
               <div key={flag.key} className="flex items-center gap-4 px-4 py-3">
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-foreground">{flag.label}</p>
-                  <p className="text-xs text-muted-foreground">{flag.description}</p>
+                  <p className="text-sm font-medium text-foreground">{flag.description ?? flag.key}</p>
                   <code className="text-[10px] text-muted-foreground/60 font-mono">{flag.key}</code>
+                  {flag.updated_at && (
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      Updated {new Date(flag.updated_at).toLocaleDateString()}
+                    </p>
+                  )}
                 </div>
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${flag.enabled ? "bg-[hsl(var(--success)/0.15)] text-[hsl(var(--success))]" : "bg-muted text-muted-foreground"}`}>
-                  {flag.enabled ? "Enabled" : "Disabled"}
-                </span>
+                <button
+                  onClick={() => setFlagModal({ flag, newValue: flag.value ? 0 : 1 })}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                    flag.value ? "bg-primary" : "bg-muted"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      flag.value ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
               </div>
             ))}
+            {!isLoading && flags.length === 0 && (
+              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                No feature flags found. Run migration 0003_admin_extended.sql.
+              </div>
+            )}
           </div>
         </div>
 
@@ -51,9 +106,9 @@ export default function AdminSettings() {
           <div className="grid md:grid-cols-2 gap-3">
             {[
               { role: "user", desc: "Standard user. Can manage own jobs and files.", color: "text-muted-foreground" },
-              { role: "support", desc: "Read-only access to users and jobs. Cannot modify.", color: "text-[hsl(var(--info))]" },
+              { role: "support", desc: "Read-only access to audit logs. Cannot modify data.", color: "text-[hsl(var(--info))]" },
               { role: "admin", desc: "Full user/job management. Cannot change superadmin accounts.", color: "text-primary" },
-              { role: "superadmin", desc: "Full platform access including role management and system settings.", color: "text-[hsl(var(--primary-glow))]" },
+              { role: "superadmin", desc: "Full platform access including feature flag changes and role management.", color: "text-[hsl(265_89%_75%)]" },
             ].map(({ role, desc, color }) => (
               <div key={role} className="bg-muted/20 rounded-lg p-3 border border-border">
                 <p className={`text-sm font-bold capitalize ${color}`}>{role}</p>
@@ -69,18 +124,36 @@ export default function AdminSettings() {
             <Key className="w-4 h-4 text-primary" /> Internal Service Credentials
           </h2>
           <p className="text-sm text-muted-foreground">
-            The compute agent authenticates to the API using a bearer token defined in{" "}
-            <code className="bg-muted px-1 py-0.5 rounded text-xs">WORKER_CLUSTER_TOKEN</code> (Wrangler secret).
-            Rotate this value in <code className="bg-muted px-1 py-0.5 rounded text-xs">wrangler secret put WORKER_CLUSTER_TOKEN</code> and redeploy the agent.
+            The compute agent authenticates to the API using a bearer token defined by the{" "}
+            <code className="bg-muted px-1 py-0.5 rounded text-xs">WORKER_CLUSTER_TOKEN</code> secret.
+            Rotate this value via Wrangler and redeploy the agent.
           </p>
           <div className="text-xs text-muted-foreground space-y-1 font-mono bg-muted/30 rounded-lg p-3">
-            <p># Rotate worker token</p>
+            <p className="text-muted-foreground/60"># Rotate worker token</p>
             <p>$ wrangler secret put WORKER_CLUSTER_TOKEN</p>
-            <p># Then redeploy agent</p>
-            <p>$ docker build -t torrentflow-agent . {"&&"} docker push ...</p>
+            <p className="text-muted-foreground/60"># Redeploy agent</p>
+            <p>$ docker build -t torrentflow-agent . && docker push ...</p>
           </div>
         </div>
       </div>
+
+      {/* Feature flag toggle confirmation */}
+      {flagModal && (
+        <DangerModal
+          open
+          title={`${flagModal.newValue ? "Enable" : "Disable"} Feature Flag`}
+          description={`${flagModal.newValue ? "Enable" : "Disable"} "${flagModal.flag.key}". This change takes effect immediately for all users.`}
+          confirmPhrase={flagModal.newValue ? "enable" : "disable"}
+          reasonRequired
+          onClose={() => setFlagModal(null)}
+          onConfirm={(reason) => updateFlagMutation.mutate({
+            key: flagModal.flag.key,
+            value: flagModal.newValue,
+            reason,
+          })}
+          isPending={updateFlagMutation.isPending}
+        />
+      )}
     </AdminLayout>
   );
 }

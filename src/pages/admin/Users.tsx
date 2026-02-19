@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { admin as adminApi, ApiError } from "@/lib/api";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -53,6 +54,8 @@ export default function AdminUsers() {
     return "bg-muted/40 text-muted-foreground border-border";
   };
 
+  const navigate = useNavigate();
+
   return (
     <AdminLayout>
       <div className="p-6 space-y-5">
@@ -90,8 +93,8 @@ export default function AdminUsers() {
             {users.length === 0 ? (
               <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-muted-foreground">No users found</td></tr>
             ) : users.map(user => (
-              <tr key={user.id} className="hover:bg-muted/20 transition-colors group">
-                <td className="px-4 py-3 text-foreground font-medium text-sm">{user.email}</td>
+              <tr key={user.id} className="hover:bg-muted/20 transition-colors group cursor-pointer" onClick={() => navigate(`/admin/users/${user.id}`)}>
+                <td className="px-4 py-3 text-foreground font-medium text-sm hover:text-primary transition-colors">{user.email}</td>
                 <td className="px-4 py-3">
                   <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full border capitalize", roleBadgeVariant(user.role))}>
                     {user.role}
