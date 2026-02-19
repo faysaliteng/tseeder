@@ -1,7 +1,10 @@
 // tseeder Extension — Background Service Worker
+// Deployers: update API_BASE to your Cloudflare Workers API URL.
+const API_BASE = 'https://api.tseeder.cc';
+
+// ── Context menus ──────────────────────────────────────────────────────────────
 
 chrome.runtime.onInstalled.addListener(() => {
-  // Create context menu for magnet links
   chrome.contextMenus.create({
     id: 'tsdr-send-magnet',
     title: '⚡ Send to tseeder Cloud',
@@ -9,7 +12,6 @@ chrome.runtime.onInstalled.addListener(() => {
     targetUrlPatterns: ['magnet:*'],
   });
 
-  // Create context menu for any link
   chrome.contextMenus.create({
     id: 'tsdr-send-link',
     title: '⚡ Send URL to tseeder',
@@ -21,8 +23,8 @@ chrome.contextMenus.onClicked.addListener(async (info) => {
   const url = info.linkUrl;
   if (!url) return;
 
-  const auth = await chrome.storage.local.get(['tsdr_token', 'tsdr_email']);
-  if (!auth.tsdr_token) {
+  const auth = await chrome.storage.local.get(['tsdr_api_key', 'tsdr_email']);
+  if (!auth.tsdr_api_key) {
     chrome.notifications.create({
       type: 'basic',
       iconUrl: 'icon48.png',
@@ -33,17 +35,65 @@ chrome.contextMenus.onClicked.addListener(async (info) => {
     return;
   }
 
-  try {
-    const isMagnet = url.startsWith('magnet:');
-    const body = isMagnet
-      ? { type: 'magnet', magnetUri: url }
-      : { type: 'url', url };
+  const isMagnet = url.startsWith('magnet:');
+  const body = isMagnet
+    ? { type: 'magnet', magnetUri: url }
+    : { type: 'url', url };
 
-    const res = await fetch('https://tseeder.cc/jobs', {
+  await sendJob(body, auth.tsdr_api_key);
+});
+
+// ── Internal message from content script ───────────────────────────────────────
+
+chrome.runtime.onMessage.addListener((msg, _sender, _sendResponse) => {
+  if (msg.type === 'TSDR_QUEUE_MAGNET' && msg.magnetUri) {
+    chrome.storage.local.get(['tsdr_api_key'], async (auth) => {
+      if (!auth.tsdr_api_key) {
+        chrome.notifications.create({
+          type: 'basic',
+          iconUrl: 'icon48.png',
+          title: 'tseeder',
+          message: 'Please sign in to tseeder first.',
+        });
+        return;
+      }
+      await sendJob({ type: 'magnet', magnetUri: msg.magnetUri }, auth.tsdr_api_key);
+    });
+  }
+  // Return false — we don't use sendResponse here.
+  return false;
+});
+
+// ── External message from web app (auth bridge) ───────────────────────────────
+
+chrome.runtime.onMessageExternal.addListener((msg, _sender, sendResponse) => {
+  if (msg.type === 'TSDR_AUTH') {
+    chrome.storage.local.set({
+      tsdr_api_key: msg.token,   // API key from /auth/api-keys
+      tsdr_email: msg.email,
+    }, () => {
+      sendResponse({ ok: true });
+    });
+    return true; // keep port open for async sendResponse
+  }
+
+  if (msg.type === 'TSDR_SIGNOUT') {
+    chrome.storage.local.remove(['tsdr_api_key', 'tsdr_email'], () => {
+      sendResponse({ ok: true });
+    });
+    return true;
+  }
+});
+
+// ── Core job POST ──────────────────────────────────────────────────────────────
+
+async function sendJob(body, apiKey) {
+  try {
+    const res = await fetch(`${API_BASE}/jobs`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${auth.tsdr_token}`,
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify(body),
     });
@@ -55,26 +105,25 @@ chrome.contextMenus.onClicked.addListener(async (info) => {
         title: 'tseeder ✅',
         message: 'Added to your cloud vault!',
       });
+    } else if (res.status === 401) {
+      // Token expired or revoked — clear stored key
+      await chrome.storage.local.remove(['tsdr_api_key', 'tsdr_email']);
+      chrome.notifications.create({
+        type: 'basic',
+        iconUrl: 'icon48.png',
+        title: 'tseeder — Session expired',
+        message: 'Please sign in again at tseeder.cc.',
+      });
+      chrome.tabs.create({ url: 'https://tseeder.cc/auth/login?ext=1&reason=expired' });
     } else {
-      throw new Error(`HTTP ${res.status}`);
+      throw new Error(`API error ${res.status}`);
     }
   } catch (err) {
     chrome.notifications.create({
       type: 'basic',
       iconUrl: 'icon48.png',
       title: 'tseeder ❌',
-      message: `Failed to add: ${err.message}`,
+      message: `Failed: ${err.message}`,
     });
   }
-});
-
-// Listen for auth token from the web app (set after login)
-chrome.runtime.onMessageExternal.addListener((msg, _sender, sendResponse) => {
-  if (msg.type === 'TSDR_AUTH') {
-    chrome.storage.local.set({
-      tsdr_token: msg.token,
-      tsdr_email: msg.email,
-    });
-    sendResponse({ ok: true });
-  }
-});
+}

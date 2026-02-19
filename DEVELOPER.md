@@ -1,4 +1,4 @@
-# Developer Guide — TorrentFlow
+# Developer Guide — tseeder
 
 ## Contents
 
@@ -11,6 +11,7 @@
 7. [Logging & Tracing Standards](#7-logging--tracing-standards)
 8. [Release Process](#8-release-process)
 9. [Code Style & Contributing](#9-code-style--contributing)
+10. [Browser Extension — Manual Test Checklist](#10-browser-extension--manual-test-checklist)
 
 ---
 
@@ -340,3 +341,104 @@ npm run lint:fix  # Auto-fix
 npm run format    # Prettier
 npm run type-check  # tsc --noEmit
 ```
+
+---
+
+## 10. Browser Extension — Manual Test Checklist
+
+Use this checklist after every change to files under `public/extension/`.
+
+### Prerequisites
+
+- Chrome or Brave (v109+)
+- The frontend running locally at `http://localhost:5173`
+- Set `VITE_EXTENSION_ID` in `.env.local` to the value from `chrome://extensions` after loading
+
+### A. Load Extension
+
+```
+□ Open chrome://extensions
+□ Enable "Developer mode" (top-right toggle)
+□ Click "Load unpacked" → select the public/extension/ directory
+□ No error badges appear in the extensions dashboard
+□ "tseeder" icon appears in the browser toolbar
+□ Clicking the icon opens the popup (styled, not blank/unstyled)
+□ Popup shows "Sign in to tseeder" state (if not yet logged in)
+```
+
+### B. Auth Bridge (Web App → Extension)
+
+```
+□ Open http://localhost:5173/auth/login
+□ Enter valid credentials and click "Sign in"
+□ After redirect to /app/dashboard, click the tseeder toolbar icon
+□ Popup now shows the logged-in state (email displayed, avatar initial correct)
+□ "● Online" green dot is visible
+□ "Sign out" link appears
+```
+
+### C. Sign Out
+
+```
+□ Click "Sign out" in the extension popup
+□ Popup reverts to "Sign in to tseeder" state
+□ Re-opening the popup still shows the login state (persisted)
+```
+
+### D. Popup — Manual Magnet Submission
+
+```
+□ Sign back in so the popup is in the logged-in state
+□ Paste a valid magnet URI (e.g. magnet:?xt=urn:btih:ABCD...&dn=Test+File)
+□ Click "⚡ Send to Cloud"
+□ Button shows "⏳ Sending…" while the request is in-flight
+□ Success: green status message "✅ Sent to your cloud vault!" appears
+□ Desktop notification "Torrent added to your cloud queue!" fires
+□ Job appears in /app/dashboard within a few seconds
+```
+
+### E. Context Menu — Right-click Magnet Link
+
+```
+□ Navigate to any public torrent index page that has magnet links
+□ Right-click a magnet link
+□ "⚡ Send to tseeder Cloud" appears in the context menu
+□ Click it
+□ Desktop notification "Added to your cloud vault!" fires
+□ Job appears in dashboard
+```
+
+### F. Content Script — ⚡ Button on Magnet Links
+
+```
+□ Navigate to a page with magnet links (e.g. any open torrent index)
+□ Small ⚡ button appears next to each magnet link (purple gradient)
+□ Clicking ⚡ immediately turns it to ✅ for 2.5 seconds, then back to ⚡
+□ Desktop notification fires
+□ Job appears in dashboard
+```
+
+### G. Extension ZIP Download (from /extension page)
+
+```
+□ Open /extension in the browser
+□ Click "Download Extension (.zip)"
+□ Button shows "Bundling…" with spinner while JSZip runs
+□ File "tseeder-extension.zip" downloads automatically
+□ Unzip it — should contain: manifest.json, background.js, content.js,
+  popup.html, popup.js, popup.css, icon16.svg, icon48.svg, icon128.svg
+□ Load the unzipped folder via "Load unpacked" — no errors
+```
+
+### H. Error Cases
+
+```
+□ Expired token: revoke API key in Settings → reopen popup → paste magnet → Send
+  → Status shows "Session expired — please sign in again"
+  → Popup reverts to login state after 1.5 s
+□ Network offline: turn off Wi-Fi → paste magnet → Send
+  → Error notification with "Failed to fetch"
+□ Empty input: click Send without pasting anything
+  → Status shows "Paste a magnet link or URL first"
+```
+

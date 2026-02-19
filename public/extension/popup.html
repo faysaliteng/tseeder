@@ -4,116 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>tseeder</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      width: 360px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #0d0f1a;
-      color: #e2e8f0;
-    }
-    .header {
-      padding: 16px;
-      border-bottom: 1px solid rgba(99,102,241,0.2);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      background: linear-gradient(135deg, rgba(99,102,241,0.08), transparent);
-    }
-    .logo {
-      width: 36px; height: 36px;
-      background: linear-gradient(135deg, #6366f1, #8b5cf6);
-      border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 900; color: white; font-size: 14px;
-      box-shadow: 0 0 16px rgba(99,102,241,0.4);
-    }
-    .brand { font-weight: 900; font-size: 16px; }
-    .brand span { color: #6366f1; }
-    .subtitle { font-size: 11px; color: #64748b; margin-top: 1px; }
-
-    .not-logged { padding: 20px 16px; text-align: center; }
-    .not-logged p { font-size: 13px; color: #94a3b8; margin-bottom: 14px; }
-    .btn-primary {
-      display: block; width: 100%;
-      padding: 10px 16px;
-      background: linear-gradient(135deg, #6366f1, #8b5cf6);
-      color: white; border: none; border-radius: 10px;
-      font-weight: 700; font-size: 14px; cursor: pointer;
-      box-shadow: 0 0 20px rgba(99,102,241,0.3);
-      text-decoration: none; text-align: center;
-      transition: opacity 0.15s;
-    }
-    .btn-primary:hover { opacity: 0.9; }
-
-    .logged-in { padding: 14px 16px; }
-    .user-row {
-      display: flex; align-items: center; gap: 8px;
-      padding: 8px 10px; border-radius: 8px;
-      background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.15);
-      margin-bottom: 14px;
-    }
-    .avatar {
-      width: 28px; height: 28px; border-radius: 50%;
-      background: linear-gradient(135deg, #6366f1, #8b5cf6);
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 700; font-size: 12px; color: white; flex-shrink: 0;
-    }
-    .user-email { font-size: 12px; color: #94a3b8; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-    label { display: block; font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
-    textarea, input[type=text] {
-      width: 100%;
-      padding: 10px 12px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 8px;
-      color: #e2e8f0;
-      font-size: 13px;
-      font-family: inherit;
-      resize: vertical;
-      min-height: 70px;
-      outline: none;
-    }
-    textarea:focus, input:focus { border-color: rgba(99,102,241,0.5); }
-    .send-row { display: flex; gap: 8px; margin-top: 10px; }
-    .btn-send {
-      flex: 1; padding: 10px;
-      background: linear-gradient(135deg, #6366f1, #8b5cf6);
-      color: white; border: none; border-radius: 8px;
-      font-weight: 700; font-size: 13px; cursor: pointer;
-      box-shadow: 0 0 16px rgba(99,102,241,0.25);
-      transition: opacity 0.15s;
-    }
-    .btn-send:hover { opacity: 0.9; }
-    .btn-dash {
-      padding: 10px 12px;
-      background: rgba(255,255,255,0.05);
-      color: #94a3b8; border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 8px; font-size: 12px; cursor: pointer;
-      text-decoration: none; display: flex; align-items: center;
-      transition: border-color 0.15s;
-    }
-    .btn-dash:hover { border-color: rgba(99,102,241,0.3); color: #e2e8f0; }
-
-    .status-msg {
-      margin-top: 10px; padding: 8px 10px;
-      border-radius: 8px; font-size: 12px; font-weight: 600;
-      display: none;
-    }
-    .status-msg.success { background: rgba(34,197,94,0.12); color: #22c55e; border: 1px solid rgba(34,197,94,0.2); display: block; }
-    .status-msg.error   { background: rgba(239,68,68,0.12);  color: #ef4444; border: 1px solid rgba(239,68,68,0.2);  display: block; }
-
-    .divider { height: 1px; background: rgba(255,255,255,0.06); margin: 12px 0; }
-    .quick-actions { display: flex; gap: 6px; flex-wrap: wrap; }
-    .qa-chip {
-      padding: 5px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
-      background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.15);
-      color: #818cf8; cursor: pointer; transition: all 0.15s;
-    }
-    .qa-chip:hover { background: rgba(99,102,241,0.15); }
-    .footer-ext { padding: 10px 16px; border-top: 1px solid rgba(255,255,255,0.05); text-align: center; font-size: 10px; color: #334155; }
-  </style>
+  <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
   <div class="header">
@@ -127,7 +18,9 @@
   <!-- Not logged in state -->
   <div class="not-logged" id="state-login">
     <p>Sign in to send torrents directly to your cloud vault.</p>
-    <a href="https://tseeder.cc/auth/login?ext=1" target="_blank" class="btn-primary">Sign in to tseeder</a>
+    <a href="https://tseeder.cc/auth/login?ext=1" target="_blank" class="btn-primary">
+      Sign in to tseeder
+    </a>
   </div>
 
   <!-- Logged in state -->
@@ -135,7 +28,8 @@
     <div class="user-row">
       <div class="avatar" id="user-initial">U</div>
       <div class="user-email" id="user-email">user@example.com</div>
-      <span style="font-size:10px;color:#22c55e;font-weight:700;">● Online</span>
+      <span class="online-dot">● Online</span>
+      <button class="btn-signout" id="sign-out-btn">Sign out</button>
     </div>
 
     <label>Paste magnet link or URL</label>
@@ -143,7 +37,9 @@
 
     <div class="send-row">
       <button class="btn-send" id="send-btn">⚡ Send to Cloud</button>
-      <a href="https://tseeder.cc/app/dashboard" target="_blank" class="btn-dash">Dashboard →</a>
+      <a href="https://tseeder.cc/app/dashboard" target="_blank" class="btn-dash">
+        Dashboard →
+      </a>
     </div>
     <div class="status-msg" id="status-msg"></div>
 
