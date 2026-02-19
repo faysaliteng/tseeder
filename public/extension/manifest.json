@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "tseeder — Cloud Torrent Downloader",
+  "short_name": "tseeder",
+  "version": "1.0.0",
+  "description": "Send any magnet link or torrent to tseeder.cc with one click. Download at datacenter speed, keep your IP private.",
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png"
+    },
+    "default_title": "tseeder — Send to cloud"
+  },
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "storage",
+    "notifications"
+  ],
+  "host_permissions": [
+    "https://tseeder.cc/*",
+    "https://*.tseeder.cc/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["*.png", "*.svg", "*.css"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
