@@ -164,7 +164,7 @@ export default function AdminOverview() {
 
         <AdminPageHeader
           title="System Overview"
-          description="Real-time health and KPIs for the TorrentFlow platform"
+          description="Real-time health and KPIs for the Nexload platform"
           actions={
             <button
               onClick={() => refetch()}
