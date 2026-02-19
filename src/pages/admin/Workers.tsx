@@ -110,7 +110,11 @@ export default function AdminWorkers() {
                 </thead>
                 <tbody className="divide-y divide-border">
                   {workers.map(w => (
-                    <tr key={w.id} className={cn("hover:bg-muted/20 transition-colors", w.is_stale && "opacity-60")}>
+                    <tr key={w.id} className={cn(
+                      "hover:bg-muted/20 transition-colors",
+                      w.is_stale && "bg-[hsl(var(--warning)/0.05)] opacity-70",
+                      w.status === "offline" && "bg-destructive/5",
+                    )}>
                       <td className="px-4 py-3 font-mono text-xs text-foreground max-w-[160px] truncate">{w.id}</td>
                       <td className="px-4 py-3">
                         <span className={cn("flex items-center gap-1.5 text-xs font-medium capitalize", STATUS_COLORS[w.status] ?? "text-muted-foreground")}>

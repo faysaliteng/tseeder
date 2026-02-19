@@ -7,6 +7,7 @@ import {
   LogOut, User, HelpCircle, Settings, CloudLightning,
 } from "lucide-react";
 import tseederLogo from "@/assets/tseeder-logo.png";
+import { OrgSwitcher } from "@/components/OrgSwitcher";
 
 interface TopHeaderProps {
   usage: {
@@ -166,6 +167,11 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
             </div>
             <ProviderChip />
           </div>
+        </div>
+
+        {/* Org switcher */}
+        <div className="hidden sm:block ml-1">
+          <OrgSwitcher />
         </div>
 
         <div className="flex-1" />

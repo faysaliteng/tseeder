@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { adminStorage, ApiError } from "@/lib/api";
+import { adminStorage, admin as adminApi, ApiError } from "@/lib/api";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { AdminPageHeader, StatCard } from "@/components/admin/AdminUI";
-import { HardDrive, Database, Trash2, AlertTriangle, RefreshCw, Loader2 } from "lucide-react";
+import { HardDrive, Database, Trash2, AlertTriangle, RefreshCw, Loader2, CheckCircle } from "lucide-react";
 import { formatBytes } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -179,7 +179,55 @@ export default function AdminStorage() {
             ))}
           </div>
         </div>
+
+        {/* Retention sweep log */}
+        <RetentionSweepLog />
       </div>
     </AdminLayout>
+  );
+}
+
+function RetentionSweepLog() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin-retention-sweep-log"],
+    queryFn: () => adminApi.audit(1, { action: "retention.sweep" }),
+    refetchInterval: 120_000,
+  });
+
+  const entries = ((data as any)?.items ?? []) as Array<{
+    id: string; action: string; created_at: string;
+    metadata?: { deletedFiles?: number; bytesReclaimed?: number };
+  }>;
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-5 shadow-card space-y-3">
+      <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+        <CheckCircle className="w-4 h-4 text-[hsl(var(--success))]" /> Automated Retention Sweeps
+      </h2>
+      <p className="text-xs text-muted-foreground">
+        Cron runs daily at 03:00 UTC. Each sweep deletes expired files per plan retention window and writes an audit record.
+      </p>
+      {isLoading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-8 bg-muted rounded animate-pulse" />
+          ))}
+        </div>
+      ) : entries.length === 0 ? (
+        <p className="text-xs text-muted-foreground/60 text-center py-4">No sweeps recorded yet. The cron will write an entry here after first run.</p>
+      ) : (
+        <div className="divide-y divide-border rounded-lg border border-border overflow-hidden">
+          {entries.slice(0, 8).map(e => (
+            <div key={e.id} className="flex items-center gap-3 px-3 py-2.5 text-xs">
+              <CheckCircle className="w-3.5 h-3.5 text-[hsl(var(--success))] shrink-0" />
+              <span className="text-muted-foreground">{new Date(e.created_at).toLocaleString()}</span>
+              <span className="text-foreground ml-auto">
+                {e.metadata?.deletedFiles ?? 0} files · {formatBytes(e.metadata?.bytesReclaimed ?? 0)} reclaimed
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

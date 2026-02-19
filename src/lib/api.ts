@@ -506,7 +506,7 @@ export const orgs = {
   create: (name: string) =>
     request<{ org: ApiOrg }>("/orgs", { method: "POST", body: JSON.stringify({ name }) }),
   get: (slug: string) =>
-    request<{ org: ApiOrg; members: any[]; usage: { storageBytes: number } }>(`/orgs/${slug}`),
+    request<{ org: ApiOrg; members: any[]; myRole: string; usage: { storageBytes: number } }>(`/orgs/${slug}`),
   update: (slug: string, name: string) =>
     request<{ message: string; slug: string }>(`/orgs/${slug}`, {
       method: "PATCH", body: JSON.stringify({ name }),
@@ -517,6 +517,8 @@ export const orgs = {
     ),
   removeMember: (slug: string, userId: string) =>
     request<{ message: string }>(`/orgs/${slug}/members/${userId}`, { method: "DELETE" }),
+  delete: (slug: string) =>
+    request<{ message: string }>(`/orgs/${slug}`, { method: "DELETE" }),
   acceptInvite: (token: string) =>
     request<{ message: string; slug: string; role: string }>(`/orgs/accept-invite/${token}`, {
       method: "POST", body: JSON.stringify({}),
