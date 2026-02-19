@@ -4,7 +4,7 @@ import {
   ArrowRight, CheckCircle2, Play, Star, ChevronDown,
   HardDrive, Activity, Lock, Cpu,
 } from "lucide-react";
-import nexloadLogo from "@/assets/nexload-logo.png";
+import gravlLogo from "@/assets/gravl-logo.png";
 
 // ─── Animated background ─────────────────────────────────────────────────────
 
@@ -69,7 +69,7 @@ const FEATURES = [
     color: "hsl(38 92% 50%)",
     glow: "hsl(38 92% 50% / 0.2)",
     title: "Instant Cloud Fetch",
-    desc: "Paste a magnet link or URL — Nexload grabs it in our datacenter at full wire speed. No waiting. No seeders required.",
+    desc: "Paste a magnet link or URL — Gravl grabs it in our datacenter at full wire speed. No waiting. No seeders required.",
   },
   {
     icon: Shield,
@@ -171,7 +171,7 @@ const PLANS = [
 
 const HOW = [
   { step: "01", title: "Paste a link", desc: "Magnet URI, torrent URL, direct HTTP link — paste it in. Any format." },
-  { step: "02", title: "We fetch it", desc: "Nexload spins up a worker, joins the swarm, and downloads at full datacenter speed." },
+  { step: "02", title: "We fetch it", desc: "Gravl spins up a worker, joins the swarm, and downloads at full datacenter speed." },
   { step: "03", title: "Stream or save", desc: "File lands in your encrypted vault. Stream it, share it, or download it whenever." },
 ];
 
@@ -180,7 +180,7 @@ const HOW = [
 const TESTIMONIALS = [
   {
     stars: 5,
-    quote: "Switched from Seedr a month ago. Nexload is embarrassingly faster. 50GB ISO in 8 minutes.",
+    quote: "Switched from Seedr a month ago. Gravl is embarrassingly faster. 50GB ISO in 8 minutes.",
     name: "Marcus T.",
     role: "DevOps Engineer",
   },
@@ -210,9 +210,9 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2.5 group">
             <div className="w-9 h-9 rounded-xl overflow-hidden border border-primary/30 shadow-glow-primary group-hover:scale-105 transition-transform">
-              <img src={nexloadLogo} alt="Nexload" className="w-full h-full object-cover" />
+              <img src={gravlLogo} alt="Gravl" className="w-full h-full object-cover" />
             </div>
-            <span className="text-xl font-black tracking-tight text-gradient">nexload</span>
+            <span className="text-xl font-black tracking-tight text-gradient">gravl</span>
             <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-widest text-primary/60 bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">.cc</span>
           </Link>
 
@@ -254,7 +254,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed animate-slide-up-fade" style={{ animationDelay: "0.12s" }}>
-            Nexload is a remote cloud download manager. Paste a magnet link — we grab it at datacenter speed, encrypt it, and serve it back to you. Your IP stays hidden. Always.
+            Gravl is a remote cloud download manager. Paste a magnet link — we grab it at datacenter speed, encrypt it, and serve it back to you. Your IP stays hidden. Always.
           </p>
 
           {/* CTAs */}
@@ -280,7 +280,7 @@ export default function LandingPage() {
                 <div className="w-3 h-3 rounded-full bg-destructive/70" />
                 <div className="w-3 h-3 rounded-full bg-warning/70" />
                 <div className="w-3 h-3 rounded-full bg-success/70" />
-                <span className="ml-3 text-xs text-muted-foreground font-mono flex-1 text-center">nexload.cc — dashboard</span>
+                <span className="ml-3 text-xs text-muted-foreground font-mono flex-1 text-center">gravl.cc — dashboard</span>
               </div>
 
               {/* Mock download rows */}
@@ -352,7 +352,7 @@ export default function LandingPage() {
       <section id="features" className="relative z-10 py-28 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <p className="text-xs font-bold text-primary uppercase tracking-widest mb-3">Why Nexload</p>
+            <p className="text-xs font-bold text-primary uppercase tracking-widest mb-3">Why Gravl</p>
             <h2 className="text-4xl sm:text-5xl font-black tracking-tight">
               Built for power users.<br />
               <span className="text-gradient">Tuned for speed.</span>
@@ -380,7 +380,7 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-16">
             <p className="text-xs font-bold text-primary uppercase tracking-widest mb-3">Simple by design</p>
-            <h2 className="text-4xl font-black tracking-tight">How Nexload works</h2>
+            <h2 className="text-4xl font-black tracking-tight">How Gravl works</h2>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
             {HOW.map((h, i) => (
@@ -423,7 +423,6 @@ export default function LandingPage() {
                     Popular
                   </div>
                 )}
-                {/* Shimmer for highlighted */}
                 {plan.highlight && (
                   <div className="absolute inset-0 opacity-5 pointer-events-none"
                     style={{ background: `radial-gradient(ellipse at top, ${plan.color}, transparent 70%)` }} />
@@ -492,14 +491,13 @@ export default function LandingPage() {
         <div className="max-w-3xl mx-auto">
           <div className="glass-premium rounded-3xl p-12 border border-primary/15 relative overflow-hidden"
             style={{ boxShadow: "0 24px 80px hsl(239 84% 67% / 0.12)" }}>
-            {/* Inner glow */}
             <div className="absolute inset-0 opacity-10 pointer-events-none"
               style={{ background: "radial-gradient(ellipse at top, hsl(239 84% 67%), transparent 70%)" }} />
 
             <div className="relative z-10">
               <div className="flex items-center justify-center gap-3 mb-6">
                 <div className="w-14 h-14 rounded-2xl overflow-hidden border border-primary/30 shadow-glow-primary animate-float">
-                  <img src={nexloadLogo} alt="Nexload" className="w-full h-full object-cover" />
+                  <img src={gravlLogo} alt="Gravl" className="w-full h-full object-cover" />
                 </div>
               </div>
               <h2 className="text-4xl sm:text-5xl font-black tracking-tight mb-4">
@@ -507,7 +505,7 @@ export default function LandingPage() {
                 <span className="text-gradient">at the speed of light?</span>
               </h2>
               <p className="text-muted-foreground text-base mb-8 max-w-lg mx-auto leading-relaxed">
-                Join thousands of power users who trust Nexload. Free plan. No credit card. Up and running in 30 seconds.
+                Join thousands of power users who trust Gravl. Free plan. No credit card. Up and running in 30 seconds.
               </p>
               <div className="flex items-center justify-center gap-4 flex-wrap">
                 <Link to="/auth/register"
@@ -532,9 +530,9 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-lg overflow-hidden border border-primary/30">
-              <img src={nexloadLogo} alt="Nexload" className="w-full h-full object-cover" />
+              <img src={gravlLogo} alt="Gravl" className="w-full h-full object-cover" />
             </div>
-            <span className="font-black text-gradient">nexload.cc</span>
+            <span className="font-black text-gradient">gravl.cc</span>
           </div>
           <div className="flex items-center gap-6 text-xs text-muted-foreground">
             <a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a>
@@ -542,7 +540,7 @@ export default function LandingPage() {
             <a href="#" className="hover:text-foreground transition-colors">DMCA</a>
             <a href="#" className="hover:text-foreground transition-colors">Status</a>
           </div>
-          <p className="text-xs text-muted-foreground/50">© 2025 Nexload. All rights reserved.</p>
+          <p className="text-xs text-muted-foreground/50">© 2025 Gravl. All rights reserved.</p>
         </div>
       </footer>
     </div>

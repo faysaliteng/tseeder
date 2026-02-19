@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import nexloadLogo from "@/assets/nexload-logo.png";
+import gravlLogo from "@/assets/gravl-logo.png";
 
 function AuthBlobs() {
   return (
@@ -109,7 +109,7 @@ export default function RegisterPage() {
       <div className="w-full max-w-sm space-y-6 relative z-10">
         <div className="text-center animate-slide-up-fade">
           <div className="flex items-center justify-center w-16 h-16 rounded-2xl overflow-hidden border border-primary/20 mx-auto mb-4 shadow-glow-primary animate-float">
-            <img src={nexloadLogo} alt="Nexload" className="w-full h-full object-cover" />
+            <img src={gravlLogo} alt="Gravl" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-3xl font-bold text-gradient">Create account</h1>
           <p className="text-sm text-muted-foreground mt-1.5">Start with 5 GB free storage</p>
