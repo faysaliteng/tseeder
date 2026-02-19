@@ -406,6 +406,247 @@ export async function handleAdminListBlocklist(req: Request, env: Env, _ctx: Ctx
   });
 }
 
+// ── GET /admin/workers ────────────────────────────────────────────────────────
+
+export async function handleAdminListWorkers(req: Request, env: Env, _ctx: Ctx): Promise<Response> {
+  const [workers, recentHeartbeats] = await Promise.all([
+    env.DB.prepare(`
+      SELECT * FROM worker_registry ORDER BY last_heartbeat DESC
+    `).all<any>(),
+    env.DB.prepare(`
+      SELECT worker_id, COUNT(*) as heartbeat_count,
+             AVG(cpu_pct) as avg_cpu,
+             AVG(active_jobs) as avg_active_jobs
+      FROM worker_heartbeats
+      WHERE created_at >= datetime('now', '-1 hour')
+      GROUP BY worker_id
+    `).all<any>(),
+  ]);
+
+  const heartbeatMap = Object.fromEntries(
+    recentHeartbeats.results.map(r => [r.worker_id, r]),
+  );
+
+  const enriched = workers.results.map(w => ({
+    ...w,
+    heartbeat_count_1h: heartbeatMap[w.id]?.heartbeat_count ?? 0,
+    avg_cpu_1h: heartbeatMap[w.id]?.avg_cpu ?? null,
+    avg_active_jobs_1h: heartbeatMap[w.id]?.avg_active_jobs ?? null,
+    is_stale: !w.last_heartbeat || new Date(w.last_heartbeat) < new Date(Date.now() - 5 * 60 * 1000),
+  }));
+
+  return Response.json({ workers: enriched, total: workers.results.length });
+}
+
+// ── POST /admin/workers/:id/cordon ────────────────────────────────────────────
+
+export async function handleAdminCordonWorker(req: Request, env: Env, ctx: Ctx): Promise<Response> {
+  const correlationId = req.headers.get("X-Correlation-ID") ?? crypto.randomUUID();
+  const { id } = ctx.params;
+
+  const worker = await env.DB.prepare("SELECT id FROM worker_registry WHERE id = ? LIMIT 1")
+    .bind(id).first<{ id: string }>();
+  if (!worker) return apiError("NOT_FOUND", "Worker not found", 404, correlationId);
+
+  await env.DB.prepare(
+    "UPDATE worker_registry SET status = 'cordoned', last_heartbeat = datetime('now') WHERE id = ?"
+  ).bind(id).run();
+
+  await writeAuditLog(env.DB, {
+    actorId: ctx.user!.id, action: "worker.cordoned",
+    targetType: "worker", targetId: id,
+    ipAddress: req.headers.get("CF-Connecting-IP") ?? undefined,
+  });
+
+  return Response.json({ id, status: "cordoned", message: "Worker cordoned — no new jobs will be dispatched to it" });
+}
+
+// ── POST /admin/workers/:id/drain ─────────────────────────────────────────────
+
+export async function handleAdminDrainWorker(req: Request, env: Env, ctx: Ctx): Promise<Response> {
+  const correlationId = req.headers.get("X-Correlation-ID") ?? crypto.randomUUID();
+  const { id } = ctx.params;
+
+  const worker = await env.DB.prepare("SELECT id FROM worker_registry WHERE id = ? LIMIT 1")
+    .bind(id).first<{ id: string }>();
+  if (!worker) return apiError("NOT_FOUND", "Worker not found", 404, correlationId);
+
+  await env.DB.prepare(
+    "UPDATE worker_registry SET status = 'draining', last_heartbeat = datetime('now') WHERE id = ?"
+  ).bind(id).run();
+
+  await writeAuditLog(env.DB, {
+    actorId: ctx.user!.id, action: "worker.draining",
+    targetType: "worker", targetId: id,
+    ipAddress: req.headers.get("CF-Connecting-IP") ?? undefined,
+  });
+
+  return Response.json({ id, status: "draining", message: "Worker set to draining — existing jobs will finish before it goes offline" });
+}
+
+// ── POST /admin/workers/heartbeat (called by compute agents) ──────────────────
+
+export async function handleWorkerHeartbeat(req: Request, env: Env, _ctx: Ctx): Promise<Response> {
+  const correlationId = req.headers.get("X-Correlation-ID") ?? crypto.randomUUID();
+
+  // Verify bearer token
+  const authHeader = req.headers.get("Authorization") ?? "";
+  if (!authHeader.startsWith("Bearer ") || authHeader.slice(7) !== env.WORKER_CLUSTER_TOKEN) {
+    return apiError("AUTH_REQUIRED", "Invalid cluster token", 401, correlationId);
+  }
+
+  const body = await req.json().catch(() => null) as {
+    workerId?: string; version?: string; region?: string;
+    activeJobs?: number; maxJobs?: number;
+    diskFreeGb?: number; diskTotalGb?: number;
+    cpuPct?: number; memUsedMb?: number; bandwidthMbps?: number;
+  } | null;
+
+  if (!body?.workerId) return apiError("VALIDATION_ERROR", "workerId required", 400, correlationId);
+
+  const {
+    workerId, version, region,
+    activeJobs = 0, maxJobs = 0,
+    diskFreeGb, diskTotalGb, cpuPct, memUsedMb, bandwidthMbps,
+  } = body;
+
+  // Upsert into registry
+  await env.DB.prepare(`
+    INSERT INTO worker_registry (id, version, region, active_jobs, max_jobs, disk_free_gb, disk_total_gb, bandwidth_mbps, last_heartbeat)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    ON CONFLICT(id) DO UPDATE SET
+      version = excluded.version,
+      region = excluded.region,
+      active_jobs = excluded.active_jobs,
+      max_jobs = excluded.max_jobs,
+      disk_free_gb = excluded.disk_free_gb,
+      disk_total_gb = excluded.disk_total_gb,
+      bandwidth_mbps = excluded.bandwidth_mbps,
+      last_heartbeat = excluded.last_heartbeat,
+      status = CASE WHEN status = 'offline' THEN 'healthy' ELSE status END
+  `).bind(workerId, version ?? null, region ?? null, activeJobs, maxJobs, diskFreeGb ?? null, diskTotalGb ?? null, bandwidthMbps ?? null).run();
+
+  // Append to time-series heartbeats
+  await env.DB.prepare(`
+    INSERT INTO worker_heartbeats (worker_id, status, active_jobs, max_jobs, disk_free_gb, cpu_pct, mem_used_mb, bandwidth_mbps, version, region)
+    VALUES (?, 'healthy', ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(workerId, activeJobs, maxJobs, diskFreeGb ?? null, cpuPct ?? null, memUsedMb ?? null, bandwidthMbps ?? null, version ?? null, region ?? null).run();
+
+  return Response.json({ ok: true, workerId, ts: new Date().toISOString() });
+}
+
+// ── GET /admin/storage ────────────────────────────────────────────────────────
+
+export async function handleAdminStorage(req: Request, env: Env, _ctx: Ctx): Promise<Response> {
+  // R2 stats: total objects and bytes from D1 (files table is the source of truth)
+  const [fileStats, orphanStats, jobStats, diskStats] = await Promise.all([
+    env.DB.prepare(`
+      SELECT
+        COUNT(*) as total_files,
+        COALESCE(SUM(size_bytes), 0) as total_bytes,
+        COUNT(CASE WHEN is_complete = 1 THEN 1 END) as complete_files,
+        COALESCE(SUM(CASE WHEN is_complete = 1 THEN size_bytes ELSE 0 END), 0) as complete_bytes
+      FROM files
+    `).first<{ total_files: number; total_bytes: number; complete_files: number; complete_bytes: number }>(),
+
+    // Orphaned files: job is completed/failed/cancelled but file is still listed
+    env.DB.prepare(`
+      SELECT COUNT(*) as orphan_count, COALESCE(SUM(f.size_bytes), 0) as orphan_bytes
+      FROM files f
+      JOIN jobs j ON j.id = f.job_id
+      WHERE j.status IN ('failed', 'cancelled')
+      AND f.created_at < datetime('now', '-24 hours')
+    `).first<{ orphan_count: number; orphan_bytes: number }>(),
+
+    env.DB.prepare(`
+      SELECT
+        COUNT(*) as total_jobs,
+        COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_jobs,
+        COUNT(CASE WHEN status IN ('failed','cancelled') THEN 1 END) as terminal_jobs
+      FROM jobs
+    `).first<{ total_jobs: number; completed_jobs: number; terminal_jobs: number }>(),
+
+    // Disk stats from latest worker heartbeat
+    env.DB.prepare(`
+      SELECT disk_free_gb, disk_total_gb, created_at
+      FROM worker_heartbeats
+      ORDER BY created_at DESC LIMIT 1
+    `).first<{ disk_free_gb: number | null; disk_total_gb: number | null; created_at: string } | null>(),
+  ]);
+
+  // Latest storage snapshot
+  const latestSnapshot = await env.DB.prepare(
+    "SELECT * FROM storage_snapshots ORDER BY captured_at DESC LIMIT 1"
+  ).first<any>().catch(() => null);
+
+  return Response.json({
+    files: fileStats ?? { total_files: 0, total_bytes: 0, complete_files: 0, complete_bytes: 0 },
+    orphans: orphanStats ?? { orphan_count: 0, orphan_bytes: 0 },
+    jobs: jobStats ?? { total_jobs: 0, completed_jobs: 0, terminal_jobs: 0 },
+    disk: diskStats ?? null,
+    latestSnapshot: latestSnapshot ?? null,
+    ts: new Date().toISOString(),
+  });
+}
+
+// ── POST /admin/storage/cleanup ───────────────────────────────────────────────
+
+export async function handleAdminStorageCleanup(req: Request, env: Env, ctx: Ctx): Promise<Response> {
+  const correlationId = req.headers.get("X-Correlation-ID") ?? crypto.randomUUID();
+  const body = await req.json().catch(() => ({})) as { reason?: string; dryRun?: boolean };
+  const dryRun = body.dryRun === true;
+
+  // Find orphaned file records (jobs that are failed/cancelled, files older than 24h)
+  const orphans = await env.DB.prepare(`
+    SELECT f.id, f.r2_key, f.size_bytes, j.id as job_id
+    FROM files f
+    JOIN jobs j ON j.id = f.job_id
+    WHERE j.status IN ('failed', 'cancelled')
+    AND f.created_at < datetime('now', '-24 hours')
+    LIMIT 200
+  `).all<{ id: string; r2_key: string | null; size_bytes: number; job_id: string }>();
+
+  if (dryRun) {
+    return Response.json({
+      dryRun: true,
+      orphanFilesFound: orphans.results.length,
+      orphanBytesFound: orphans.results.reduce((sum, f) => sum + f.size_bytes, 0),
+      message: "Dry run — no files were deleted. Set dryRun: false to execute.",
+    });
+  }
+
+  let deletedFromR2 = 0;
+  let deletedFromD1 = 0;
+  let bytesReclaimed = 0;
+
+  for (const orphan of orphans.results) {
+    // Delete from R2 if we have the key
+    if (orphan.r2_key) {
+      try {
+        await env.FILES_BUCKET.delete(orphan.r2_key);
+        deletedFromR2++;
+      } catch { /* non-fatal — may already be gone */ }
+    }
+
+    // Delete from D1
+    await env.DB.prepare("DELETE FROM files WHERE id = ?").bind(orphan.id).run();
+    deletedFromD1++;
+    bytesReclaimed += orphan.size_bytes;
+  }
+
+  await writeAuditLog(env.DB, {
+    actorId: ctx.user!.id, action: "storage.cleanup",
+    targetType: "storage", targetId: "orphans",
+    metadata: { deletedFromR2, deletedFromD1, bytesReclaimed, reason: body.reason },
+    ipAddress: req.headers.get("CF-Connecting-IP") ?? undefined,
+  });
+
+  return Response.json({
+    deletedFromR2, deletedFromD1, bytesReclaimed,
+    message: `Cleaned up ${deletedFromD1} orphaned file records, reclaimed ${(bytesReclaimed / 1e9).toFixed(2)} GB`,
+  });
+}
+
 // ── GET /admin/security-events ────────────────────────────────────────────────
 
 export async function handleAdminSecurityEvents(req: Request, env: Env, _ctx: Ctx): Promise<Response> {

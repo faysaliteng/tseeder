@@ -1,39 +1,46 @@
-import { useQuery } from "@tanstack/react-query";
-import { admin as adminApi } from "@/lib/api";
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { adminStorage, ApiError } from "@/lib/api";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { AdminPageHeader, StatCard } from "@/components/admin/AdminUI";
-import { HardDrive, Database, Trash2, AlertTriangle } from "lucide-react";
+import { HardDrive, Database, Trash2, AlertTriangle, RefreshCw, Loader2 } from "lucide-react";
 import { formatBytes } from "@/lib/utils";
-
-interface Health {
-  agent?: {
-    diskFreeGb?: number;
-    diskTotalGb?: number;
-  } | null;
-  jobs?: Record<string, number>;
-}
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 export default function AdminStorage() {
-  const { data: health, isLoading } = useQuery<Health>({
-    queryKey: ["admin-health"],
-    queryFn: () => adminApi.systemHealth() as Promise<Health>,
-    refetchInterval: 30_000,
+  const { toast } = useToast();
+  const [cleanupDryRun, setCleanupDryRun] = useState(true);
+  const [cleanupResult, setCleanupResult] = useState<string | null>(null);
+
+  const { data, isLoading, refetch, isFetching } = useQuery({
+    queryKey: ["admin-storage"],
+    queryFn: () => adminStorage.get(),
+    refetchInterval: 60_000,
   });
 
-  const { data: jobsData } = useQuery({
-    queryKey: ["admin-jobs", 1, "completed"],
-    queryFn: () => adminApi.listJobs({ page: 1, status: "completed" }),
+  const cleanupMutation = useMutation({
+    mutationFn: () => adminStorage.cleanup({ dryRun: cleanupDryRun, reason: "Admin manual cleanup" }),
+    onSuccess: (result) => {
+      setCleanupResult(result.message);
+      toast({ title: cleanupDryRun ? "Dry run complete" : "Cleanup complete", description: result.message });
+      if (!cleanupDryRun) refetch();
+    },
+    onError: (err) => {
+      toast({ title: "Cleanup failed", description: err instanceof ApiError ? err.message : "Unknown error", variant: "destructive" });
+    },
   });
 
-  const agent = health?.agent;
-  const diskUsedGb = agent?.diskTotalGb && agent?.diskFreeGb
-    ? agent.diskTotalGb - agent.diskFreeGb
+  const files = data?.files;
+  const orphans = data?.orphans;
+  const disk = data?.disk;
+
+  const diskUsedGb = disk?.disk_total_gb != null && disk?.disk_free_gb != null
+    ? disk.disk_total_gb - disk.disk_free_gb
     : null;
-  const diskPct = diskUsedGb && agent?.diskTotalGb
-    ? (diskUsedGb / agent.diskTotalGb) * 100
+  const diskPct = diskUsedGb != null && disk?.disk_total_gb
+    ? (diskUsedGb / disk.disk_total_gb) * 100
     : 0;
-
-  const completedJobs = (jobsData?.data ?? []) as any[];
 
   return (
     <AdminLayout>
@@ -41,32 +48,49 @@ export default function AdminStorage() {
         <AdminPageHeader
           title="Storage & Content"
           description="R2 bucket usage, orphan cleanup, and retention enforcement."
+          actions={
+            <button
+              onClick={() => refetch()}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <RefreshCw className={cn("w-3.5 h-3.5", isFetching && "animate-spin")} />
+              Refresh
+            </button>
+          }
         />
 
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <StatCard
-            label="Disk Used"
-            value={isLoading ? "…" : diskUsedGb !== null ? `${diskUsedGb.toFixed(1)} GB` : "—"}
-            sub={agent?.diskTotalGb ? `of ${agent.diskTotalGb.toFixed(1)} GB total` : undefined}
-            icon={HardDrive}
-            variant={diskPct > 85 ? "danger" : diskPct > 70 ? "warn" : "default"}
-          />
-          <StatCard
-            label="Completed Jobs"
-            value={isLoading ? "…" : jobsData?.meta?.total ?? "—"}
-            sub="Files stored in R2"
+            label="Total Files"
+            value={isLoading ? "…" : files?.total_files ?? "—"}
+            sub={files ? formatBytes(files.total_bytes) : undefined}
             icon={Database}
           />
           <StatCard
-            label="Agent Disk Free"
-            value={isLoading ? "…" : agent?.diskFreeGb !== undefined ? `${agent.diskFreeGb.toFixed(1)} GB` : "—"}
+            label="Complete Files"
+            value={isLoading ? "…" : files?.complete_files ?? "—"}
+            sub={files ? formatBytes(files.complete_bytes) : undefined}
+            icon={Database}
+            variant="success"
+          />
+          <StatCard
+            label="Orphaned Files"
+            value={isLoading ? "…" : orphans?.orphan_count ?? "—"}
+            sub={orphans ? formatBytes(orphans.orphan_bytes) : undefined}
+            icon={Trash2}
+            variant={(orphans?.orphan_count ?? 0) > 0 ? "warn" : "default"}
+          />
+          <StatCard
+            label="Disk Free"
+            value={isLoading ? "…" : disk?.disk_free_gb != null ? `${disk.disk_free_gb.toFixed(1)} GB` : "—"}
+            sub={disk?.disk_total_gb ? `of ${disk.disk_total_gb.toFixed(1)} GB` : undefined}
             icon={HardDrive}
-            variant={agent?.diskFreeGb !== undefined && agent.diskFreeGb < 10 ? "danger" : "default"}
+            variant={diskPct > 85 ? "danger" : diskPct > 70 ? "warn" : "default"}
           />
         </div>
 
-        {/* Disk usage bar */}
-        {agent?.diskTotalGb && (
+        {/* Disk bar */}
+        {disk?.disk_total_gb && (
           <div className="bg-card border border-border rounded-xl p-5 shadow-card space-y-3">
             <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
               <HardDrive className="w-4 h-4 text-primary" /> Agent Disk Usage
@@ -84,43 +108,62 @@ export default function AdminStorage() {
               <span className="text-sm font-semibold text-foreground whitespace-nowrap">{diskPct.toFixed(1)}%</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              {diskUsedGb?.toFixed(1)} GB used of {agent.diskTotalGb.toFixed(1)} GB &bull; {agent.diskFreeGb?.toFixed(1)} GB free
+              {diskUsedGb?.toFixed(1)} GB used of {disk.disk_total_gb.toFixed(1)} GB &bull; {disk.disk_free_gb?.toFixed(1)} GB free
             </p>
           </div>
         )}
 
-        {/* Completed jobs list (R2 artifacts) */}
-        <div className="bg-card border border-border rounded-xl shadow-card overflow-hidden">
-          <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-            <Database className="w-4 h-4 text-primary" />
-            <h2 className="text-sm font-semibold text-foreground">Stored Artifacts (Completed Jobs)</h2>
-          </div>
-          <div className="divide-y divide-border">
-            {completedJobs.slice(0, 10).map((job: any) => (
-              <div key={job.id} className="flex items-center gap-3 px-4 py-3">
-                <Database className="w-4 h-4 text-muted-foreground shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-foreground truncate">{job.name || "Untitled"}</p>
-                  <p className="text-xs text-muted-foreground">{job.user_email} &bull; {new Date(job.created_at).toLocaleDateString()}</p>
-                </div>
-                <span className="text-xs text-muted-foreground whitespace-nowrap">{formatBytes(job.bytes_total ?? 0)}</span>
-              </div>
-            ))}
-            {completedJobs.length === 0 && (
-              <div className="px-4 py-8 text-center text-sm text-muted-foreground">No completed jobs with stored artifacts</div>
-            )}
+        {/* Orphan cleanup */}
+        <div className="bg-card border border-border rounded-xl p-5 shadow-card space-y-4">
+          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Trash2 className="w-4 h-4 text-[hsl(var(--warning))]" /> Orphan Cleanup
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Orphaned files are D1 records for jobs in failed/cancelled state older than 24 hours.
+            Running cleanup deletes their D1 records and R2 objects.
+          </p>
+
+          {cleanupResult && (
+            <div className="p-3 rounded-xl bg-primary/10 border border-primary/20 text-xs text-primary">
+              {cleanupResult}
+            </div>
+          )}
+
+          <div className="flex items-center gap-3 flex-wrap">
+            <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+              <input
+                type="checkbox"
+                checked={cleanupDryRun}
+                onChange={e => setCleanupDryRun(e.target.checked)}
+                className="w-3.5 h-3.5 rounded"
+              />
+              Dry run (preview only)
+            </label>
+            <button
+              onClick={() => { setCleanupResult(null); cleanupMutation.mutate(); }}
+              disabled={cleanupMutation.isPending}
+              className={cn(
+                "flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors font-medium",
+                cleanupDryRun
+                  ? "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                  : "border-destructive/50 text-destructive hover:bg-destructive/10",
+              )}
+            >
+              {cleanupMutation.isPending
+                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Running…</>
+                : <><Trash2 className="w-3.5 h-3.5" />{cleanupDryRun ? "Preview cleanup" : "Run cleanup"}</>}
+            </button>
           </div>
         </div>
 
-        {/* Retention info */}
+        {/* Retention policy */}
         <div className="bg-card border border-border rounded-xl p-5 shadow-card">
           <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-[hsl(var(--warning))]" /> Retention Policy
           </h2>
           <p className="text-sm text-muted-foreground">
             Files are automatically purged from R2 after the retention period defined by the user's plan.
-            The compute agent enforces deletion during its cleanup sweep. Manual orphan cleanup tools
-            are available via the worker cluster API.
+            The compute agent enforces deletion during its cleanup sweep.
           </p>
           <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
             {[

@@ -1,26 +1,27 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { auth, setCsrfToken, ApiError, apiKeys } from "@/lib/api";
+import { Turnstile } from "@marsidev/react-turnstile";
+import type { TurnstileInstance } from "@marsidev/react-turnstile";
 
-// Minimal Chrome extension types — the real chrome global may not exist in web contexts.
+// Minimal Chrome extension types
 declare const chrome: {
   runtime?: {
-    sendMessage?: (
-      extensionId: string,
-      message: unknown,
-      callback?: () => void,
-    ) => void;
+    sendMessage?: (extensionId: string, message: unknown, callback?: () => void) => void;
     lastError?: unknown;
   };
 } | undefined;
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Eye, EyeOff, Loader2, AlertCircle, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import tseederLogo from "@/assets/tseeder-logo.png";
 
-// Animated background blobs
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY ?? "";
+const EXTENSION_ID = import.meta.env.VITE_EXTENSION_ID ?? "";
+
 function AuthBlobs() {
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
@@ -30,7 +31,6 @@ function AuthBlobs() {
           background: "radial-gradient(circle, hsl(239 84% 67%) 0%, transparent 70%)",
           top: "-200px", left: "-150px",
           animation: "blob-drift 12s ease-in-out infinite",
-          animationDelay: "0s",
         }}
       />
       <div
@@ -51,7 +51,6 @@ function AuthBlobs() {
           animationDelay: "-2s",
         }}
       />
-      {/* Particle dots */}
       {Array.from({ length: 12 }).map((_, i) => (
         <div
           key={i}
@@ -68,6 +67,20 @@ function AuthBlobs() {
   );
 }
 
+function notifyExtension(apiKey: string, userEmail: string) {
+  try {
+    if (typeof chrome !== "undefined" && chrome?.runtime?.sendMessage && EXTENSION_ID) {
+      chrome.runtime.sendMessage(
+        EXTENSION_ID,
+        { type: "TSDR_AUTH", token: apiKey, email: userEmail },
+        () => { void chrome?.runtime?.lastError; },
+      );
+    }
+  } catch {
+    // Extension not installed — silently ignore
+  }
+}
+
 export default function LoginPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -75,47 +88,33 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [apiError, setApiError] = useState("");
-
-  // The extension ID is set via VITE_EXTENSION_ID at build time.
-  // The web app sends the API key to the extension after a successful login
-  // so the extension can authenticate without storing the user password.
-  const EXTENSION_ID = import.meta.env.VITE_EXTENSION_ID ?? "";
-
-  function notifyExtension(apiKey: string, userEmail: string) {
-    try {
-      if (
-        typeof chrome !== "undefined" &&
-        chrome?.runtime?.sendMessage &&
-        EXTENSION_ID
-      ) {
-        chrome.runtime.sendMessage(
-          EXTENSION_ID,
-          { type: "TSDR_AUTH", token: apiKey, email: userEmail },
-          () => { void chrome?.runtime?.lastError; }
-        );
-      }
-    } catch {
-      // Extension not installed or not reachable — silently ignore
-    }
-  }
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const turnstileRef = useRef<TurnstileInstance>(null);
 
   const loginMutation = useMutation({
-    mutationFn: () => auth.login(email, password, "dev-bypass"),
+    mutationFn: () => {
+      if (!turnstileToken && TURNSTILE_SITE_KEY) {
+        throw new Error("Please complete the security check.");
+      }
+      return auth.login(email, password, turnstileToken || "dev-bypass");
+    },
     onSuccess: async (data) => {
       setCsrfToken(data.csrfToken);
-      // Obtain an API key to pass to the extension (non-blocking)
       try {
         const result = await apiKeys.create("Extension auto-key");
         notifyExtension(result.secret, email);
       } catch {
-        // API key creation failed — extension just won't be auto-authed
+        // Non-blocking — extension just won't be auto-authed
       }
       navigate("/app/dashboard");
     },
     onError: (err) => {
-      const msg = err instanceof ApiError ? err.message : "Login failed. Check your credentials.";
+      const msg = err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Login failed.";
       setApiError(msg);
       toast({ title: "Sign in failed", description: msg, variant: "destructive" });
+      // Reset Turnstile so the user can try again
+      turnstileRef.current?.reset();
+      setTurnstileToken("");
     },
   });
 
@@ -125,6 +124,9 @@ export default function LoginPage() {
     if (!email || !password) return;
     loginMutation.mutate();
   };
+
+  const canSubmit = !loginMutation.isPending && !!email && !!password &&
+    (!TURNSTILE_SITE_KEY || !!turnstileToken);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 relative">
@@ -145,8 +147,10 @@ export default function LoginPage() {
           <span className="text-xs px-3 py-1 rounded-full border border-border bg-secondary/80 text-muted-foreground font-medium backdrop-blur-sm">
             Free · 5 GB
           </span>
-          <span className="text-xs px-3 py-1 rounded-full font-bold flex items-center gap-1 relative overflow-hidden"
-            style={{ border: "1px solid hsl(38 92% 50% / 0.6)", background: "hsl(38 92% 50% / 0.1)", color: "hsl(38 92% 50%)" }}>
+          <span
+            className="text-xs px-3 py-1 rounded-full font-bold flex items-center gap-1 relative overflow-hidden"
+            style={{ border: "1px solid hsl(38 92% 50% / 0.6)", background: "hsl(38 92% 50% / 0.1)", color: "hsl(38 92% 50%)" }}
+          >
             <span className="relative z-10 flex items-center gap-1"><Zap className="w-3 h-3" /> Premium · 2 TB</span>
           </span>
         </div>
@@ -200,17 +204,29 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Turnstile placeholder */}
-          <div className="h-14 rounded-xl border border-dashed border-border/40 flex items-center justify-center text-xs text-muted-foreground/60 bg-muted/10">
-            Cloudflare Turnstile (configure site key)
-          </div>
+          {/* Cloudflare Turnstile — real widget when site key is configured */}
+          {TURNSTILE_SITE_KEY ? (
+            <div className="flex justify-center">
+              <Turnstile
+                ref={turnstileRef}
+                siteKey={TURNSTILE_SITE_KEY}
+                onSuccess={setTurnstileToken}
+                onError={() => { setTurnstileToken(""); }}
+                onExpire={() => { setTurnstileToken(""); }}
+                options={{ theme: "dark", size: "normal" }}
+              />
+            </div>
+          ) : (
+            <div className="h-14 rounded-xl border border-dashed border-border/40 flex items-center justify-center text-xs text-muted-foreground/60 bg-muted/10">
+              Set VITE_TURNSTILE_SITE_KEY to enable bot protection
+            </div>
+          )}
 
           <Button
             type="submit"
             className="w-full h-11 gradient-primary border-0 text-white font-semibold rounded-xl relative overflow-hidden group"
-            disabled={loginMutation.isPending || !email || !password}
+            disabled={!canSubmit}
           >
-            {/* Shimmer sweep */}
             <span className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
             <span className="relative flex items-center justify-center gap-2">
               {loginMutation.isPending
