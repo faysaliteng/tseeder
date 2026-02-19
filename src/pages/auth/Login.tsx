@@ -1,7 +1,19 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
-import { auth, setCsrfToken, ApiError } from "@/lib/api";
+import { auth, setCsrfToken, ApiError, apiKeys } from "@/lib/api";
+
+// Minimal Chrome extension types — the real chrome global may not exist in web contexts.
+declare const chrome: {
+  runtime?: {
+    sendMessage?: (
+      extensionId: string,
+      message: unknown,
+      callback?: () => void,
+    ) => void;
+    lastError?: unknown;
+  };
+} | undefined;
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Eye, EyeOff, Loader2, AlertCircle, Zap } from "lucide-react";
@@ -64,10 +76,40 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [apiError, setApiError] = useState("");
 
+  // The extension ID is set via VITE_EXTENSION_ID at build time.
+  // The web app sends the API key to the extension after a successful login
+  // so the extension can authenticate without storing the user password.
+  const EXTENSION_ID = import.meta.env.VITE_EXTENSION_ID ?? "";
+
+  function notifyExtension(apiKey: string, userEmail: string) {
+    try {
+      if (
+        typeof chrome !== "undefined" &&
+        chrome?.runtime?.sendMessage &&
+        EXTENSION_ID
+      ) {
+        chrome.runtime.sendMessage(
+          EXTENSION_ID,
+          { type: "TSDR_AUTH", token: apiKey, email: userEmail },
+          () => { void chrome?.runtime?.lastError; }
+        );
+      }
+    } catch {
+      // Extension not installed or not reachable — silently ignore
+    }
+  }
+
   const loginMutation = useMutation({
     mutationFn: () => auth.login(email, password, "dev-bypass"),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setCsrfToken(data.csrfToken);
+      // Obtain an API key to pass to the extension (non-blocking)
+      try {
+        const result = await apiKeys.create("Extension auto-key");
+        notifyExtension(result.secret, email);
+      } catch {
+        // API key creation failed — extension just won't be auto-authed
+      }
       navigate("/app/dashboard");
     },
     onError: (err) => {

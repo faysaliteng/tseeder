@@ -1,10 +1,13 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import JSZip from "jszip";
 import {
   Download, Chrome, Zap, Shield, MousePointer, Bell,
   ArrowRight, CheckCircle2, Code2, Globe, ExternalLink,
-  Puzzle, RefreshCw, Lock,
+  Puzzle, RefreshCw, Lock, Loader2,
 } from "lucide-react";
 import tseederLogo from "@/assets/tseeder-logo.png";
+
 
 // ── Steps ────────────────────────────────────────────────────────────────────
 
@@ -82,13 +85,51 @@ const FEATURES = [
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 
+// Files to bundle into the extension ZIP
+const EXTENSION_FILES = [
+  "manifest.json",
+  "background.js",
+  "content.js",
+  "popup.html",
+  "popup.js",
+  "popup.css",
+  "icon16.svg",
+  "icon48.svg",
+  "icon128.svg",
+];
+
 export default function ExtensionPage() {
-  const handleDownload = () => {
-    // Download the extension manifest as a zip reference
-    const link = document.createElement("a");
-    link.href = "/extension/manifest.json";
-    link.download = "tseeder-extension-manifest.json";
-    link.click();
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      const zip = new JSZip();
+      const folder = zip.folder("tseeder-extension")!;
+
+      await Promise.all(
+        EXTENSION_FILES.map(async (filename) => {
+          const res = await fetch(`/extension/${filename}`);
+          if (!res.ok) throw new Error(`Failed to fetch ${filename}: ${res.status}`);
+          const blob = await res.blob();
+          folder.file(filename, blob);
+        })
+      );
+
+      const content = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(content);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "tseeder-extension.zip";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Extension download failed:", err);
+      alert("Download failed. Please try again or load the extension manually from /extension/.");
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -198,10 +239,11 @@ export default function ExtensionPage() {
           <div className="flex items-center justify-center gap-4 flex-wrap">
             <button
               onClick={handleDownload}
-              className="inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl gradient-primary text-white font-bold text-base shadow-glow-primary hover:opacity-90 hover:scale-105 transition-all duration-200 relative overflow-hidden group">
+              disabled={downloading}
+              className="inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl gradient-primary text-white font-bold text-base shadow-glow-primary hover:opacity-90 hover:scale-105 transition-all duration-200 relative overflow-hidden group disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100">
               <span className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-              <Download className="w-5 h-5" />
-              Download Extension
+              {downloading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+              {downloading ? "Bundling…" : "Download Extension (.zip)"}
             </button>
             <a
               href="https://chrome.google.com/webstore"
@@ -252,9 +294,10 @@ export default function ExtensionPage() {
           <div className="mt-10 flex justify-center">
             <button
               onClick={handleDownload}
-              className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-2xl gradient-primary text-white font-bold shadow-glow-primary hover:opacity-90 hover:scale-105 transition-all duration-200">
-              <Download className="w-4 h-4" />
-              Download tseeder Extension (.zip)
+              disabled={downloading}
+              className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-2xl gradient-primary text-white font-bold shadow-glow-primary hover:opacity-90 hover:scale-105 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100">
+              {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              {downloading ? "Bundling extension…" : "Download tseeder Extension (.zip)"}
             </button>
           </div>
         </div>
@@ -337,9 +380,10 @@ export default function ExtensionPage() {
               <div className="flex items-center justify-center gap-3 flex-wrap">
                 <button
                   onClick={handleDownload}
-                  className="inline-flex items-center gap-2 px-7 py-3.5 rounded-2xl gradient-primary text-white font-bold shadow-glow-primary hover:opacity-90 hover:scale-105 transition-all duration-200">
-                  <Download className="w-4 h-4" />
-                  Download Extension
+                  disabled={downloading}
+                  className="inline-flex items-center gap-2 px-7 py-3.5 rounded-2xl gradient-primary text-white font-bold shadow-glow-primary hover:opacity-90 hover:scale-105 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100">
+                  {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                  {downloading ? "Bundling…" : "Download Extension (.zip)"}
                 </button>
                 <Link to="/auth/register"
                   className="inline-flex items-center gap-2 px-7 py-3.5 rounded-2xl border border-border bg-secondary/50 text-muted-foreground font-semibold hover:text-foreground hover:border-border/80 transition-all">
