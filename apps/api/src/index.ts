@@ -27,6 +27,11 @@ import {
   handleListProviders, handleGetActiveProvider, handleSwitchProvider,
   handleVerifyProvider, handleProviderHealth, handleProviderHistory,
 } from "./handlers/providers";
+import {
+  handleListArticles, handleGetArticle,
+  handleAdminListArticles, handleAdminCreateArticle, handleAdminUpdateArticle,
+  handleAdminDeleteArticle, handleAdminTogglePublish,
+} from "./handlers/articles";
 import { JobProgressDO, UserSessionDO } from "./durable-objects";
 
 export { JobProgressDO, UserSessionDO };
@@ -142,6 +147,17 @@ router.get("/admin/providers/health",         [authMiddleware, rbacMiddleware("a
 router.get("/admin/providers/history",        [authMiddleware, rbacMiddleware("admin")], handleProviderHistory);
 router.post("/admin/providers/switch",        [authMiddleware, rbacMiddleware("superadmin"), csrfMiddleware], handleSwitchProvider);
 router.post("/admin/providers/verify",        [authMiddleware, rbacMiddleware("admin"), csrfMiddleware], handleVerifyProvider);
+
+// ── Public Blog ────────────────────────────────────────────────────────────────
+router.get("/blog/articles",                [],                                           handleListArticles);
+router.get("/blog/articles/:slug",          [],                                           handleGetArticle);
+
+// ── Admin — Blog / CMS ─────────────────────────────────────────────────────────
+router.get("/admin/articles",               [authMiddleware, rbacMiddleware("admin")],                       handleAdminListArticles);
+router.post("/admin/articles",              [authMiddleware, rbacMiddleware("admin"), csrfMiddleware],        handleAdminCreateArticle);
+router.patch("/admin/articles/:id",         [authMiddleware, rbacMiddleware("admin"), csrfMiddleware],        handleAdminUpdateArticle);
+router.delete("/admin/articles/:id",        [authMiddleware, rbacMiddleware("superadmin"), csrfMiddleware],   handleAdminDeleteArticle);
+router.post("/admin/articles/:id/publish",  [authMiddleware, rbacMiddleware("admin"), csrfMiddleware],        handleAdminTogglePublish);
 
 // ── Durable Object SSE proxy ───────────────────────────────────────────────────
 router.get("/do/job/:id/sse", [authMiddleware], async (req, env, ctx) => {

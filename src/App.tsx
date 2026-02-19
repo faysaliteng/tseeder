@@ -30,6 +30,10 @@ import AdminSettingsPage from "./pages/admin/AdminSettings";
 import AdminUserDetail from "./pages/admin/UserDetail";
 import AdminLoginPage from "./pages/admin/AdminLogin";
 import AdminInfrastructure from "./pages/admin/Infrastructure";
+import AdminBlog from "./pages/admin/Blog";
+import AdminBlogEditor from "./pages/admin/BlogEditor";
+import BlogPage from "./pages/Blog";
+import BlogPostPage from "./pages/BlogPost";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -88,6 +92,13 @@ const App = () => (
           <Route path="/admin/audit" element={<AdminAudit />} />
           <Route path="/admin/settings" element={<AdminSettingsPage />} />
           <Route path="/admin/infrastructure" element={<AdminInfrastructure />} />
+          <Route path="/admin/blog" element={<AdminBlog />} />
+          <Route path="/admin/blog/new" element={<AdminBlogEditor />} />
+          <Route path="/admin/blog/:id/edit" element={<AdminBlogEditor />} />
+
+          {/* Public Blog */}
+          <Route path="/blog" element={<BlogPage />} />
+          <Route path="/blog/:slug" element={<BlogPostPage />} />
 
           <Route path="*" element={<NotFound />} />
         </Routes>

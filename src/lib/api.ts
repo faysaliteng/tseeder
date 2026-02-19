@@ -339,4 +339,69 @@ export const providers = {
     }),
 };
 
+// ── Blog / Articles ───────────────────────────────────────────────────────────
+
+export interface ApiArticle {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: string;
+  body: string;
+  coverImage: string | null;
+  category: string;
+  tags: string[];
+  status: "draft" | "published" | "archived";
+  readTime: string | null;
+  authorId: string | null;
+  authorName: string | null;
+  publishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ArticleCreatePayload {
+  title: string;
+  slug?: string;
+  excerpt?: string;
+  body?: string;
+  category?: string;
+  coverImage?: string;
+  readTime?: string;
+  status?: "draft" | "published";
+  tags?: string[];
+}
+
+export const blog = {
+  list: (params?: { category?: string; limit?: number; page?: number }) => {
+    const qs = new URLSearchParams(
+      Object.entries(params ?? {}).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])
+    ).toString();
+    return request<{ articles: ApiArticle[]; meta: { page: number; limit: number; total: number; totalPages: number } }>(
+      `/blog/articles${qs ? `?${qs}` : ""}`
+    );
+  },
+  get: (slug: string) =>
+    request<{ article: ApiArticle }>(`/blog/articles/${encodeURIComponent(slug)}`),
+};
+
+export const adminArticles = {
+  list: (params?: { status?: string; category?: string; q?: string; page?: number; limit?: number }) => {
+    const qs = new URLSearchParams(
+      Object.entries(params ?? {}).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])
+    ).toString();
+    return request<{ articles: ApiArticle[]; meta: { page: number; limit: number; total: number; totalPages: number } }>(
+      `/admin/articles${qs ? `?${qs}` : ""}`
+    );
+  },
+  get: (id: string) =>
+    request<{ article: ApiArticle }>(`/admin/articles/${id}`),
+  create: (data: ArticleCreatePayload) =>
+    request<{ article: ApiArticle }>("/admin/articles", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: Partial<ArticleCreatePayload> & { status?: "draft" | "published" | "archived" }) =>
+    request<{ article: ApiArticle }>(`/admin/articles/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  delete: (id: string) =>
+    request<{ message: string; id: string }>(`/admin/articles/${id}`, { method: "DELETE" }),
+  togglePublish: (id: string) =>
+    request<{ id: string; status: string; publishedAt: string | null }>(`/admin/articles/${id}/publish`, { method: "POST" }),
+};
 
