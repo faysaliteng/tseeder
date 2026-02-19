@@ -18,6 +18,10 @@ import {
   handleAdminSecurityEvents,
   handleAdminListFlags, handleAdminUpdateFlag,
 } from "./handlers/admin";
+import {
+  handleListProviders, handleGetActiveProvider, handleSwitchProvider,
+  handleVerifyProvider, handleProviderHealth, handleProviderHistory,
+} from "./handlers/providers";
 import { JobProgressDO, UserSessionDO } from "./durable-objects";
 
 export { JobProgressDO, UserSessionDO };
@@ -108,6 +112,14 @@ router.get("/admin/security-events",        [authMiddleware, rbacMiddleware("adm
 // ── Admin — Feature Flags ──────────────────────────────────────────────────────
 router.get("/admin/feature-flags",          [authMiddleware, rbacMiddleware("admin")], handleAdminListFlags);
 router.patch("/admin/feature-flags/:key",   [authMiddleware, rbacMiddleware("superadmin"), csrfMiddleware], handleAdminUpdateFlag);
+
+// ── Admin — Providers ──────────────────────────────────────────────────────────
+router.get("/admin/providers",                [authMiddleware, rbacMiddleware("admin")], handleListProviders);
+router.get("/admin/providers/active",         [authMiddleware, rbacMiddleware("admin")], handleGetActiveProvider);
+router.get("/admin/providers/health",         [authMiddleware, rbacMiddleware("admin")], handleProviderHealth);
+router.get("/admin/providers/history",        [authMiddleware, rbacMiddleware("admin")], handleProviderHistory);
+router.post("/admin/providers/switch",        [authMiddleware, rbacMiddleware("superadmin"), csrfMiddleware], handleSwitchProvider);
+router.post("/admin/providers/verify",        [authMiddleware, rbacMiddleware("admin"), csrfMiddleware], handleVerifyProvider);
 
 // ── Durable Object SSE proxy ───────────────────────────────────────────────────
 router.get("/do/job/:id/sse", [authMiddleware], async (req, env, ctx) => {

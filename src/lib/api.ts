@@ -194,7 +194,15 @@ export const admin = {
   terminateJob: (id: string, reason?: string) =>
     request<unknown>(`/admin/jobs/${id}/terminate`, { method: "POST", body: JSON.stringify({ reason }) }),
 
-  systemHealth: () => request<unknown>("/admin/system-health"),
+  systemHealth: () => request<{
+    jobs: Record<string, number>;
+    failedLast24h: number;
+    queueDepth: number;
+    dlqDepth: number;
+    agent: unknown;
+    status: string;
+    ts: string;
+  }>("/admin/system-health"),
 
   audit: (page = 1, params?: { action?: string; actorId?: string }) => {
     const qs = new URLSearchParams({ page: String(page), ...(params ?? {}) }).toString();
@@ -217,4 +225,57 @@ export const admin = {
       method: "PATCH", body: JSON.stringify({ value, reason }),
     }),
 };
+
+// ── Admin — Providers ──────────────────────────────────────────────────────────
+
+export interface ProviderConfig {
+  id: string;
+  provider: "cloudflare" | "seedr";
+  isActive: boolean;
+  config: Record<string, unknown>;
+  createdBy: string | null;
+  createdAt: string;
+  note: string | null;
+}
+
+export interface ProviderHealth {
+  provider: string;
+  status: "healthy" | "degraded" | "down" | "unknown";
+  latencyMs: number | null;
+  error: string | null;
+  checkedAt: string;
+}
+
+export const providers = {
+  list: () => request<{
+    activeProvider: "cloudflare" | "seedr";
+    configs: ProviderConfig[];
+    health: ProviderHealth[];
+  }>("/admin/providers"),
+
+  getActive: () => request<{
+    provider: "cloudflare" | "seedr";
+    config: Record<string, unknown>;
+    configId: string | null;
+  }>("/admin/providers/active"),
+
+  health: () => request<{ health: ProviderHealth[] }>("/admin/providers/health"),
+
+  history: (page = 1) => request<PaginatedResponse<ProviderConfig>>(
+    `/admin/providers/history?page=${page}`,
+  ),
+
+  switch: (provider: "cloudflare" | "seedr", config?: Record<string, unknown>, note?: string) =>
+    request<{ ok: boolean; configId: string; provider: string; activeJobsAtSwitch: number; message: string }>(
+      "/admin/providers/switch",
+      { method: "POST", body: JSON.stringify({ provider, config, note }) },
+    ),
+
+  verify: (provider: "cloudflare" | "seedr", config?: Record<string, unknown>) =>
+    request<ProviderHealth>("/admin/providers/verify", {
+      method: "POST",
+      body: JSON.stringify({ provider, config }),
+    }),
+};
+
 
