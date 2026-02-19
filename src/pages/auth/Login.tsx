@@ -4,10 +4,57 @@ import { useMutation } from "@tanstack/react-query";
 import { auth, setCsrfToken, ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, Loader2, AlertCircle, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import logoImg from "@/assets/logo.png";
+
+// Animated background blobs
+function AuthBlobs() {
+  return (
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+      <div
+        className="absolute w-[600px] h-[600px] rounded-full opacity-20"
+        style={{
+          background: "radial-gradient(circle, hsl(239 84% 67%) 0%, transparent 70%)",
+          top: "-200px", left: "-150px",
+          animation: "blob-drift 12s ease-in-out infinite",
+          animationDelay: "0s",
+        }}
+      />
+      <div
+        className="absolute w-[500px] h-[500px] rounded-full opacity-15"
+        style={{
+          background: "radial-gradient(circle, hsl(265 89% 70%) 0%, transparent 70%)",
+          bottom: "-150px", right: "-100px",
+          animation: "blob-drift 14s ease-in-out infinite",
+          animationDelay: "-4s",
+        }}
+      />
+      <div
+        className="absolute w-[300px] h-[300px] rounded-full opacity-10"
+        style={{
+          background: "radial-gradient(circle, hsl(199 89% 48%) 0%, transparent 70%)",
+          top: "40%", right: "20%",
+          animation: "blob-drift 10s ease-in-out infinite",
+          animationDelay: "-2s",
+        }}
+      />
+      {/* Particle dots */}
+      {Array.from({ length: 12 }).map((_, i) => (
+        <div
+          key={i}
+          className="absolute w-1 h-1 rounded-full bg-primary/30"
+          style={{
+            left: `${10 + (i * 7.5) % 80}%`,
+            top: `${15 + (i * 11) % 70}%`,
+            animation: `glow-pulse ${2 + (i % 3)}s ease-in-out infinite`,
+            animationDelay: `${i * 0.3}s`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -38,49 +85,57 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="gradient-glow fixed inset-0 pointer-events-none" />
-      <div className="w-full max-w-sm space-y-6 relative">
-        {/* Logo + branding */}
-        <div className="text-center">
-          <div className="flex items-center justify-center w-16 h-16 rounded-2xl overflow-hidden border border-border mx-auto mb-4 shadow-primary">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 relative">
+      <AuthBlobs />
+
+      <div className="w-full max-w-sm space-y-6 relative z-10">
+        {/* Logo */}
+        <div className="text-center animate-slide-up-fade">
+          <div className="flex items-center justify-center w-20 h-20 rounded-2xl overflow-hidden border border-primary/20 mx-auto mb-5 shadow-glow-primary animate-float">
             <img src={logoImg} alt="TorrentFlow" className="w-full h-full object-cover" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Sign in to TorrentFlow</h1>
-          <p className="text-sm text-muted-foreground mt-1">Your personal remote download manager</p>
+          <h1 className="text-3xl font-bold text-gradient">TorrentFlow</h1>
+          <p className="text-sm text-muted-foreground mt-1.5">Your personal remote download manager</p>
         </div>
 
         {/* Plan pills */}
-        <div className="flex items-center gap-2 justify-center">
-          <span className="text-xs px-3 py-1 rounded-full border border-border bg-secondary text-muted-foreground font-medium">
+        <div className="flex items-center gap-2 justify-center animate-slide-up-fade" style={{ animationDelay: "0.08s" }}>
+          <span className="text-xs px-3 py-1 rounded-full border border-border bg-secondary/80 text-muted-foreground font-medium backdrop-blur-sm">
             Free · 5 GB
           </span>
-          <span className="text-xs px-3 py-1 rounded-full border border-warning/60 bg-warning/10 text-warning font-bold flex items-center gap-1">
-            ★ Premium · 2 TB
+          <span className="text-xs px-3 py-1 rounded-full font-bold flex items-center gap-1 relative overflow-hidden"
+            style={{ border: "1px solid hsl(38 92% 50% / 0.6)", background: "hsl(38 92% 50% / 0.1)", color: "hsl(38 92% 50%)" }}>
+            <span className="relative z-10 flex items-center gap-1"><Zap className="w-3 h-3" /> Premium · 2 TB</span>
           </span>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4 bg-card border border-border rounded-xl p-6 shadow-card">
+        {/* Form card */}
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-4 glass-premium rounded-2xl p-7 animate-slide-up-fade"
+          style={{ animationDelay: "0.12s" }}
+        >
           {apiError && (
-            <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-xs text-destructive">
+            <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-xl text-xs text-destructive animate-scale-in">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               {apiError}
             </div>
           )}
 
           <div className="space-y-1.5">
-            <Label htmlFor="email">Email</Label>
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Email</label>
             <Input
               id="email" type="email" placeholder="you@company.com"
               value={email} onChange={e => setEmail(e.target.value)}
-              required autoComplete="email" className="bg-input"
+              required autoComplete="email"
+              className="bg-input/60 border-border/60 focus:border-primary/60 focus:shadow-[0_0_0_2px_hsl(239_84%_67%/0.1)] transition-all rounded-xl h-11"
             />
           </div>
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <Label htmlFor="password">Password</Label>
-              <Link to="/auth/reset" className="text-xs text-primary hover:underline">Forgot password?</Link>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Password</label>
+              <Link to="/auth/reset" className="text-xs text-primary hover:text-primary/80 transition-colors">Forgot?</Link>
             </div>
             <div className="relative">
               <Input
@@ -89,12 +144,13 @@ export default function LoginPage() {
                 placeholder="••••••••"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                required autoComplete="current-password" className="bg-input pr-10"
+                required autoComplete="current-password"
+                className="bg-input/60 border-border/60 focus:border-primary/60 focus:shadow-[0_0_0_2px_hsl(239_84%_67%/0.1)] transition-all rounded-xl h-11 pr-10"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(s => !s)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 aria-label="Toggle password visibility"
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -103,24 +159,28 @@ export default function LoginPage() {
           </div>
 
           {/* Turnstile placeholder */}
-          <div className="h-16 rounded-lg border border-dashed border-border flex items-center justify-center text-xs text-muted-foreground">
-            Cloudflare Turnstile (configure site key in env)
+          <div className="h-14 rounded-xl border border-dashed border-border/40 flex items-center justify-center text-xs text-muted-foreground/60 bg-muted/10">
+            Cloudflare Turnstile (configure site key)
           </div>
 
           <Button
             type="submit"
-            className="w-full gradient-primary border-0 text-white"
+            className="w-full h-11 gradient-primary border-0 text-white font-semibold rounded-xl relative overflow-hidden group"
             disabled={loginMutation.isPending || !email || !password}
           >
-            {loginMutation.isPending
-              ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Signing in…</>
-              : "Sign in"}
+            {/* Shimmer sweep */}
+            <span className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+            <span className="relative flex items-center justify-center gap-2">
+              {loginMutation.isPending
+                ? <><Loader2 className="w-4 h-4 animate-spin" />Signing in…</>
+                : "Sign in"}
+            </span>
           </Button>
         </form>
 
-        <p className="text-center text-sm text-muted-foreground">
+        <p className="text-center text-sm text-muted-foreground animate-slide-up-fade" style={{ animationDelay: "0.2s" }}>
           Don't have an account?{" "}
-          <Link to="/auth/register" className="text-primary hover:underline font-medium">Create one</Link>
+          <Link to="/auth/register" className="text-primary hover:text-primary/80 font-semibold transition-colors">Create one</Link>
         </p>
       </div>
     </div>

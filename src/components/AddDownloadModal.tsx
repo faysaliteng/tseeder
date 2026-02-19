@@ -3,11 +3,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { jobs as jobsApi, ApiError } from "@/lib/api";
 import { seedr, SeedrError, getDownloadProvider } from "@/lib/seedr-api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Magnet, Upload, X, FileIcon, Loader2, AlertCircle, Zap } from "lucide-react";
+import { Magnet, Upload, X, FileIcon, Loader2, AlertCircle, Zap, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -15,7 +12,6 @@ interface AddDownloadModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onJobAdded: () => void;
-  /** Pre-fill the magnet URI field and switch to the magnet tab */
   initialMagnetUri?: string;
 }
 
@@ -33,7 +29,6 @@ export function AddDownloadModal({ open, onOpenChange, onJobAdded, initialMagnet
 
   const isSeedr = getDownloadProvider() === "seedr";
 
-  // Sync initialMagnetUri when modal opens
   useEffect(() => {
     if (open && initialMagnetUri) {
       setMagnetUri(initialMagnetUri);
@@ -132,83 +127,120 @@ export function AddDownloadModal({ open, onOpenChange, onJobAdded, initialMagnet
     ? !!(magnetUri && !magnetError && !isPending)
     : !!(torrentFile && !isPending);
 
+  // Detect magnet: prefix for mono highlighting
+  const magnetPrefix = magnetUri.startsWith("magnet:") ? "magnet:" : "";
+  const magnetRest = magnetPrefix ? magnetUri.slice(7) : magnetUri;
+
   return (
     <Dialog open={open} onOpenChange={v => { if (!isPending) onOpenChange(v); }}>
-      <DialogContent className="sm:max-w-lg bg-card border-border">
+      <DialogContent className="sm:max-w-lg glass-premium border-primary/15 rounded-2xl shadow-[0_32px_80px_hsl(220_26%_0%/0.7)]">
         <DialogHeader>
-          <DialogTitle className="text-foreground flex items-center gap-2">
+          <DialogTitle className="text-foreground flex items-center gap-2.5 text-lg font-bold">
+            <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center shadow-glow-primary">
+              <Zap className="w-4 h-4 text-white" />
+            </div>
             Add Download
             {isSeedr && (
-              <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-[hsl(142_71%_45%)] border border-[hsl(142_71%_45%/0.4)] rounded px-1.5 py-0.5">
+              <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-success border border-success/40 rounded-full px-2 py-0.5 bg-success/10">
                 <Zap className="w-2.5 h-2.5" /> Seedr.cc
               </span>
             )}
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs value={tab} onValueChange={v => setTab(v as "magnet" | "torrent")} className="mt-2">
-          <TabsList className="w-full bg-muted">
-            <TabsTrigger value="magnet" className="flex-1 gap-2 data-[state=active]:bg-card">
-              <Magnet className="w-4 h-4" /> Magnet Link
-            </TabsTrigger>
-            <TabsTrigger value="torrent" className="flex-1 gap-2 data-[state=active]:bg-card">
-              <FileIcon className="w-4 h-4" /> Torrent File
-            </TabsTrigger>
-          </TabsList>
+        {/* Pill tabs */}
+        <div className="flex gap-1.5 p-1 bg-muted/30 rounded-xl border border-border/40 mt-2">
+          {(["magnet", "torrent"] as const).map(t => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold transition-all duration-200",
+                tab === t
+                  ? "gradient-primary text-white shadow-glow-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+              )}
+            >
+              {t === "magnet" ? <Magnet className="w-3.5 h-3.5" /> : <FileIcon className="w-3.5 h-3.5" />}
+              {t === "magnet" ? "Magnet Link" : "Torrent File"}
+            </button>
+          ))}
+        </div>
 
-          {apiError && (
-            <div className="flex items-center gap-2 mt-3 p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-xs text-destructive">
-              <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {apiError}
-            </div>
-          )}
+        {apiError && (
+          <div className="flex items-center gap-2 mt-1 p-3 bg-destructive/10 border border-destructive/30 rounded-xl text-xs text-destructive animate-scale-in">
+            <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {apiError}
+          </div>
+        )}
 
-          <TabsContent value="magnet" className="mt-4 space-y-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="magnet-input" className="text-foreground">Magnet URI</Label>
-              <Input
-                id="magnet-input"
+        {tab === "magnet" && (
+          <div className="mt-2 space-y-2">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Magnet URI</label>
+            {/* Syntax-highlighted monospace input */}
+            <div className={cn(
+              "relative rounded-xl border bg-input/60 overflow-hidden transition-all",
+              magnetError ? "border-destructive/60" : "border-border/60 focus-within:border-primary/60 focus-within:shadow-[0_0_0_2px_hsl(239_84%_67%/0.1)]"
+            )}>
+              <textarea
                 placeholder="magnet:?xt=urn:btih:..."
                 value={magnetUri}
                 onChange={e => { setMagnetUri(e.target.value); validateMagnet(e.target.value); }}
-                className={cn("bg-input font-mono text-xs", magnetError && "border-destructive")}
+                rows={3}
+                className="w-full bg-transparent px-3 py-2.5 text-xs font-mono text-foreground placeholder:text-muted-foreground focus:outline-none resize-none"
                 aria-describedby={magnetError ? "magnet-error" : undefined}
+                style={{ fontFamily: "'JetBrains Mono', 'Fira Code', monospace" }}
               />
-              {magnetError && (
-                <p id="magnet-error" className="text-xs text-destructive">{magnetError}</p>
-              )}
             </div>
-          </TabsContent>
+            {magnetError && (
+              <p id="magnet-error" className="text-xs text-destructive flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" /> {magnetError}
+              </p>
+            )}
+          </div>
+        )}
 
-          <TabsContent value="torrent" className="mt-4">
+        {tab === "torrent" && (
+          <div className="mt-2">
             <div
               onDragEnter={() => setDragActive(true)}
               onDragOver={e => { e.preventDefault(); setDragActive(true); }}
               onDragLeave={() => setDragActive(false)}
               onDrop={handleDrop}
               className={cn(
-                "border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors",
-                dragActive ? "border-primary bg-accent/30" : "border-border hover:border-primary/50 hover:bg-accent/10",
+                "border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all duration-200 relative overflow-hidden",
+                dragActive
+                  ? "border-primary bg-primary/10 shadow-glow-primary"
+                  : "border-border/50 hover:border-primary/40 hover:bg-primary/5",
               )}
               onClick={() => document.getElementById("torrent-file-input")?.click()}
             >
-              <Upload className="w-8 h-8 mx-auto mb-3 text-muted-foreground" />
               {torrentFile ? (
-                <div className="flex items-center justify-center gap-2">
-                  <span className="text-sm text-foreground font-medium">{torrentFile.name}</span>
-                  <button
-                    onClick={e => { e.stopPropagation(); setTorrentFile(null); }}
-                    className="text-muted-foreground hover:text-destructive"
-                    aria-label="Remove file"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-success/10 border border-success/20 flex items-center justify-center shadow-glow-success">
+                    <CheckCircle2 className="w-6 h-6 text-success" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-foreground">{torrentFile.name}</span>
+                    <button
+                      onClick={e => { e.stopPropagation(); setTorrentFile(null); }}
+                      className="text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <>
-                  <p className="text-sm text-muted-foreground">
-                    Drag & drop a <span className="text-foreground">.torrent</span> file here
+                  <div className={cn(
+                    "w-14 h-14 rounded-2xl border flex items-center justify-center mx-auto mb-4 transition-all",
+                    dragActive ? "border-primary bg-primary/20 shadow-glow-primary" : "border-border bg-muted/30"
+                  )}>
+                    <Upload className={cn("w-7 h-7 transition-colors", dragActive ? "text-primary" : "text-muted-foreground")} />
+                  </div>
+                  <p className="text-sm font-semibold text-foreground mb-1">
+                    Drop your <span className="text-primary">.torrent</span> file here
                   </p>
-                  <p className="text-xs text-muted-foreground mt-1">or click to browse</p>
+                  <p className="text-xs text-muted-foreground">or click to browse</p>
                 </>
               )}
               <input
@@ -217,24 +249,31 @@ export function AddDownloadModal({ open, onOpenChange, onJobAdded, initialMagnet
                 accept=".torrent"
                 className="sr-only"
                 onChange={handleFileInput}
-                aria-label="Upload torrent file"
               />
             </div>
-          </TabsContent>
-        </Tabs>
+          </div>
+        )}
 
-        <div className="flex gap-2 pt-2">
-          <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)} disabled={isPending}>
+        <div className="flex gap-2 pt-1">
+          <Button
+            variant="outline"
+            className="flex-1 rounded-xl border-border hover:border-primary/30"
+            onClick={() => onOpenChange(false)}
+            disabled={isPending}
+          >
             Cancel
           </Button>
           <Button
-            className="flex-1 gradient-primary text-white border-0"
+            className="flex-1 gradient-primary text-white border-0 rounded-xl relative overflow-hidden group shadow-glow-primary disabled:shadow-none"
             disabled={!canSubmit}
             onClick={handleSubmit}
           >
-            {isPending
-              ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Adding…</>
-              : "Add Download"}
+            <span className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+            <span className="relative flex items-center justify-center gap-2">
+              {isPending
+                ? <><Loader2 className="w-4 h-4 animate-spin" />Adding…</>
+                : <><Zap className="w-4 h-4" />Add Download</>}
+            </span>
           </Button>
         </div>
       </DialogContent>

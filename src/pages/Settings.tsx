@@ -18,18 +18,24 @@ import {
 } from "lucide-react";
 import logoImg from "@/assets/logo.png";
 
-function SectionHeader({ title, icon: Icon, accent = "bg-slate-700" }: { title: string; icon: React.ElementType; accent?: string }) {
+// ── Section header with gradient ───────────────────────────────────────────
+function SectionHeader({ title, icon: Icon, gradient = "from-primary/80 to-primary-glow/80" }: {
+  title: string; icon: React.ElementType; gradient?: string;
+}) {
   return (
-    <div className={cn("flex items-center justify-between px-4 py-3 rounded-t-lg text-white font-bold text-sm uppercase tracking-wide", accent)}>
-      <span>{title}</span>
-      <Icon className="w-5 h-5 opacity-80" />
+    <div className={cn(
+      "flex items-center justify-between px-4 py-3.5 rounded-t-xl text-white font-bold text-sm uppercase tracking-widest relative overflow-hidden bg-gradient-to-r",
+      gradient
+    )}>
+      <span className="relative z-10 flex items-center gap-2"><Icon className="w-4 h-4" />{title}</span>
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent" />
     </div>
   );
 }
 
 function SectionCard({ children }: { children: React.ReactNode }) {
   return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden shadow-card mb-6">
+    <div className="glass-card rounded-xl overflow-hidden border border-border/60 mb-6">
       {children}
     </div>
   );
@@ -46,8 +52,8 @@ function EditableField({
   const cancel = () => { setDraft(value); setEditing(false); };
 
   return (
-    <div className="px-4 py-3 border-b border-dashed border-border/60 last:border-0">
-      <div className="text-xs text-muted-foreground uppercase tracking-widest mb-1">{label}</div>
+    <div className="px-4 py-3.5 border-b border-border/40 last:border-0 hover:bg-muted/5 transition-colors">
+      <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1">{label}</div>
       {editing ? (
         <div className="flex items-center gap-2 mt-1">
           <div className="relative flex-1">
@@ -55,7 +61,7 @@ function EditableField({
               value={draft}
               type={type === "password" && !showPwd ? "password" : "text"}
               onChange={e => setDraft(e.target.value)}
-              className="bg-input text-sm h-8 pr-8"
+              className="bg-input border-border/60 focus:border-primary/60 text-sm h-9 pr-8 rounded-lg"
               autoFocus
               onKeyDown={e => { if (e.key === "Enter") save(); if (e.key === "Escape") cancel(); }}
             />
@@ -65,26 +71,38 @@ function EditableField({
               </button>
             )}
           </div>
-          <button onClick={save} disabled={loading} className="text-success hover:opacity-80 transition-opacity">
+          <button onClick={save} disabled={loading} className="text-success hover:opacity-80">
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
           </button>
-          <button onClick={cancel} className="text-muted-foreground hover:text-foreground transition-colors">
-            <X className="w-4 h-4" />
-          </button>
+          <button onClick={cancel} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
         </div>
       ) : (
         <div className="flex items-center justify-between mt-0.5">
-          <span className="text-sm text-foreground">
-            {type === "password" ? "••••••••" : value}
-          </span>
+          <span className="text-sm text-foreground">{type === "password" ? "••••••••" : value}</span>
           {onSave && (
-            <button onClick={() => setEditing(true)} className="text-xs text-primary hover:underline font-medium ml-4">
-              Edit
-            </button>
+            <button onClick={() => setEditing(true)} className="text-xs text-primary hover:text-primary/80 font-semibold transition-colors ml-4">Edit</button>
           )}
         </div>
       )}
     </div>
+  );
+}
+
+// ── Storage arc ────────────────────────────────────────────────────────────
+function StorageArc({ pct, color, size = 80 }: { pct: number; color: string; size?: number }) {
+  const r = (size - 10) / 2;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (pct / 100) * circ;
+  return (
+    <svg width={size} height={size} className="rotate-[-90deg]">
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="hsl(220 20% 18%)" strokeWidth="7" />
+      <circle
+        cx={size/2} cy={size/2} r={r}
+        fill="none" stroke={color} strokeWidth="7" strokeLinecap="round"
+        strokeDasharray={circ} strokeDashoffset={offset}
+        style={{ transition: "stroke-dashoffset 0.8s ease", filter: `drop-shadow(0 0 6px ${color})` }}
+      />
+    </svg>
   );
 }
 
@@ -93,7 +111,6 @@ export default function SettingsPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  // ── Seedr.cc state ───────────────────────────────────────────────────────
   const [provider, setProviderState] = useState<DownloadProvider>(getDownloadProvider);
   const [seedrConnected, setSeedrConnected] = useState(isSeedrConnected);
   const [seedrEmail, setSeedrEmail] = useState("");
@@ -109,7 +126,7 @@ export default function SettingsPage() {
     }
     setDownloadProvider(p);
     setProviderState(p);
-    toast({ title: p === "seedr" ? "Switched to Seedr.cc" : "Switched to Cloudflare Workers" });
+    toast({ title: p === "seedr" ? "Switched to Seedr.cc ⚡" : "Switched to Cloudflare Workers ⚡" });
   }, [seedrConnected, toast]);
 
   const handleSeedrLogin = async () => {
@@ -120,7 +137,7 @@ export default function SettingsPage() {
       setSeedrConnected(true);
       setSeedrEmail("");
       setSeedrPass("");
-      toast({ title: "Seedr.cc connected!" });
+      toast({ title: "Seedr.cc connected! 🌱" });
       setSeedrInfo({ username: info.username, space_max: info.space_max, space_used: info.space_used });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Login failed";
@@ -134,22 +151,12 @@ export default function SettingsPage() {
     seedrAuth.logout();
     setSeedrConnected(false);
     setSeedrInfo(null);
-    if (provider === "seedr") {
-      setDownloadProvider("cloudflare");
-      setProviderState("cloudflare");
-    }
+    if (provider === "seedr") { setDownloadProvider("cloudflare"); setProviderState("cloudflare"); }
     toast({ title: "Seedr.cc disconnected" });
   };
 
-  const { data: usageData, isLoading: usageLoading } = useQuery({
-    queryKey: ["usage"],
-    queryFn: () => usageApi.get(),
-  });
-
-  const { data: keysData, isLoading: keysLoading } = useQuery({
-    queryKey: ["api-keys"],
-    queryFn: () => apiKeysApi.list(),
-  });
+  const { data: usageData, isLoading: usageLoading } = useQuery({ queryKey: ["usage"], queryFn: () => usageApi.get() });
+  const { data: keysData, isLoading: keysLoading } = useQuery({ queryKey: ["api-keys"], queryFn: () => apiKeysApi.list() });
 
   const [newKeyName, setNewKeyName] = useState("");
   const [createdSecret, setCreatedSecret] = useState<string | null>(null);
@@ -157,25 +164,14 @@ export default function SettingsPage() {
 
   const createKeyMutation = useMutation({
     mutationFn: (name: string) => apiKeysApi.create(name),
-    onSuccess: ({ secret }) => {
-      setCreatedSecret(secret);
-      setNewKeyName("");
-      qc.invalidateQueries({ queryKey: ["api-keys"] });
-    },
-    onError: (err) => {
-      toast({ title: "Error", description: err instanceof ApiError ? err.message : "Failed to create key", variant: "destructive" });
-    },
+    onSuccess: ({ secret }) => { setCreatedSecret(secret); setNewKeyName(""); qc.invalidateQueries({ queryKey: ["api-keys"] }); },
+    onError: (err) => { toast({ title: "Error", description: err instanceof ApiError ? err.message : "Failed to create key", variant: "destructive" }); },
   });
 
   const revokeKeyMutation = useMutation({
     mutationFn: (id: string) => apiKeysApi.revoke(id),
-    onSuccess: () => {
-      toast({ title: "API key revoked" });
-      qc.invalidateQueries({ queryKey: ["api-keys"] });
-    },
-    onError: (err) => {
-      toast({ title: "Error", description: err instanceof ApiError ? err.message : "Failed to revoke", variant: "destructive" });
-    },
+    onSuccess: () => { toast({ title: "API key revoked" }); qc.invalidateQueries({ queryKey: ["api-keys"] }); },
+    onError: (err) => { toast({ title: "Error", description: err instanceof ApiError ? err.message : "Failed to revoke", variant: "destructive" }); },
   });
 
   const logoutMutation = useMutation({
@@ -184,508 +180,409 @@ export default function SettingsPage() {
     onError: () => navigate("/auth/login"),
   });
 
-  const storageUsedPct = usageData
-    ? Math.min(100, (usageData.storageUsedBytes / (usageData.plan.maxStorageGb * 1e9)) * 100)
-    : 0;
+  const storageUsedPct = usageData ? Math.min(100, (usageData.storageUsedBytes / (usageData.plan.maxStorageGb * 1e9)) * 100) : 0;
   const bandwidthPct = usageData && usageData.plan.bandwidthGb < 9999
-    ? Math.min(100, (usageData.bandwidthUsedBytes / (usageData.plan.bandwidthGb * 1e9)) * 100)
-    : 100;
+    ? Math.min(100, (usageData.bandwidthUsedBytes / (usageData.plan.bandwidthGb * 1e9)) * 100) : 0;
   const bandwidthUnlimited = !usageData || usageData.plan.bandwidthGb >= 9999;
 
+  const storageColor = storageUsedPct > 80 ? "hsl(0 72% 51%)" : storageUsedPct > 60 ? "hsl(38 92% 50%)" : "hsl(142 71% 45%)";
+
   const headerUsage = {
-    plan: {
-      name: usageData?.plan.name ?? "free",
-      maxStorageGb: usageData?.plan.maxStorageGb ?? 5,
-      bandwidthGb: usageData?.plan.bandwidthGb ?? 20,
-    },
+    plan: { name: usageData?.plan.name ?? "free", maxStorageGb: usageData?.plan.maxStorageGb ?? 5, bandwidthGb: usageData?.plan.bandwidthGb ?? 20 },
     storageUsedBytes: usageData?.storageUsedBytes ?? 0,
     bandwidthUsedBytes: usageData?.bandwidthUsedBytes ?? 0,
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <TopHeader usage={headerUsage} onAddMagnet={() => {}} onUploadTorrent={() => {}} />
+    <div className="min-h-screen bg-background flex flex-col relative">
+      <div className="fixed inset-0 pointer-events-none z-0" style={{
+        background: "radial-gradient(ellipse 60% 40% at 80% 10%, hsl(265 89% 70% / 0.05) 0%, transparent 60%)"
+      }} />
+      <div className="relative z-10 flex flex-col flex-1">
+        <TopHeader usage={headerUsage} onAddMagnet={() => {}} onUploadTorrent={() => {}} />
 
-      {/* Sub-nav tab */}
-      <div className="bg-card/40 border-b border-dashed border-border px-4 flex items-center gap-4 h-10">
-        <div className="flex items-center gap-2 border-b-2 border-primary text-primary pb-0 h-full">
-          <User className="w-4 h-4" />
-          <span className="text-sm font-semibold uppercase tracking-widest">Settings</span>
-        </div>
-      </div>
-
-      <main className="flex-1 max-w-2xl mx-auto w-full px-3 sm:px-4 py-6 sm:py-8">
-
-        {/* ── Account ──────────────────────────────────────────────── */}
-        <SectionCard>
-          <SectionHeader title="Account" icon={User} accent="bg-slate-700" />
-          <div className="h-0.5 bg-destructive" />
-          <div className="flex items-center gap-4 px-4 py-4 border-b border-dashed border-border/60">
-            <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-border bg-secondary flex items-center justify-center shrink-0">
-              <img src={logoImg} alt="Avatar" className="w-full h-full object-cover" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-muted-foreground">Profile photo</p>
-              <button className="text-xs text-primary hover:underline mt-0.5">Change photo</button>
-            </div>
+        <div className="bg-card/40 border-b border-border/40 px-4 flex items-center gap-4 h-10 backdrop-blur-sm">
+          <div className="flex items-center gap-2 border-b-2 border-primary text-primary pb-0 h-full">
+            <User className="w-4 h-4" />
+            <span className="text-sm font-bold uppercase tracking-widest">Settings</span>
           </div>
-          <EditableField label="Email" value="user@example.com" />
-          <EditableField label="Username" value="user_1234" />
-          <EditableField label="Password" value="" type="password" />
-        </SectionCard>
+        </div>
 
-        {/* ── Storage ──────────────────────────────────────────────── */}
-        <SectionCard>
-          <SectionHeader title="Storage" icon={TrendingUp} accent="bg-slate-700" />
-          <div className="h-0.5 bg-destructive" />
-          <div className="px-4 py-5 space-y-5">
-            {usageLoading ? (
-              <div className="space-y-3">
-                <div className="h-4 bg-muted rounded animate-pulse w-2/3" />
-                <div className="h-4 bg-muted rounded animate-pulse w-full" />
-                <div className="h-4 bg-muted rounded animate-pulse w-2/3 mt-4" />
-                <div className="h-4 bg-muted rounded animate-pulse w-full" />
+        <main className="flex-1 max-w-2xl mx-auto w-full px-3 sm:px-4 py-6 sm:py-8">
+
+          {/* ── Account ──────────────────────────────────────────────── */}
+          <SectionCard>
+            <SectionHeader title="Account" icon={User} gradient="from-primary/70 to-primary-glow/70" />
+            <div className="flex items-center gap-4 px-4 py-5 border-b border-border/40">
+              <div className="relative w-16 h-16 shrink-0">
+                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-primary/30 bg-secondary"
+                  style={{ boxShadow: "0 0 16px hsl(239 84% 67% / 0.2)" }}>
+                  <img src={logoImg} alt="Avatar" className="w-full h-full object-cover" />
+                </div>
+                <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full gradient-primary border-2 border-background flex items-center justify-center">
+                  <Plus className="w-2.5 h-2.5 text-white" />
+                </div>
               </div>
-            ) : (
-              <>
-                <div>
-                  <div className="flex items-center justify-between text-sm mb-1.5">
-                    <span className="text-muted-foreground">Storage Used</span>
-                    <span className="font-semibold text-foreground">
-                      {formatBytes(usageData?.storageUsedBytes ?? 0)} / {usageData?.plan.maxStorageGb ?? 5}.00 GB
-                    </span>
-                  </div>
-                  <div className="h-4 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${storageUsedPct}%`,
-                        background: storageUsedPct > 80 ? "hsl(var(--destructive))" : "hsl(142 71% 45%)",
-                        boxShadow: "0 0 8px hsl(142 71% 45% / 0.5)",
-                      }}
-                    />
-                  </div>
-                </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground">Profile photo</p>
+                <button className="text-xs text-primary hover:text-primary/80 mt-0.5 font-medium transition-colors">Change photo</button>
+              </div>
+            </div>
+            <EditableField label="Email" value="user@example.com" />
+            <EditableField label="Username" value="user_1234" />
+            <EditableField label="Password" value="" type="password" />
+          </SectionCard>
 
-                <div>
-                  <div className="flex items-center justify-between text-sm mb-1.5">
-                    <span className="text-muted-foreground">Bandwidth Used (Downloads + Links)</span>
-                    <span className="font-semibold text-foreground">
-                      {formatBytes(usageData?.bandwidthUsedBytes ?? 0)} / {bandwidthUnlimited ? "UNLIMITED" : `${usageData?.plan.bandwidthGb} GB`}
-                    </span>
-                  </div>
-                  <div className="h-4 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${bandwidthPct}%`,
-                        background: "hsl(var(--info))",
-                        boxShadow: "0 0 8px hsl(var(--info) / 0.5)",
-                      }}
-                    />
-                  </div>
+          {/* ── Storage ──────────────────────────────────────────────── */}
+          <SectionCard>
+            <SectionHeader title="Storage & Usage" icon={TrendingUp} gradient="from-success/70 to-info/70" />
+            <div className="px-4 py-5 space-y-5">
+              {usageLoading ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-4 shimmer rounded w-3/4" />)}
                 </div>
-
-                <div className="flex items-center justify-between pt-1">
-                  <div>
-                    <div className="text-xs text-muted-foreground uppercase tracking-widest mb-0.5">Current Plan</div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-foreground uppercase">{usageData?.plan.name ?? "free"}</span>
-                      <span className="text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded-full">
-                        {usageData?.plan.maxStorageGb ?? 5} GB · {usageData?.plan.maxJobs ?? 3} jobs
-                      </span>
+              ) : (
+                <>
+                  <div className="flex items-center gap-6">
+                    {/* Storage arc */}
+                    <div className="relative shrink-0">
+                      <StorageArc pct={storageUsedPct} color={storageColor} />
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-[10px] font-bold" style={{ color: storageColor }}>{Math.round(storageUsedPct)}%</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div>
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="text-muted-foreground font-medium">Storage</span>
+                          <span className="font-bold tabular-nums" style={{ color: storageColor }}>
+                            {formatBytes(usageData?.storageUsedBytes ?? 0)} / {usageData?.plan.maxStorageGb ?? 5} GB
+                          </span>
+                        </div>
+                        <div className="h-2 rounded-full bg-muted overflow-hidden">
+                          <div className="h-full rounded-full transition-all duration-700"
+                            style={{ width: `${storageUsedPct}%`, background: storageColor, boxShadow: `0 0 8px ${storageColor}` }} />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="text-muted-foreground font-medium">Bandwidth</span>
+                          <span className="font-bold text-info tabular-nums">
+                            {formatBytes(usageData?.bandwidthUsedBytes ?? 0)} / {bandwidthUnlimited ? "∞" : `${usageData?.plan.bandwidthGb} GB`}
+                          </span>
+                        </div>
+                        <div className="h-2 rounded-full bg-muted overflow-hidden">
+                          <div className="h-full rounded-full transition-all duration-700"
+                            style={{ width: `${bandwidthUnlimited ? 100 : bandwidthPct}%`, background: "hsl(var(--info))", boxShadow: "0 0 8px hsl(var(--info) / 0.5)" }} />
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  {(usageData?.plan.name === "free" || !usageData) && (
-                    <button className="text-xs font-bold text-warning border border-warning rounded px-3 py-1.5 hover:bg-warning hover:text-black transition-colors">
-                      Upgrade ▲
-                    </button>
-                  )}
-                </div>
 
-                {/* Usage breakdown */}
-                <div className="grid grid-cols-2 gap-3 pt-1">
-                  <div className="bg-muted/30 rounded-lg p-3 border border-border/50">
-                    <div className="text-xs text-muted-foreground mb-1">Active Jobs</div>
-                    <p className="text-lg font-bold text-foreground">{usageData?.activeJobs ?? 0} / {usageData?.plan.maxJobs ?? 3}</p>
+                  <div className="flex items-center justify-between pt-1">
+                    <div>
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1">Current Plan</div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-foreground uppercase">{usageData?.plan.name ?? "free"}</span>
+                        <span className="text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded-full border border-border/40">
+                          {usageData?.plan.maxStorageGb ?? 5} GB · {usageData?.plan.maxJobs ?? 3} jobs
+                        </span>
+                      </div>
+                    </div>
+                    {(usageData?.plan.name === "free" || !usageData) && (
+                      <button className="flex items-center gap-1.5 text-xs font-bold text-warning border border-warning/40 rounded-xl px-4 py-2 hover:bg-warning hover:text-black transition-all shadow-[0_0_12px_hsl(38_92%_50%/0.2)] relative overflow-hidden group">
+                        <span className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                        <Zap className="w-3 h-3 relative z-10" /><span className="relative z-10">Upgrade ▲</span>
+                      </button>
+                    )}
                   </div>
-                  <div className="bg-muted/30 rounded-lg p-3 border border-border/50">
-                    <div className="text-xs text-muted-foreground mb-1">Retention</div>
-                    <p className="text-lg font-bold text-foreground">{usageData?.plan.retentionDays ?? 7} days</p>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </SectionCard>
 
-        {/* ── International ─────────────────────────────────────────── */}
-        <SectionCard>
-          <SectionHeader title="International" icon={Languages} accent="bg-slate-700" />
-          <div className="h-0.5 bg-destructive" />
-          <div className="px-4 py-3 border-b border-dashed border-border/60">
-            <div className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Site Language</div>
-            <div className="flex items-center justify-between mt-0.5">
-              <span className="text-sm text-foreground">en</span>
-              <button className="text-xs text-primary hover:underline font-medium ml-4">Edit</button>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="glass-card rounded-lg p-3">
+                      <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider mb-1">Active Jobs</div>
+                      <p className="text-xl font-bold text-foreground tabular-nums">{usageData?.activeJobs ?? 0}<span className="text-sm text-muted-foreground"> / {usageData?.plan.maxJobs ?? 3}</span></p>
+                    </div>
+                    <div className="glass-card rounded-lg p-3">
+                      <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider mb-1">Retention</div>
+                      <p className="text-xl font-bold text-foreground tabular-nums">{usageData?.plan.retentionDays ?? 7}<span className="text-sm text-muted-foreground"> days</span></p>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
-          </div>
-        </SectionCard>
+          </SectionCard>
 
-        {/* ── Security ─────────────────────────────────────────────── */}
-        <SectionCard>
-          <SectionHeader title="Security" icon={Lock} accent="bg-slate-700" />
-          <div className="h-0.5 bg-destructive" />
-          <div className="px-4 py-4 space-y-3">
-            <Button variant="outline" className="w-full justify-start gap-2 border-border hover:border-primary/50">
-              <Lock className="w-4 h-4 text-muted-foreground" /> Change Password
-            </Button>
-            <Button variant="outline" className="w-full justify-start gap-2 border-border hover:border-primary/50">
-              <Bell className="w-4 h-4 text-muted-foreground" /> Notification Preferences
-            </Button>
-          </div>
-        </SectionCard>
-
-        {/* ── API Keys ──────────────────────────────────────────────── */}
-        <SectionCard>
-          <SectionHeader title="API Keys" icon={Key} accent="bg-slate-700" />
-          <div className="h-0.5 bg-destructive" />
-
-          {/* One-time secret reveal */}
-          {createdSecret && (
-            <div className="mx-4 mt-4 p-3 bg-success/10 border border-success/30 rounded-lg space-y-2">
-              <p className="text-xs font-semibold text-success flex items-center gap-1.5">
-                <AlertTriangle className="w-3.5 h-3.5" /> Copy your secret now — it will never be shown again.
-              </p>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 text-xs font-mono bg-background border border-border rounded px-2 py-1.5 text-foreground break-all select-all">
-                  {createdSecret}
-                </code>
+          {/* ── Download Provider ─────────────────────────────────────── */}
+          <SectionCard>
+            <SectionHeader title="Download Provider" icon={Zap} gradient="from-primary/70 to-info/70" />
+            <div className="px-4 py-4 space-y-3">
+              <p className="text-xs text-muted-foreground">Choose which backend handles torrent downloads.</p>
+              <div className="grid grid-cols-2 gap-3">
+                {/* Cloudflare card */}
                 <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(createdSecret);
-                    setCopiedSecret(true);
-                    setTimeout(() => setCopiedSecret(false), 2000);
-                  }}
-                  className="shrink-0 p-2 rounded border border-border hover:border-primary/50 text-muted-foreground hover:text-foreground transition-colors"
-                  title="Copy secret"
+                  onClick={() => handleProviderChange("cloudflare")}
+                  className={cn(
+                    "flex flex-col items-start gap-3 rounded-xl border-2 p-4 transition-all duration-200 text-left relative overflow-hidden group",
+                    provider === "cloudflare"
+                      ? "border-primary bg-primary/8 shadow-glow-primary"
+                      : "border-border bg-muted/10 hover:border-primary/30"
+                  )}
                 >
-                  {copiedSecret ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
+                  {provider === "cloudflare" && <span className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />}
+                  <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center border", provider === "cloudflare" ? "bg-primary/10 border-primary/30 shadow-[0_0_10px_hsl(239_84%_67%/0.3)]" : "bg-muted border-border")}>
+                    <CloudLightning className={cn("w-5 h-5", provider === "cloudflare" ? "text-primary" : "text-muted-foreground")} />
+                  </div>
+                  <div>
+                    <p className={cn("text-sm font-bold", provider === "cloudflare" ? "text-primary" : "text-foreground")}>Cloudflare</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Self-hosted workers</p>
+                  </div>
+                  {provider === "cloudflare" && (
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-primary border border-primary/30 rounded-full px-2 py-0.5 bg-primary/10">● Active</span>
+                  )}
+                </button>
+
+                {/* Seedr.cc card */}
+                <button
+                  onClick={() => handleProviderChange("seedr")}
+                  className={cn(
+                    "flex flex-col items-start gap-3 rounded-xl border-2 p-4 transition-all duration-200 text-left relative overflow-hidden group",
+                    provider === "seedr"
+                      ? "border-success bg-success/5 shadow-glow-success"
+                      : "border-border bg-muted/10 hover:border-success/30",
+                    !seedrConnected && "opacity-60"
+                  )}
+                >
+                  {provider === "seedr" && <span className="absolute inset-0 bg-gradient-to-br from-success/5 to-transparent pointer-events-none" />}
+                  <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center border", provider === "seedr" ? "bg-success/10 border-success/30 shadow-[0_0_10px_hsl(142_71%_45%/0.3)]" : "bg-muted border-border")}>
+                    <Zap className={cn("w-5 h-5", provider === "seedr" ? "text-success" : "text-muted-foreground")} />
+                  </div>
+                  <div>
+                    <p className={cn("text-sm font-bold", provider === "seedr" ? "text-success" : "text-foreground")}>Seedr.cc</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Cloud torrent · blazing fast</p>
+                  </div>
+                  {provider === "seedr"
+                    ? <span className="text-[10px] font-bold uppercase tracking-widest text-success border border-success/30 rounded-full px-2 py-0.5 bg-success/10">● Active</span>
+                    : !seedrConnected && <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground border border-border rounded-full px-2 py-0.5">Not connected</span>}
                 </button>
               </div>
-              <button
-                onClick={() => setCreatedSecret(null)}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Dismiss
-              </button>
             </div>
-          )}
+          </SectionCard>
 
-          {/* Create new key */}
-          <div className="px-4 py-3 border-b border-dashed border-border/60">
-            <div className="text-xs text-muted-foreground uppercase tracking-widest mb-2">Create New Key</div>
-            <div className="flex items-center gap-2">
-              <Input
-                placeholder="Key name (e.g. ci-deploy)"
-                value={newKeyName}
-                onChange={e => setNewKeyName(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter" && newKeyName.trim()) createKeyMutation.mutate(newKeyName.trim()); }}
-                className="bg-input text-sm h-8 flex-1"
-                maxLength={64}
-              />
-              <Button
-                size="sm"
-                className="h-8 gap-1.5 gradient-primary text-white border-0 shrink-0"
-                disabled={!newKeyName.trim() || createKeyMutation.isPending}
-                onClick={() => createKeyMutation.mutate(newKeyName.trim())}
-              >
-                {createKeyMutation.isPending
-                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  : <Plus className="w-3.5 h-3.5" />}
-                Generate
-              </Button>
-            </div>
-          </div>
-
-          {/* Key list */}
-          <div>
-            {keysLoading ? (
-              Array.from({ length: 2 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-3 px-4 py-3 animate-pulse border-b border-dashed border-border/60 last:border-0">
-                  <div className="h-3 bg-muted rounded flex-1" />
-                  <div className="h-3 bg-muted rounded w-24" />
+          {/* ── Seedr.cc Integration ──────────────────────────────────── */}
+          <SectionCard>
+            <div className="flex items-center justify-between px-4 py-3.5 rounded-t-xl" style={{ background: "linear-gradient(135deg, hsl(142 71% 15%), hsl(142 71% 10%))" }}>
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-success/20 border border-success/30 flex items-center justify-center">
+                  <Zap className="w-3.5 h-3.5 text-success" />
                 </div>
-              ))
-            ) : (keysData?.keys ?? []).length === 0 ? (
-              <div className="px-4 py-5 text-sm text-muted-foreground text-center">No API keys yet.</div>
-            ) : (
-              (keysData?.keys ?? []).map((key: ApiKey) => (
-                <div key={key.id} className="flex items-center gap-3 px-4 py-3 border-b border-dashed border-border/60 last:border-0">
-                  <Key className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{key.name}</p>
-                    <div className="flex items-center gap-3 mt-0.5">
-                      <code className="text-xs text-muted-foreground font-mono">{key.prefix}••••••••</code>
-                      {key.lastUsedAt && (
-                        <span className="text-xs text-muted-foreground flex items-center gap-0.5">
-                          <Clock className="w-2.5 h-2.5" /> Used {new Date(key.lastUsedAt).toLocaleDateString()}
-                        </span>
-                      )}
-                      {key.expiresAt && (
-                        <span className="text-xs text-muted-foreground">
-                          Expires {new Date(key.expiresAt).toLocaleDateString()}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => revokeKeyMutation.mutate(key.id)}
-                    disabled={revokeKeyMutation.isPending}
-                    className="text-xs text-destructive border border-destructive/40 rounded px-2 py-1 hover:bg-destructive/10 transition-colors shrink-0 disabled:opacity-40"
-                  >
-                    Revoke
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-        </SectionCard>
-
-        {/* ── Download Provider ─────────────────────────────────────── */}
-        <SectionCard>
-          <SectionHeader title="Download Provider" icon={Zap} accent="bg-slate-700" />
-          <div className="h-0.5 bg-primary" />
-          <div className="px-4 py-4 space-y-3">
-            <p className="text-xs text-muted-foreground">
-              Choose which backend handles torrent downloads. Seedr.cc is a premium cloud torrent service with blazing-fast speeds.
-            </p>
-
-            {/* Provider toggle */}
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => handleProviderChange("cloudflare")}
-                className={cn(
-                  "flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all text-left",
-                  provider === "cloudflare"
-                    ? "border-primary bg-primary/10 shadow-[0_0_16px_hsl(var(--primary)/0.2)]"
-                    : "border-border bg-muted/10 hover:border-primary/40"
-                )}
-              >
-                <CloudLightning className={cn("w-6 h-6", provider === "cloudflare" ? "text-primary" : "text-muted-foreground")} />
-                <div>
-                  <p className={cn("text-sm font-bold", provider === "cloudflare" ? "text-primary" : "text-foreground")}>Cloudflare</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Self-hosted workers</p>
-                </div>
-                {provider === "cloudflare" && (
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-primary border border-primary/40 rounded px-1.5 py-0.5">Active</span>
-                )}
-              </button>
-
-              <button
-                onClick={() => handleProviderChange("seedr")}
-                className={cn(
-                  "flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all text-left",
-                  provider === "seedr"
-                    ? "border-[hsl(142_71%_45%)] bg-[hsl(142_71%_45%/0.1)] shadow-[0_0_16px_hsl(142_71%_45%/0.2)]"
-                    : "border-border bg-muted/10 hover:border-[hsl(142_71%_45%/0.5)]",
-                  !seedrConnected && "opacity-60"
-                )}
-              >
-                <Zap className={cn("w-6 h-6", provider === "seedr" ? "text-[hsl(142_71%_45%)]" : "text-muted-foreground")} />
-                <div>
-                  <p className={cn("text-sm font-bold", provider === "seedr" ? "text-[hsl(142_71%_45%)]" : "text-foreground")}>Seedr.cc</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Cloud torrent · fast</p>
-                </div>
-                {provider === "seedr" ? (
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-[hsl(142_71%_45%)] border border-[hsl(142_71%_45%/0.4)] rounded px-1.5 py-0.5">Active</span>
-                ) : !seedrConnected ? (
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground border border-border rounded px-1.5 py-0.5">Not connected</span>
-                ) : null}
-              </button>
-            </div>
-          </div>
-        </SectionCard>
-
-        {/* ── Seedr.cc Integration ──────────────────────────────────── */}
-        <SectionCard>
-          <div className="flex items-center justify-between px-4 py-3 bg-[hsl(142_71%_15%)] rounded-t-lg">
-            <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-[hsl(142_71%_55%)]" />
-              <span className="text-sm font-bold text-white uppercase tracking-wide">Seedr.cc Integration</span>
-            </div>
-            <a
-              href="https://www.seedr.cc"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[hsl(142_71%_55%)] hover:text-[hsl(142_71%_70%)] transition-colors"
-            >
-              <ExternalLink className="w-4 h-4" />
-            </a>
-          </div>
-          <div className="h-0.5 bg-[hsl(142_71%_45%)]" />
-
-          {seedrConnected ? (
-            <div className="px-4 py-4 space-y-4">
-              {/* Connected state */}
-              <div className="flex items-center gap-3 p-3 bg-[hsl(142_71%_45%/0.08)] border border-[hsl(142_71%_45%/0.3)] rounded-lg">
-                <div className="w-2.5 h-2.5 rounded-full bg-[hsl(142_71%_45%)] shadow-[0_0_8px_hsl(142_71%_45%/0.7)] animate-pulse shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground">
-                    {seedrInfo?.username ?? "Connected"}
-                  </p>
-                  {seedrInfo && (
-                    <p className="text-xs text-muted-foreground">
-                      {formatBytes(seedrInfo.space_used)} / {formatBytes(seedrInfo.space_max)} used
-                    </p>
-                  )}
-                </div>
-                <span className="text-xs font-bold text-[hsl(142_71%_45%)]">CONNECTED</span>
+                <span className="text-sm font-bold text-white uppercase tracking-widest">Seedr.cc Integration</span>
               </div>
+              <a href="https://www.seedr.cc" target="_blank" rel="noopener noreferrer" className="text-success hover:text-success/80 transition-colors">
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            </div>
+            <div className="h-0.5" style={{ background: "hsl(142 71% 45%)" }} />
 
-              {seedrInfo && (
-                <div className="h-2 rounded-full bg-muted overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{
-                      width: `${Math.min(100, (seedrInfo.space_used / seedrInfo.space_max) * 100)}%`,
-                      background: "hsl(142 71% 45%)",
-                      boxShadow: "0 0 8px hsl(142 71% 45% / 0.5)",
-                    }}
-                  />
+            {seedrConnected ? (
+              <div className="px-4 py-4 space-y-4">
+                <div className="flex items-center gap-3 p-3 rounded-xl neon-border-success" style={{ background: "hsl(142 71% 45% / 0.06)" }}>
+                  <div className="w-2.5 h-2.5 rounded-full bg-success animate-glow-pulse shrink-0" style={{ boxShadow: "0 0 8px hsl(142 71% 45%)" }} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-foreground">{seedrInfo?.username ?? "Connected"}</p>
+                    {seedrInfo && <p className="text-xs text-muted-foreground">{formatBytes(seedrInfo.space_used)} / {formatBytes(seedrInfo.space_max)} used</p>}
+                  </div>
+                  <span className="text-xs font-bold text-success">CONNECTED</span>
                 </div>
-              )}
-
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 text-xs border-border"
-                  onClick={() => {
+                {seedrInfo && (
+                  <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, (seedrInfo.space_used / seedrInfo.space_max) * 100)}%`, background: "hsl(142 71% 45%)", boxShadow: "0 0 8px hsl(142 71% 45% / 0.5)" }} />
+                  </div>
+                )}
+                <div className="flex gap-3">
+                  <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border" onClick={() => {
                     setSeedrLoginLoading(true);
                     seedr.getRoot()
                       .then(root => setSeedrInfo({ username: root.username, space_max: root.space_max, space_used: root.space_used }))
-                      .catch(() => toast({ title: "Failed to refresh Seedr info", variant: "destructive" }))
+                      .catch(() => toast({ title: "Failed to refresh", variant: "destructive" }))
                       .finally(() => setSeedrLoginLoading(false));
-                  }}
-                  disabled={seedrLoginLoading}
-                >
-                  {seedrLoginLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                  Refresh
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 text-xs border-destructive/50 text-destructive hover:bg-destructive/10"
-                  onClick={handleSeedrDisconnect}
-                >
-                  <X className="w-3.5 h-3.5" /> Disconnect
-                </Button>
+                  }} disabled={seedrLoginLoading}>
+                    {seedrLoginLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} Refresh
+                  </Button>
+                  <Button variant="outline" size="sm" className="gap-1.5 text-xs border-destructive/40 text-destructive hover:bg-destructive/10" onClick={handleSeedrDisconnect}>
+                    <X className="w-3.5 h-3.5" /> Disconnect
+                  </Button>
+                </div>
               </div>
+            ) : (
+              <div className="px-4 py-4 space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Connect your <strong className="text-foreground">Seedr.cc</strong> account for{" "}
+                  <span className="text-success font-semibold">10–100× faster</span> cloud torrent speeds.
+                </p>
+                <div className="space-y-2.5">
+                  <Input type="email" placeholder="Seedr.cc Email" value={seedrEmail} onChange={e => setSeedrEmail(e.target.value)}
+                    className="bg-input border-border/60 rounded-xl h-10" autoComplete="email" />
+                  <div className="relative">
+                    <Input type={seedrShowPass ? "text" : "password"} placeholder="Password" value={seedrPass}
+                      onChange={e => setSeedrPass(e.target.value)}
+                      className="bg-input border-border/60 rounded-xl h-10 pr-9" autoComplete="current-password"
+                      onKeyDown={e => { if (e.key === "Enter") handleSeedrLogin(); }} />
+                    <button type="button" onClick={() => setSeedrShowPass(s => !s)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                      {seedrShowPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                  <Button className="w-full h-10 gap-2 rounded-xl font-bold relative overflow-hidden group"
+                    style={{ background: "linear-gradient(135deg, hsl(142 71% 35%), hsl(142 71% 25%))" }}
+                    onClick={handleSeedrLogin} disabled={seedrLoginLoading || !seedrEmail.trim() || !seedrPass.trim()}>
+                    <span className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                    <span className="relative flex items-center gap-2 text-white">
+                      {seedrLoginLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                      Connect Seedr.cc
+                    </span>
+                  </Button>
+                </div>
+              </div>
+            )}
+          </SectionCard>
 
-              <p className="text-xs text-muted-foreground">
-                Switch your provider to <strong>Seedr.cc</strong> above to route new downloads through Seedr's fast infrastructure.
-                Completed files will be stored in your Seedr storage and streamed via signed URLs.
-              </p>
+          {/* ── Security ─────────────────────────────────────────────── */}
+          <SectionCard>
+            <SectionHeader title="Security" icon={Lock} gradient="from-warning/60 to-destructive/60" />
+            <div className="px-4 py-4 space-y-3">
+              <Button variant="outline" className="w-full justify-start gap-2 border-border hover:border-primary/40 rounded-xl">
+                <Lock className="w-4 h-4 text-muted-foreground" /> Change Password
+              </Button>
+              <Button variant="outline" className="w-full justify-start gap-2 border-border hover:border-primary/40 rounded-xl">
+                <Bell className="w-4 h-4 text-muted-foreground" /> Notification Preferences
+              </Button>
             </div>
-          ) : (
-            <div className="px-4 py-4 space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Connect your <strong className="text-foreground">Seedr.cc</strong> account to use their premium cloud torrent infrastructure —
-                typically <span className="text-[hsl(142_71%_55%)] font-semibold">10–100× faster</span> than self-hosted workers.
-              </p>
+          </SectionCard>
 
-              <div className="p-3 bg-muted/20 border border-border rounded-lg text-xs text-muted-foreground space-y-1">
-                <p className="font-semibold text-foreground text-xs">Why Seedr.cc?</p>
-                <ul className="space-y-0.5 list-disc list-inside">
-                  <li>Premium CDN seeding — saturates most connections instantly</li>
-                  <li>No compute agent required — zero infrastructure</li>
-                  <li>Files stored in Seedr cloud, streamed via signed URLs</li>
-                  <li>Free tier: 2 GB storage · Paid plans up to 2 TB</li>
-                </ul>
-              </div>
+          {/* ── API Keys ──────────────────────────────────────────────── */}
+          <SectionCard>
+            <SectionHeader title="API Keys" icon={Key} gradient="from-info/60 to-primary/60" />
 
-              {/* Login form */}
-              <div className="space-y-2">
-                <div className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Seedr.cc Account</div>
-                <Input
-                  type="email"
-                  placeholder="Email"
-                  value={seedrEmail}
-                  onChange={e => setSeedrEmail(e.target.value)}
-                  className="bg-input text-sm h-9"
-                  autoComplete="email"
-                />
-                <div className="relative">
-                  <Input
-                    type={seedrShowPass ? "text" : "password"}
-                    placeholder="Password"
-                    value={seedrPass}
-                    onChange={e => setSeedrPass(e.target.value)}
-                    className="bg-input text-sm h-9 pr-9"
-                    autoComplete="current-password"
-                    onKeyDown={e => { if (e.key === "Enter") handleSeedrLogin(); }}
-                  />
+            {createdSecret && (
+              <div className="mx-4 mt-4 p-4 bg-success/8 border border-success/30 rounded-xl space-y-2 neon-border-success animate-scale-in">
+                <p className="text-xs font-bold text-success flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5" /> Copy your secret now — it won't be shown again.
+                </p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-xs font-mono bg-background/60 border border-border/60 rounded-lg px-2 py-2 text-foreground break-all select-all" style={{ fontFamily: "monospace" }}>
+                    {createdSecret}
+                  </code>
                   <button
-                    type="button"
-                    onClick={() => setSeedrShowPass(s => !s)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    onClick={() => { navigator.clipboard.writeText(createdSecret); setCopiedSecret(true); setTimeout(() => setCopiedSecret(false), 2000); }}
+                    className="shrink-0 p-2 rounded-lg border border-border hover:border-primary/50 text-muted-foreground hover:text-primary transition-all"
                   >
-                    {seedrShowPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    {copiedSecret ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>
                 </div>
+                <button onClick={() => setCreatedSecret(null)} className="text-xs text-muted-foreground hover:text-foreground transition-colors">Dismiss</button>
+              </div>
+            )}
+
+            <div className="px-4 py-3.5 border-b border-border/40">
+              <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-2">Create New Key</div>
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder="Key name (e.g. ci-deploy)"
+                  value={newKeyName}
+                  onChange={e => setNewKeyName(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter" && newKeyName.trim()) createKeyMutation.mutate(newKeyName.trim()); }}
+                  className="bg-input border-border/60 rounded-xl h-9 flex-1"
+                  maxLength={64}
+                />
                 <Button
-                  className="w-full h-9 gap-2 bg-[hsl(142_71%_35%)] hover:bg-[hsl(142_71%_30%)] text-white border-0"
-                  onClick={handleSeedrLogin}
-                  disabled={seedrLoginLoading || !seedrEmail.trim() || !seedrPass.trim()}
+                  size="sm"
+                  className="h-9 gap-1.5 gradient-primary text-white border-0 rounded-xl shadow-glow-primary shrink-0"
+                  disabled={!newKeyName.trim() || createKeyMutation.isPending}
+                  onClick={() => createKeyMutation.mutate(newKeyName.trim())}
                 >
-                  {seedrLoginLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                  Connect Seedr.cc
+                  {createKeyMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                  Generate
                 </Button>
-                <p className="text-[10px] text-muted-foreground text-center">
-                  Credentials authenticate directly with Seedr.cc OAuth. Tokens are stored in your browser only.{" "}
-                  <a href="https://www.seedr.cc" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">
-                    Create account ↗
-                  </a>
-                </p>
               </div>
             </div>
-          )}
-        </SectionCard>
 
-        {/* ── Danger Zone ───────────────────────────────────────────── */}
-        <SectionCard>
-          <SectionHeader title="Danger Zone" icon={Trash2} accent="bg-destructive/80" />
-          <div className="h-0.5 bg-destructive" />
-          <div className="px-4 py-4 space-y-3">
             <div>
-              <p className="text-sm text-muted-foreground mb-3">
-                Sign out of your account on this device.
-              </p>
-              <Button
-                variant="outline"
-                className="border-border hover:border-primary/50 gap-2"
-                onClick={() => logoutMutation.mutate()}
-                disabled={logoutMutation.isPending}
-              >
-                {logoutMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                Sign Out
-              </Button>
+              {keysLoading ? (
+                Array.from({ length: 2 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 px-4 py-3 border-b border-border/40 last:border-0">
+                    <div className="h-3 shimmer rounded flex-1" />
+                    <div className="h-3 shimmer rounded w-24" />
+                  </div>
+                ))
+              ) : (keysData?.keys ?? []).length === 0 ? (
+                <div className="px-4 py-6 text-sm text-muted-foreground text-center">No API keys yet.</div>
+              ) : (
+                (keysData?.keys ?? []).map((key: ApiKey) => (
+                  <div key={key.id} className="flex items-center gap-3 px-4 py-3.5 border-b border-border/40 last:border-0 hover:bg-muted/5 transition-colors group">
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                      <Key className="w-3.5 h-3.5 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{key.name}</p>
+                      <div className="flex items-center gap-3 mt-0.5">
+                        <code className="text-xs text-muted-foreground font-mono">{key.prefix}••••••••</code>
+                        {key.lastUsedAt && (
+                          <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                            <Clock className="w-2.5 h-2.5" /> {new Date(key.lastUsedAt).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => revokeKeyMutation.mutate(key.id)}
+                      disabled={revokeKeyMutation.isPending}
+                      className="text-xs text-destructive border border-destructive/30 rounded-lg px-2.5 py-1 hover:bg-destructive/10 transition-all opacity-0 group-hover:opacity-100 disabled:opacity-40 shrink-0"
+                    >
+                      Revoke
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
-            <div className="border-t border-dashed border-border/60 pt-3">
-              <p className="text-sm text-muted-foreground mb-3">
-                Permanently delete your account and all associated files. This action cannot be undone.
-              </p>
-              <Button
-                variant="outline"
-                className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground gap-2"
-              >
-                <Trash2 className="w-4 h-4" /> Delete Account
-              </Button>
+          </SectionCard>
+
+          {/* ── International ─────────────────────────────────────────── */}
+          <SectionCard>
+            <SectionHeader title="International" icon={Languages} gradient="from-muted-foreground/50 to-muted-foreground/30" />
+            <div className="px-4 py-3.5">
+              <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1">Site Language</div>
+              <div className="flex items-center justify-between mt-0.5">
+                <span className="text-sm text-foreground">English (en)</span>
+                <button className="text-xs text-primary hover:text-primary/80 font-semibold transition-colors">Edit</button>
+              </div>
             </div>
-          </div>
-        </SectionCard>
-      </main>
+          </SectionCard>
+
+          {/* ── Danger Zone ───────────────────────────────────────────── */}
+          <SectionCard>
+            <SectionHeader title="Danger Zone" icon={Trash2} gradient="from-destructive/80 to-destructive/60" />
+            <div className="px-4 py-4 space-y-4">
+              <div>
+                <p className="text-sm text-muted-foreground mb-3">Sign out of your account on this device.</p>
+                <Button
+                  variant="outline"
+                  className="border-border hover:border-primary/40 gap-2 rounded-xl"
+                  onClick={() => logoutMutation.mutate()}
+                  disabled={logoutMutation.isPending}
+                >
+                  {logoutMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                  Sign Out
+                </Button>
+              </div>
+              <div className="border-t border-border/40 pt-4">
+                <p className="text-sm text-muted-foreground mb-3">Permanently delete your account and all files. This cannot be undone.</p>
+                <Button variant="outline" className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:border-destructive gap-2 rounded-xl">
+                  <Trash2 className="w-4 h-4" /> Delete Account
+                </Button>
+              </div>
+            </div>
+          </SectionCard>
+        </main>
+      </div>
     </div>
   );
 }

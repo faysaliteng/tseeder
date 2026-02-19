@@ -4,11 +4,46 @@ import { useMutation } from "@tanstack/react-query";
 import { auth, ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import logoImg from "@/assets/logo.png";
+
+function AuthBlobs() {
+  return (
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+      <div
+        className="absolute w-[600px] h-[600px] rounded-full opacity-20"
+        style={{
+          background: "radial-gradient(circle, hsl(265 89% 70%) 0%, transparent 70%)",
+          top: "-200px", right: "-150px",
+          animation: "blob-drift 12s ease-in-out infinite",
+        }}
+      />
+      <div
+        className="absolute w-[500px] h-[500px] rounded-full opacity-15"
+        style={{
+          background: "radial-gradient(circle, hsl(239 84% 67%) 0%, transparent 70%)",
+          bottom: "-150px", left: "-100px",
+          animation: "blob-drift 14s ease-in-out infinite",
+          animationDelay: "-5s",
+        }}
+      />
+      {Array.from({ length: 10 }).map((_, i) => (
+        <div
+          key={i}
+          className="absolute w-1 h-1 rounded-full bg-primary/20"
+          style={{
+            left: `${15 + (i * 8) % 75}%`,
+            top: `${10 + (i * 9) % 80}%`,
+            animation: `glow-pulse ${2 + (i % 3)}s ease-in-out infinite`,
+            animationDelay: `${i * 0.25}s`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
 
@@ -50,14 +85,17 @@ export default function RegisterPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background px-4">
-        <div className="w-full max-w-sm text-center space-y-4">
-          <CheckCircle2 className="w-16 h-16 text-success mx-auto" />
+      <div className="min-h-screen flex items-center justify-center bg-background px-4 relative">
+        <AuthBlobs />
+        <div className="w-full max-w-sm text-center space-y-5 relative z-10 animate-scale-in">
+          <div className="w-20 h-20 rounded-full bg-success/10 border border-success/30 flex items-center justify-center mx-auto shadow-glow-success animate-float">
+            <CheckCircle2 className="w-10 h-10 text-success" />
+          </div>
           <h1 className="text-2xl font-bold text-foreground">Check your email</h1>
           <p className="text-sm text-muted-foreground">
-            We sent a verification link to <strong>{email}</strong>. Click it to activate your account.
+            We sent a verification link to <strong className="text-foreground">{email}</strong>.
           </p>
-          <Button onClick={() => navigate("/auth/login")} className="gradient-primary text-white border-0">
+          <Button onClick={() => navigate("/auth/login")} className="gradient-primary text-white border-0 rounded-xl w-full h-11">
             Back to Sign In
           </Button>
         </div>
@@ -66,99 +104,100 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="gradient-glow fixed inset-0 pointer-events-none" />
-      <div className="w-full max-w-sm space-y-6 relative">
-        <div className="text-center">
-          <div className="flex items-center justify-center w-16 h-16 rounded-2xl overflow-hidden border border-border mx-auto mb-4 shadow-primary">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8 relative">
+      <AuthBlobs />
+      <div className="w-full max-w-sm space-y-6 relative z-10">
+        <div className="text-center animate-slide-up-fade">
+          <div className="flex items-center justify-center w-16 h-16 rounded-2xl overflow-hidden border border-primary/20 mx-auto mb-4 shadow-glow-primary animate-float">
             <img src={logoImg} alt="TorrentFlow" className="w-full h-full object-cover" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Create an account</h1>
-          <p className="text-sm text-muted-foreground mt-1">Start with 5 GB free storage</p>
+          <h1 className="text-3xl font-bold text-gradient">Create account</h1>
+          <p className="text-sm text-muted-foreground mt-1.5">Start with 5 GB free storage</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4 bg-card border border-border rounded-xl p-6 shadow-card">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-4 glass-premium rounded-2xl p-7 animate-slide-up-fade"
+          style={{ animationDelay: "0.1s" }}
+        >
           {apiError && (
-            <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-xs text-destructive">
+            <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-xl text-xs text-destructive animate-scale-in">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {apiError}
             </div>
           )}
 
           <div className="space-y-1.5">
-            <Label htmlFor="email">Email</Label>
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Email</label>
             <Input
-              id="email" type="email" placeholder="you@company.com"
+              type="email" placeholder="you@company.com"
               value={email} onChange={e => setEmail(e.target.value)}
-              required className="bg-input"
+              required className="bg-input/60 border-border/60 focus:border-primary/60 focus:shadow-[0_0_0_2px_hsl(239_84%_67%/0.1)] transition-all rounded-xl h-11"
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="password">Password</Label>
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Password</label>
             <div className="relative">
               <Input
-                id="password"
                 type={showPwd ? "text" : "password"}
                 placeholder="Min 8 chars, 1 uppercase, 1 number"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required className="bg-input pr-10"
+                value={password} onChange={e => setPassword(e.target.value)}
+                required className="bg-input/60 border-border/60 focus:border-primary/60 focus:shadow-[0_0_0_2px_hsl(239_84%_67%/0.1)] transition-all rounded-xl h-11 pr-10"
               />
               <button type="button" onClick={() => setShowPwd(s => !s)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
                 {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
             {password && !passwordValid && (
-              <p className="text-xs text-destructive">Min 8 chars, 1 uppercase letter, 1 number</p>
+              <p className="text-xs text-destructive flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" /> Min 8 chars, 1 uppercase, 1 number
+              </p>
             )}
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="confirm">Confirm Password</Label>
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Confirm Password</label>
             <Input
-              id="confirm" type="password" placeholder="••••••••"
+              type="password" placeholder="••••••••"
               value={confirm} onChange={e => setConfirm(e.target.value)}
-              required className="bg-input"
+              required className="bg-input/60 border-border/60 focus:border-primary/60 focus:shadow-[0_0_0_2px_hsl(239_84%_67%/0.1)] transition-all rounded-xl h-11"
             />
             {confirm && !confirmMatch && (
-              <p className="text-xs text-destructive">Passwords do not match</p>
+              <p className="text-xs text-destructive flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Passwords do not match</p>
             )}
           </div>
 
-          {/* Turnstile placeholder */}
-          <div className="h-16 rounded-lg border border-dashed border-border flex items-center justify-center text-xs text-muted-foreground">
-            Cloudflare Turnstile (configure site key in env)
+          <div className="h-14 rounded-xl border border-dashed border-border/40 flex items-center justify-center text-xs text-muted-foreground/60 bg-muted/10">
+            Cloudflare Turnstile (configure site key)
           </div>
 
           <div className="flex items-start gap-2">
-            <Checkbox
-              id="aup"
-              checked={accepted}
-              onCheckedChange={v => setAccepted(!!v)}
-              className="mt-0.5"
-            />
-            <Label htmlFor="aup" className="text-xs text-muted-foreground leading-relaxed cursor-pointer">
+            <Checkbox id="aup" checked={accepted} onCheckedChange={v => setAccepted(!!v)} className="mt-0.5" />
+            <label htmlFor="aup" className="text-xs text-muted-foreground leading-relaxed cursor-pointer">
               I accept the{" "}
               <a href="#" className="text-primary hover:underline">Acceptable Use Policy</a>{" "}
               and acknowledge that downloading copyrighted content without permission is prohibited.
-            </Label>
+            </label>
           </div>
 
           <Button
             type="submit"
-            className="w-full gradient-primary border-0 text-white"
+            className="w-full h-11 gradient-primary border-0 text-white font-semibold rounded-xl relative overflow-hidden group"
             disabled={registerMutation.isPending || !accepted || !email || !password || !confirm}
           >
-            {registerMutation.isPending
-              ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Creating account…</>
-              : "Create account"}
+            <span className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+            <span className="relative flex items-center justify-center gap-2">
+              {registerMutation.isPending
+                ? <><Loader2 className="w-4 h-4 animate-spin" />Creating…</>
+                : "Create account"}
+            </span>
           </Button>
         </form>
 
-        <p className="text-center text-sm text-muted-foreground">
+        <p className="text-center text-sm text-muted-foreground animate-slide-up-fade" style={{ animationDelay: "0.18s" }}>
           Already have an account?{" "}
-          <Link to="/auth/login" className="text-primary hover:underline font-medium">Sign in</Link>
+          <Link to="/auth/login" className="text-primary hover:text-primary/80 font-semibold transition-colors">Sign in</Link>
         </p>
       </div>
     </div>
