@@ -32,8 +32,13 @@ import AdminLoginPage from "./pages/admin/AdminLogin";
 import AdminInfrastructure from "./pages/admin/Infrastructure";
 import AdminBlog from "./pages/admin/Blog";
 import AdminBlogEditor from "./pages/admin/BlogEditor";
+import AdminDLQ from "./pages/admin/DLQ";
+import AdminGlobalSearch from "./pages/admin/GlobalSearch";
+import AdminConfigHistory from "./pages/admin/ConfigHistory";
+import AdminObservability from "./pages/admin/Observability";
 import BlogPage from "./pages/Blog";
 import BlogPostPage from "./pages/BlogPost";
+import OrgSettingsPage from "./pages/OrgSettings";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -95,6 +100,13 @@ const App = () => (
           <Route path="/admin/blog" element={<AdminBlog />} />
           <Route path="/admin/blog/new" element={<AdminBlogEditor />} />
           <Route path="/admin/blog/:id/edit" element={<AdminBlogEditor />} />
+          <Route path="/admin/dlq" element={<AdminDLQ />} />
+          <Route path="/admin/search" element={<AdminGlobalSearch />} />
+          <Route path="/admin/config-history" element={<AdminConfigHistory />} />
+          <Route path="/admin/observability" element={<AdminObservability />} />
+
+          {/* Org settings */}
+          <Route path="/app/org/:slug/settings" element={<OrgSettingsPage />} />
 
           {/* Public Blog */}
           <Route path="/blog" element={<BlogPage />} />

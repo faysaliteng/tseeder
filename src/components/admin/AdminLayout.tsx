@@ -1,12 +1,14 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import tseederLogo from "@/assets/tseeder-logo.png";
+import { useQuery } from "@tanstack/react-query";
+import { admin as adminApi } from "@/lib/api";
 import {
   LayoutDashboard, Users, Briefcase, Server, HardDrive,
   ShieldAlert, ScrollText, Settings, ChevronLeft, ChevronRight,
   LogOut, Search, Bell, Menu, X, Layers,
-  Command, FileText,
+  Command, FileText, AlertOctagon, History, Activity,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -15,42 +17,42 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  CommandSeparator,
 } from "@/components/ui/command";
 
 const NAV = [
-  { to: "/admin/overview",        label: "Overview",       icon: LayoutDashboard, color: "text-primary" },
-  { to: "/admin/users",           label: "Users",          icon: Users,           color: "text-info" },
-  { to: "/admin/jobs",            label: "Jobs",           icon: Briefcase,       color: "text-warning" },
-  { to: "/admin/infrastructure",  label: "Infrastructure", icon: Layers,          color: "text-success" },
-  { to: "/admin/workers",         label: "Workers",        icon: Server,          color: "text-primary-glow" },
-  { to: "/admin/storage",         label: "Storage",        icon: HardDrive,       color: "text-info" },
-  { to: "/admin/security",        label: "Security",       icon: ShieldAlert,     color: "text-destructive" },
-  { to: "/admin/audit",           label: "Audit Log",      icon: ScrollText,      color: "text-muted-foreground" },
-  { to: "/admin/blog",            label: "Blog / CMS",     icon: FileText,        color: "text-info" },
-  { to: "/admin/settings",        label: "Settings",       icon: Settings,        color: "text-muted-foreground" },
-];
-
-// Simulated alerts
-const ALERTS = [
-  { id: 1, msg: "Agent memory usage >85%", level: "warn" },
-  { id: 2, msg: "3 jobs failed in the last hour", level: "danger" },
-  { id: 3, msg: "New user registered: demo@test.com", level: "info" },
+  { to: "/admin/overview",        label: "Overview",        icon: LayoutDashboard, color: "text-primary" },
+  { to: "/admin/users",           label: "Users",           icon: Users,           color: "text-info" },
+  { to: "/admin/jobs",            label: "Jobs",            icon: Briefcase,       color: "text-warning" },
+  { to: "/admin/infrastructure",  label: "Infrastructure",  icon: Layers,          color: "text-success" },
+  { to: "/admin/workers",         label: "Workers",         icon: Server,          color: "text-primary-glow" },
+  { to: "/admin/storage",         label: "Storage",         icon: HardDrive,       color: "text-info" },
+  { to: "/admin/observability",   label: "Observability",   icon: Activity,        color: "text-success" },
+  { to: "/admin/dlq",             label: "DLQ Replay",      icon: AlertOctagon,    color: "text-destructive" },
+  { to: "/admin/search",          label: "Global Search",   icon: Search,          color: "text-info" },
+  { to: "/admin/config-history",  label: "Config History",  icon: History,         color: "text-muted-foreground" },
+  { to: "/admin/security",        label: "Security",        icon: ShieldAlert,     color: "text-destructive" },
+  { to: "/admin/audit",           label: "Audit Log",       icon: ScrollText,      color: "text-muted-foreground" },
+  { to: "/admin/blog",            label: "Blog / CMS",      icon: FileText,        color: "text-info" },
+  { to: "/admin/settings",        label: "Settings",        icon: Settings,        color: "text-muted-foreground" },
 ];
 
 const CMD_ITEMS = [
-  { group: "Navigation", label: "Overview", to: "/admin/overview", icon: LayoutDashboard },
-  { group: "Navigation", label: "Users", to: "/admin/users", icon: Users },
-  { group: "Navigation", label: "Jobs", to: "/admin/jobs", icon: Briefcase },
+  { group: "Navigation", label: "Overview",       to: "/admin/overview",       icon: LayoutDashboard },
+  { group: "Navigation", label: "Users",          to: "/admin/users",          icon: Users },
+  { group: "Navigation", label: "Jobs",           to: "/admin/jobs",           icon: Briefcase },
   { group: "Navigation", label: "Infrastructure", to: "/admin/infrastructure", icon: Layers },
-  { group: "Navigation", label: "Workers", to: "/admin/workers", icon: Server },
-  { group: "Navigation", label: "Storage", to: "/admin/storage", icon: HardDrive },
-  { group: "Navigation", label: "Security", to: "/admin/security", icon: ShieldAlert },
-  { group: "Navigation", label: "Audit Log", to: "/admin/audit", icon: ScrollText },
-  { group: "Navigation", label: "Blog / CMS", to: "/admin/blog", icon: FileText },
-  { group: "Navigation", label: "Settings", to: "/admin/settings", icon: Settings },
-  { group: "App", label: "Back to App", to: "/app/dashboard", icon: LogOut },
-  { group: "App", label: "Admin Login", to: "/admin/login", icon: Command },
+  { group: "Navigation", label: "Workers",        to: "/admin/workers",        icon: Server },
+  { group: "Navigation", label: "Storage",        to: "/admin/storage",        icon: HardDrive },
+  { group: "Navigation", label: "Observability",  to: "/admin/observability",  icon: Activity },
+  { group: "Navigation", label: "DLQ Replay",     to: "/admin/dlq",            icon: AlertOctagon },
+  { group: "Navigation", label: "Global Search",  to: "/admin/search",         icon: Search },
+  { group: "Navigation", label: "Config History", to: "/admin/config-history", icon: History },
+  { group: "Navigation", label: "Security",       to: "/admin/security",       icon: ShieldAlert },
+  { group: "Navigation", label: "Audit Log",      to: "/admin/audit",          icon: ScrollText },
+  { group: "Navigation", label: "Blog / CMS",     to: "/admin/blog",           icon: FileText },
+  { group: "Navigation", label: "Settings",       to: "/admin/settings",       icon: Settings },
+  { group: "App", label: "Back to App",   to: "/app/dashboard", icon: LogOut },
+  { group: "App", label: "Admin Login",   to: "/admin/login",   icon: Command },
 ];
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -61,6 +63,28 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [cmdOpen, setCmdOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Real system health for notification bell
+  const { data: healthData } = useQuery({
+    queryKey: ["admin-system-health-alerts"],
+    queryFn: () => adminApi.systemHealth() as Promise<any>,
+    refetchInterval: 60_000,
+    retry: false,
+  });
+
+  const realAlerts: Array<{ id: number; msg: string; level: string }> = [];
+  if (healthData) {
+    if ((healthData.failedLast24h ?? 0) > 5) {
+      realAlerts.push({ id: 1, msg: `${healthData.failedLast24h} jobs failed in the last 24h`, level: "danger" });
+    }
+    if (healthData.agent && healthData.agent.activeJobs >= healthData.agent.maxJobs) {
+      realAlerts.push({ id: 2, msg: `Agent at full capacity: ${healthData.agent.activeJobs}/${healthData.agent.maxJobs} jobs`, level: "warn" });
+    }
+    if (healthData.status !== "healthy") {
+      realAlerts.push({ id: 3, msg: `System status: ${healthData.status}`, level: "danger" });
+    }
+  }
+  const alerts = realAlerts;
 
   // ⌘K / Ctrl+K global shortcut
   useEffect(() => {
@@ -218,8 +242,10 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               className="w-9 h-9 flex items-center justify-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-all relative"
             >
               <Bell className="w-5 h-5" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-destructive border border-background"
-                style={{ boxShadow: "0 0 4px hsl(0 72% 51%)" }} />
+              {alerts.length > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-destructive border border-background"
+                  style={{ boxShadow: "0 0 4px hsl(0 72% 51%)" }} />
+              )}
             </button>
             {notifOpen && (
               <>
@@ -228,9 +254,11 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                   <div className="px-4 py-3 border-b border-border/40 flex items-center gap-2">
                     <Bell className="w-4 h-4 text-primary" />
                     <span className="text-sm font-bold text-foreground">System Alerts</span>
-                    <span className="ml-auto w-5 h-5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center">3</span>
+                    <span className="ml-auto w-5 h-5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center">{alerts.length}</span>
                   </div>
-                  {ALERTS.map(a => (
+                  {alerts.length === 0 ? (
+                    <div className="px-4 py-6 text-center text-xs text-muted-foreground">All systems healthy</div>
+                  ) : alerts.map(a => (
                     <div key={a.id} className={cn(
                       "flex items-start gap-3 px-4 py-3 border-b border-border/30 last:border-0 hover:bg-muted/10 transition-colors",
                     )}>
