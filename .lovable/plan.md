@@ -1,420 +1,503 @@
 
-# Production Completion Plan — tseeder OMEGA
+# Phase 1 Enterprise Completion Plan — tseeder
 
-## Complete Honest Gap Analysis
+## Honest Gap Analysis After Full Audit
 
-After reading every file in the codebase, here is the precise list of what is **real and complete** vs. what is **stubbed, missing, or broken**:
+### What the backend already has (do not reimplement)
+- All 6 Phase 1 backend API endpoints are partially or fully real:
+  - DLQ: `GET /admin/dlq`, `POST /admin/dlq/:id/replay` — **100% real**
+  - Global Search: `GET /admin/search` — **100% real**
+  - Config History: `GET /admin/config-history` — **100% real**
+  - System Health: `GET /admin/system-health` — **real** (used by Status page)
+  - Worker heartbeats in D1: `worker_heartbeats` table — **real**
+  - Storage snapshot in D1: `storage_snapshots` table — **real**
+- WebTorrentEngine: **real implementation** (engine.ts lines 110-354)
+- SigV4: **real implementation** (r2-upload.ts)
+- Stripe billing handlers: **real** (handlers/stripe.ts)
+- All migrations 0001–0009: **applied**
 
-### REAL AND COMPLETE (do not touch)
-- All 47 API endpoints: auth, jobs, files, usage, admin, providers, blog, SSE — fully implemented, no stubs
-- D1 schema: 16 tables across 7 migrations, fully normalized, proper indexes, seed data
-- RBAC middleware: 4-tier (user/support/admin/superadmin), all routes gated correctly
-- CSRF + session system: HMAC-signed, HttpOnly cookies, KV-backed rate limiting
-- Cloudflare Turnstile: real integration, server-side verify, dev bypass
-- Queue consumer: real provider dispatch — both Seedr.cc and compute agent paths are real
-- Seedr.cc integration: real HTTP Basic Auth calls to `seedr.cc/rest/*` API
-- Provider switch system: versioned history in D1, audit-logged, in-flight job warnings
-- Worker heartbeat + fleet management: D1 registry + time-series heartbeats
-- Storage cleanup: real R2 delete + D1 orphan sweep
-- Blog CMS: full admin CRUD + 8 seeded real articles in migration SQL
-- Durable Objects: `JobProgressDO` (SSE fanout) + `UserSessionDO` — real implementation
-- Frontend API client (`src/lib/api.ts`): fully typed, no mocks, all 47 endpoints mapped
-- Browser extension: Manifest v3, content.js injection, background.js context menus, auth bridge
-- Email system: MailChannels integration for password reset is **real**, not stubbed
-- Email verification token creation: real (but email send not triggered on register — gap)
+### What is MISSING — the exact gaps Phase 1 must fill
 
-### GAPS — THINGS THAT MUST BE FIXED
+**Gap A: Uptime history — no D1 table, no snapshot writer, no frontend**
+- No `uptime_snapshots` table exists in any migration
+- No cron-triggered snapshot writer
+- Status page shows real-time health only — no 24h/7d/30d/90d history bars
+- No incident markers
 
-**Gap 1: `StubTorrentEngine` in `workers/compute-agent/src/engine.ts`**
-The `StubTorrentEngine` simulates fake progress every 2 seconds. The `TorrentEngine` interface is perfectly defined. What's needed: a real implementation using WebTorrent (npm) that satisfies the interface. When `WORKER_CLUSTER_URL` is not configured (or agent is unreachable), the queue consumer already throws — that's correct. The stub must be replaced so real downloads happen when the agent IS running.
+**Gap B: Admin UI — DLQ/Search/ConfigHistory pages don't exist**
+- Backend endpoints exist and are wired
+- No frontend pages/routes for these three features
+- `AdminLayout` nav has no links to DLQ, Search, or Config History
+- `App.tsx` has no routes for them
 
-**Gap 2: SigV4 stub in `workers/compute-agent/src/r2-upload.ts`**
-Lines 117–126: `// TODO: Implement full AWS SigV4 signing`. The multipart upload framework is correct (part chunking, `CompleteMultipartUpload` XML) but the `Authorization` header is not set. Files will be rejected by R2. This needs real SigV4.
+**Gap C: Observability Dashboard — no page exists**
+- No `/admin/observability` page
+- `worker_heartbeats` table has CPU/bandwidth data — not surfaced
+- No latency tracking table (needs new backend + migration)
+- Admin has no charts for queue depth, error rates, or fleet capacity over time
 
-**Gap 3: Email verification not sent on register**
-`handleRegister` creates the user and sets `email_verified = 0`, but never generates an `email_verification_tokens` row or sends the verification email. `handleVerifyEmail` exists and works — just nothing calls the send. Users can never verify their email, so they can never log in.
+**Gap D: Multi-Region Failover — worker selection is single-worker**
+- `queue-consumer.ts` dispatches to `WORKER_CLUSTER_URL` (single static URL)
+- No region-aware routing, no priority, no failover logic
+- `worker_registry` has `region` column — unused in dispatch
 
-**Gap 4: `ResetConfirmSchema` uses `newPassword` but handler reads `password`**
-In `schemas.ts` line 42: `newPassword: PasswordSchema`. In `auth.ts` line 255: `const { token, password } = parsed.data`. This is a field name mismatch — `password` is always `undefined` so the reset will write `undefined` as the hash. Password reset is broken.
+**Gap E: Retention Sweeper — no scheduled cron**
+- Manual cleanup in `handleAdminStorageCleanup` exists and is real
+- No automated `scheduled()` cron for retention enforcement per plan
+- No per-plan enforcement (`retention_days` column exists but nothing reads it for sweeps)
 
-**Gap 5: Stripe billing — zero implementation**
-No `stripe_subscriptions` table, no webhook handler, no checkout session endpoint, no plan enforcement from Stripe. The pricing page links to `/#pricing` — there is no real payment flow. `user_plan_assignments` is manually managed (admin only).
+**Gap F: Organizations / Multi-Tenancy — zero implementation**
+- All tables are user-scoped (no org tables exist)
+- No migrations for `organizations`, `org_members`, `org_invites`
+- No API endpoints for org CRUD, member management, shared quotas
+- No frontend for org management
+- Billing is user-scoped, not org-scoped
 
-**Gap 6: `VITE_API_BASE_URL` not enforced**
-`src/lib/api.ts` line 6: `const BASE = import.meta.env.VITE_API_BASE_URL ?? ""`. When empty, all API calls go to the preview origin (Lovable's server) which has no Workers API. Every page that calls the API returns empty. No build-time check enforces this.
-
-**Gap 7: Admin `api_keys` table vs user `api_keys` — schema mismatch**
-`0002_api_keys.sql` creates `api_keys` with role `compute_agent|internal|admin_api`. But `handleCreateApiKey` in `auth.ts` (line ~420) also inserts into `api_keys` with a `user_id` and `key_prefix` that don't exist in the migration schema. Need to check and align the columns.
-
-**Gap 8: Missing migration — `api_keys` needs `user_id` and `key_prefix` columns**
-The migration has `created_by` (nullable) but auth handler likely expects `user_id` (required). Need a new migration adding `user_id`, `key_prefix`, `name` to properly support user-facing API keys.
-
-**Gap 9: Docs are partially stale**
-`DEVELOPER.md` references `apps/web/src/` (doesn't exist — it's `src/`), `services/compute-agent/` (it's `workers/compute-agent/`), `r2-helpers.ts` (doesn't exist), `handlers/usage.ts` (it's in `admin.ts`). README calls the stack "TorrentFlow" instead of "tseeder". `INSTRUCTIONS.md` references `apps/api` but `wrangler.toml` is in `infra/`.
-
-**Gap 10: No production smoke-test script**
-Request specifically asks for a shell script that verifies the full flow end-to-end.
-
-**Gap 11: No Go-Live Checklist document**
-Needed as a deliverable.
-
-**Gap 12: `api_keys` auth handler references columns that differ from migration**
-Line 411 in auth.ts: `SELECT id, name, key_prefix, created_at, last_used_at, expires_at FROM api_keys WHERE user_id = ?` — but `0002_api_keys.sql` has no `user_id` or `key_prefix` column. This means all API key listing/creation is broken at the SQL level.
+**Gap G: Admin UI notifications are fake**
+- `AdminLayout.tsx` lines 35-39: `ALERTS` is a hardcoded constant with fake data
+- Notification bell shows "Agent memory usage >85%" regardless of real state
 
 ---
 
 ## Implementation Plan
 
-### Phase 1 — Fix Critical Schema Bug (api_keys)
+### Feature 1: Uptime History (90-Day)
 
-**New migration `0008_api_keys_user.sql`:**
+**New migration: `0010_uptime_history.sql`**
 ```sql
-ALTER TABLE api_keys ADD COLUMN user_id TEXT REFERENCES users(id) ON DELETE CASCADE;
-ALTER TABLE api_keys ADD COLUMN key_prefix TEXT;
-CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id);
-```
-This aligns the table with what `auth.ts` actually queries.
-
-### Phase 2 — Fix Auth Bugs
-
-**2a — Fix `ResetConfirmSchema` field name mismatch**
-
-In `packages/shared/src/schemas.ts`, rename `newPassword` → `password` in `ResetConfirmSchema`:
-```typescript
-export const ResetConfirmSchema = z.object({
-  token: z.string().min(1),
-  password: PasswordSchema,  // was: newPassword
-});
+CREATE TABLE IF NOT EXISTS uptime_snapshots (
+  id             TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+  date           TEXT NOT NULL,          -- "2026-02-19" (UTC date)
+  component      TEXT NOT NULL,          -- "api" | "queue" | "agents"
+  is_operational INTEGER NOT NULL DEFAULT 1,
+  incident_note  TEXT,
+  captured_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(date, component)
+);
+CREATE INDEX IF NOT EXISTS idx_uptime_date ON uptime_snapshots(date DESC);
 ```
 
-**2b — Wire email verification on register**
+**Backend — `apps/api/src/index.ts` scheduled() handler**
 
-In `apps/api/src/handlers/auth.ts`, after `createUser`, add:
-1. Generate a verification token
-2. Insert into `email_verification_tokens` 
-3. Call a `sendVerificationEmail()` function (same MailChannels pattern as password reset)
-4. Email body: styled HTML with `${env.APP_DOMAIN}/auth/verify?token=${token}`
+Add a new cron expression `"0 * * * *"` (hourly) to `wrangler.toml`. In `scheduled()`, import and call a new `runUptimeSweeper(env)` function.
 
-The `handleVerifyEmail` endpoint already exists and works — this just wires the send.
-
-### Phase 3 — Fix Real Torrent Engine
-
-**`workers/compute-agent/src/engine.ts`** — Replace `StubTorrentEngine` with `WebTorrentEngine`:
-
+**New backend function — `apps/api/src/uptime-sweeper.ts`**
 ```typescript
-import WebTorrent from "webtorrent";
+export async function runUptimeSweeper(env: Env) {
+  const today = new Date().toISOString().slice(0, 10);
+  
+  // Check API health (if we're running, API is operational)
+  // Check agent health
+  const agentHealth = await fetch(`${env.WORKER_CLUSTER_URL}/agent/health`, ...)
+    .then(r => r.ok).catch(() => false);
+  
+  // Check queue depth (jobs stuck > 10 min = queue incident)
+  const queueStuck = await env.DB.prepare(
+    "SELECT COUNT(*) as cnt FROM jobs WHERE status = 'submitted' AND created_at < datetime('now', '-10 minutes')"
+  ).first<{ cnt: number }>();
+  
+  // Upsert today's snapshot (UNIQUE on date+component prevents duplicates)
+  await Promise.all([
+    env.DB.prepare(`INSERT OR REPLACE INTO uptime_snapshots (date, component, is_operational, incident_note) VALUES (?, 'api', 1, NULL)`).bind(today).run(),
+    env.DB.prepare(`INSERT OR REPLACE INTO uptime_snapshots (date, component, is_operational, incident_note) VALUES (?, 'agents', ?, ?)`).bind(today, agentHealth ? 1 : 0, agentHealth ? null : 'Agent unreachable').run(),
+    env.DB.prepare(`INSERT OR REPLACE INTO uptime_snapshots (date, component, is_operational, incident_note) VALUES (?, 'queue', ?, ?)`).bind(today, (queueStuck?.cnt ?? 0) > 10 ? 0 : 1, (queueStuck?.cnt ?? 0) > 10 ? `${queueStuck?.cnt} jobs stuck` : null).run(),
+  ]);
+}
+```
 
-export class WebTorrentEngine implements TorrentEngine {
-  private client = new WebTorrent();
-  private jobs = new Map<string, { torrent: WebTorrent.Torrent; metadata: TorrentMetadata | null }>();
+**New API endpoint — `GET /status/history`** (public, no auth)
 
-  async start(options: StartOptions): Promise<AsyncIterable<TorrentProgress>> {
-    return new Promise((resolve, reject) => {
-      const source = options.magnetUri ?? options.torrentBuffer!;
-      const torrent = this.client.add(source, { path: options.downloadDir });
+Returns 90 days of snapshots grouped by component + date. Added to `admin.ts` as `handleUptimeHistory` and registered in `index.ts`.
 
-      this.jobs.set(options.jobId, { torrent, metadata: null });
+**New frontend API client method — `src/lib/api.ts`**
+```typescript
+export const statusHistory = {
+  get: (days = 90) => request<{ snapshots: UptimeSnapshot[]; components: string[] }>(`/status/history?days=${days}`),
+};
+```
 
-      torrent.on("metadata", () => {
-        // populate metadata
-      });
+**Status page update — `src/pages/Status.tsx`**
+- Fetch from `/status/history` (public endpoint, no auth required)
+- Compute 24h / 7d / 30d / 90d uptime % per component
+- Render 90 colored bars for each component (green/red/amber)
+- Hover tooltip showing date + incident note
+- Replace the static SLA section with real computed numbers
 
-      torrent.on("error", reject);
-      torrent.on("ready", () => resolve(this.createProgressStream(options.jobId, torrent)));
+---
+
+### Feature 2: Admin UI — DLQ Replay, Global Search, Config Diff
+
+All three backend endpoints already exist. Need:
+
+**New page: `src/pages/admin/DLQ.tsx`**
+
+A full-page admin UI that:
+- Fetches `GET /admin/dlq` (using `adminDlq.list()`)
+- Shows a table: Job Name, User, Status, Error (truncated), Created, Last Updated
+- Expandable row: full error payload in a dark code block
+- "Replay" button per row → opens DangerModal variant requiring:
+  - `reason` (≥10 chars)
+  - `ticketId` (required)
+  - typed confirmation phrase "replay"
+- `DangerModal` needs to be updated to accept `ticketId` field (currently only has `reason`)
+- On confirm: calls `adminDlq.replay(id, reason, ticketId)`
+- Real-time audit confirmation toast
+
+**New page: `src/pages/admin/GlobalSearch.tsx`**
+
+- Full-width search input at the top
+- Calls `adminSearch.search(q)` on input with 300ms debounce
+- Three result groups rendered as separate cards: Users, Jobs, Audit Logs
+- Each result is clickable:
+  - User → navigate to `/admin/users/:id`
+  - Job → navigate to `/admin/jobs` (with job highlighted)
+  - Audit log → navigate to `/admin/audit`
+- Empty state with search icon when `q.length < 2`
+- Shows `totals.users`, `totals.jobs`, `totals.auditLogs` counts in group headers
+
+**New page: `src/pages/admin/ConfigHistory.tsx`**
+
+- Table of config changes from `adminConfig.history()`
+- Columns: Key, Changed By, Old Value, New Value, Reason, Timestamp
+- Expandable diff view: shows old_value and new_value side by side
+- JSON auto-formatted for values that are valid JSON
+- Paginated using existing `Paginator` component
+- Filter by key using a dropdown
+
+**`src/App.tsx` updates**
+```tsx
+import AdminDLQ from "./pages/admin/DLQ";
+import AdminGlobalSearch from "./pages/admin/GlobalSearch";
+import AdminConfigHistory from "./pages/admin/ConfigHistory";
+
+// Add routes:
+<Route path="/admin/dlq" element={<AdminDLQ />} />
+<Route path="/admin/search" element={<AdminGlobalSearch />} />
+<Route path="/admin/config-history" element={<AdminConfigHistory />} />
+```
+
+**`src/components/admin/AdminLayout.tsx` nav updates**
+- Add to `NAV` array:
+  ```ts
+  { to: "/admin/dlq", label: "DLQ Replay", icon: AlertOctagon, color: "text-destructive" },
+  { to: "/admin/search", label: "Search", icon: Search, color: "text-info" },
+  { to: "/admin/config-history", label: "Config History", icon: History, color: "text-muted-foreground" },
+  ```
+- Replace hardcoded `ALERTS` with a real query to `adminApi.systemHealth()` to populate alerts
+
+**`src/components/admin/AdminUI.tsx` updates**
+- Extend `DangerModal` to accept an optional `ticketIdRequired?: boolean` prop
+- When true: add a second input for `ticketId`
+- Pass `{ reason, ticketId }` to `onConfirm` callback
+- All existing callers still work (backward compatible via optional prop)
+
+---
+
+### Feature 3: Observability Dashboard
+
+**New migration: `0011_observability_metrics.sql`**
+```sql
+CREATE TABLE IF NOT EXISTS api_metrics (
+  id           TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+  hour_bucket  TEXT NOT NULL,  -- "2026-02-19T14:00" (hourly)
+  endpoint     TEXT NOT NULL,
+  method       TEXT NOT NULL,
+  status_class TEXT NOT NULL CHECK (status_class IN ('2xx','3xx','4xx','5xx')),
+  count        INTEGER NOT NULL DEFAULT 0,
+  total_ms     INTEGER NOT NULL DEFAULT 0,  -- sum for avg latency
+  p95_ms       INTEGER,
+  UNIQUE(hour_bucket, endpoint, method, status_class)
+);
+CREATE INDEX IF NOT EXISTS idx_api_metrics_hour ON api_metrics(hour_bucket DESC);
+
+CREATE TABLE IF NOT EXISTS queue_depth_snapshots (
+  id          TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+  captured_at TEXT NOT NULL DEFAULT (datetime('now')),
+  queue_depth INTEGER NOT NULL DEFAULT 0,
+  dlq_depth   INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_queue_snapshots_time ON queue_depth_snapshots(captured_at DESC);
+```
+
+**Backend middleware update — `apps/api/src/middleware.ts`**
+
+Add a thin metrics recorder: after each request, upsert into `api_metrics`:
+```typescript
+// In the router's after-handler (or wrapped in index.ts fetch):
+const hourBucket = new Date().toISOString().slice(0, 13) + ":00";
+const statusClass = `${Math.floor(res.status / 100)}xx`;
+await env.DB.prepare(`
+  INSERT INTO api_metrics (hour_bucket, endpoint, method, status_class, count, total_ms)
+  VALUES (?, ?, ?, ?, 1, ?)
+  ON CONFLICT(hour_bucket, endpoint, method, status_class)
+  DO UPDATE SET count = count + 1, total_ms = total_ms + excluded.total_ms
+`).bind(hourBucket, path, method, statusClass, durationMs).run();
+```
+> Note: this uses `ctx.waitUntil()` so it doesn't block the response.
+
+**Cron update — `uptime-sweeper.ts`** also writes a `queue_depth_snapshots` row hourly.
+
+**New API endpoint — `GET /admin/observability`** (admin RBAC)
+
+Returns:
+```json
+{
+  "apiLatency": { "p50": 45, "p95": 180, "lastHour": [...hourly buckets...] },
+  "errorRates": { "4xx": 0.02, "5xx": 0.001, "trend": [...] },
+  "queueDepth": { "current": 3, "trend": [...24h hourly snapshots...] },
+  "workerFleet": { "total": 3, "healthy": 2, "stale": 1, "totalCapacity": 30, "usedCapacity": 12 },
+  "dlqGrowth": { "current": 5, "24hChange": +2 }
+}
+```
+
+**New API client method — `src/lib/api.ts`**
+```typescript
+export const adminObservability = {
+  get: () => request<ObservabilityData>("/admin/observability"),
+};
+```
+
+**New page: `src/pages/admin/Observability.tsx`**
+
+Uses recharts (already in dependencies) to render:
+- API Latency line chart (p50 + p95 over 24h)
+- Error Rate bar chart (4xx/5xx per hour)
+- Queue Depth area chart (24h)
+- Worker Fleet grid: each worker as a card with capacity bar, last heartbeat, region badge
+- DLQ Growth number with trend indicator
+
+Add to `AdminLayout` nav and `App.tsx` routes.
+
+---
+
+### Feature 4: Multi-Region Compute Agent Routing + Failover
+
+**Backend — `apps/api/src/queue-consumer.ts`**
+
+Replace single-URL dispatch with smart worker selection:
+```typescript
+async function selectWorker(env: Env): Promise<{ url: string; id: string } | null> {
+  // Get all healthy workers ordered by: region preference, lowest load, freshest heartbeat
+  const workers = await env.DB.prepare(`
+    SELECT id, region, active_jobs, max_jobs, last_heartbeat,
+           CAST(active_jobs AS REAL) / NULLIF(max_jobs, 0) AS load_factor
+    FROM worker_registry
+    WHERE status = 'healthy'
+      AND last_heartbeat >= datetime('now', '-5 minutes')
+      AND (max_jobs = 0 OR active_jobs < max_jobs)
+    ORDER BY load_factor ASC, last_heartbeat DESC
+    LIMIT 1
+  `).first<{ id: string; region: string | null; active_jobs: number; max_jobs: number }>();
+  
+  if (!workers) return null;
+  
+  // Build URL: if WORKER_CLUSTER_URL contains {region}, substitute
+  const baseUrl = env.WORKER_CLUSTER_URL.replace("{region}", workers.region ?? "default");
+  return { url: baseUrl, id: workers.id };
+}
+```
+
+**If no eligible worker found**: return job to queue with delay (backoff), log to `security_events` as `compute.no_worker_available`.
+
+**Admin visibility**: `/admin/workers` already shows fleet. Add a "Region" column + stale indicator. The existing `handleAdminListWorkers` already computes `is_stale` — just surface it in `Workers.tsx`.
+
+**`Workers.tsx` update**: Add region badge, stale warning row highlight, capacity bar per worker.
+
+---
+
+### Feature 5: Automated Retention Sweeper + Orphan Cleanup
+
+**Backend — `apps/api/src/retention-sweeper.ts`** (new file)
+```typescript
+export async function runRetentionSweeper(env: Env) {
+  // Find files that exceed their plan's retention_days
+  const expired = await env.DB.prepare(`
+    SELECT f.id, f.r2_key, f.size_bytes, f.job_id, p.retention_days, u.id as user_id
+    FROM files f
+    JOIN jobs j ON j.id = f.job_id
+    JOIN users u ON u.id = j.user_id
+    LEFT JOIN user_plan_assignments upa ON upa.user_id = u.id
+    LEFT JOIN plans p ON p.id = upa.plan_id
+    WHERE p.retention_days > 0
+      AND j.status = 'completed'
+      AND j.completed_at < datetime('now', '-' || p.retention_days || ' days')
+      AND f.is_complete = 1
+    LIMIT 500
+  `).all<{ id: string; r2_key: string | null; size_bytes: number; job_id: string; retention_days: number; user_id: string }>();
+  
+  let deleted = 0, bytes = 0;
+  for (const f of expired.results) {
+    if (f.r2_key) { await env.FILES_BUCKET.delete(f.r2_key).catch(() => {}); }
+    await env.DB.prepare("DELETE FROM files WHERE id = ?").bind(f.id).run();
+    deleted++; bytes += f.size_bytes;
+  }
+  
+  // Write audit log if anything was swept
+  if (deleted > 0) {
+    await writeAuditLog(env.DB, {
+      actorId: null, action: "retention.sweep",
+      targetType: "storage", targetId: "cron",
+      metadata: { deletedFiles: deleted, bytesReclaimed: bytes },
     });
   }
-  // ... stop(), getProgress(), getMetadata(), getFiles()
+  
+  // Snapshot storage metrics
+  const stats = await env.DB.prepare(`
+    SELECT COUNT(*) as total_files, COALESCE(SUM(size_bytes), 0) as total_bytes FROM files WHERE is_complete = 1
+  `).first<{ total_files: number; total_bytes: number }>();
+  
+  await env.DB.prepare(
+    "INSERT INTO storage_snapshots (total_files, total_bytes, orphan_files) VALUES (?, ?, 0)"
+  ).bind(stats?.total_files ?? 0, stats?.total_bytes ?? 0).run();
 }
 ```
 
-`workers/compute-agent/package.json` gets `"webtorrent": "^2.5.1"` added.
+**`apps/api/src/index.ts` scheduled() handler** — add call to `runRetentionSweeper(env)` alongside existing Seedr poller. The existing cron `"*/2 * * * *"` already runs; add a separate `"0 3 * * *"` (3 AM UTC daily) for retention by adding to `wrangler.toml` crons array.
 
-**`workers/compute-agent/src/r2-upload.ts`** — Replace the SigV4 stub with a real implementation using the `@aws-sdk/signature-v4` + `@aws-sdk/credential-providers` packages (both work in Bun/Node):
+**Admin Storage page update** — Add a "Retention Sweep" section showing:
+- Last sweep timestamp (from latest audit_log with action `retention.sweep`)
+- Files swept, bytes reclaimed
+- Per-plan retention windows table
 
-```typescript
-import { SignatureV4 } from "@aws-sdk/signature-v4";
-import { Sha256 } from "@aws-crypto/sha256-js";
+---
 
-const signer = new SignatureV4({
-  credentials: { accessKeyId, secretAccessKey },
-  region: "auto",
-  service: "s3",
-  sha256: Sha256,
-});
-```
+### Feature 6: Team / Organization Accounts
 
-### Phase 4 — Stripe Billing
+This is the largest feature. It requires new DB tables, new API endpoints, frontend pages, and migration of existing users.
 
-**New migration `0009_stripe_billing.sql`:**
+**New migration: `0012_organizations.sql`**
 ```sql
-CREATE TABLE IF NOT EXISTS stripe_customers (
-  user_id           TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  stripe_customer_id TEXT NOT NULL UNIQUE,
-  created_at        TEXT NOT NULL DEFAULT (datetime('now'))
+CREATE TABLE IF NOT EXISTS organizations (
+  id           TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+  name         TEXT NOT NULL,
+  slug         TEXT NOT NULL UNIQUE,
+  plan_id      TEXT REFERENCES plans(id),
+  created_by   TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-CREATE TABLE IF NOT EXISTS stripe_subscriptions (
-  id                    TEXT PRIMARY KEY,
-  user_id               TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  stripe_subscription_id TEXT NOT NULL UNIQUE,
-  stripe_price_id       TEXT NOT NULL,
-  plan_name             TEXT NOT NULL,
-  status                TEXT NOT NULL,
-  current_period_start  TEXT,
-  current_period_end    TEXT,
-  cancel_at_period_end  INTEGER NOT NULL DEFAULT 0,
-  created_at            TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at            TEXT NOT NULL DEFAULT (datetime('now'))
+CREATE TABLE IF NOT EXISTS org_members (
+  org_id     TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role       TEXT NOT NULL DEFAULT 'member'
+             CHECK (role IN ('owner', 'admin', 'member')),
+  joined_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (org_id, user_id)
 );
+
+CREATE TABLE IF NOT EXISTS org_invites (
+  id         TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+  org_id     TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  email      TEXT NOT NULL COLLATE NOCASE,
+  role       TEXT NOT NULL DEFAULT 'member',
+  token      TEXT NOT NULL UNIQUE,
+  invited_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  expires_at TEXT NOT NULL DEFAULT (datetime('now', '+7 days')),
+  accepted_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_org_members_user ON org_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_org_members_org  ON org_members(org_id);
+CREATE INDEX IF NOT EXISTS idx_org_invites_token ON org_invites(token);
+CREATE INDEX IF NOT EXISTS idx_org_invites_email ON org_invites(email);
+
+-- Migration: wrap all existing users in a personal default org
+INSERT OR IGNORE INTO organizations (id, name, slug, created_by)
+SELECT 'org_' || id, email || ' (Personal)', lower(hex(randomblob(8))), id
+FROM users;
+
+INSERT OR IGNORE INTO org_members (org_id, user_id, role)
+SELECT 'org_' || id, id, 'owner'
+FROM users;
 ```
 
-**New `apps/api/src/handlers/stripe.ts`:**
-- `POST /billing/checkout` — creates Stripe Checkout Session, redirects to `stripe.com`
-- `POST /billing/portal` — creates Stripe Customer Portal session
-- `POST /billing/webhook` — receives Stripe webhooks:
-  - `customer.subscription.created/updated/deleted` → updates `stripe_subscriptions` and `user_plan_assignments`
-  - `checkout.session.completed` → creates customer record
+**New API handler: `apps/api/src/handlers/orgs.ts`**
 
-**New env secrets:** `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
+Endpoints:
+- `GET /orgs` — list orgs the current user is a member of
+- `POST /orgs` — create new org (auto-add creator as owner)
+- `GET /orgs/:slug` — org detail (members, plan, usage)
+- `PATCH /orgs/:slug` — update org name (owner/admin only)
+- `GET /orgs/:slug/members` — list members
+- `POST /orgs/:slug/invites` — invite user by email (owner/admin)
+- `DELETE /orgs/:slug/members/:userId` — remove member (owner/admin)
+- `POST /orgs/accept-invite/:token` — accept org invite
 
-**Frontend — `src/pages/Settings.tsx`** gets a "Billing" tab with:
-- Current plan display
-- "Upgrade" button → calls `POST /billing/checkout`
-- "Manage Billing" button → calls `POST /billing/portal`
+**Middleware addition**: `orgMiddleware` — reads `X-Org-Slug` header to set org context on requests when org-scoped operations are needed.
 
-Stripe is imported via `import Stripe from "stripe"` in the Worker (works with `nodejs_compat`).
+**Jobs/files scoping**: When a user operates within an org context, jobs are visible to all org members who have the `admin` or `owner` role. Regular members see only their own jobs. This is enforced at the query level in `handleListJobs`.
 
-### Phase 5 — VITE_API_BASE_URL Guard
+**Per-org billing**: `stripe_subscriptions` already has `user_id` — add `org_id` column in migration 0012 as nullable. When billing in org context, subscription attaches to org not user.
 
-**`src/lib/api.ts`** — Add build-time validation:
-```typescript
-const BASE = import.meta.env.VITE_API_BASE_URL ?? "";
-if (!BASE && import.meta.env.PROD) {
-  console.error("FATAL: VITE_API_BASE_URL is not set. All API calls will fail.");
-}
-```
+**Frontend — new pages**:
 
-**`vite.config.ts`** — Add `define` check to fail the build if unset in production:
-```typescript
-if (process.env.NODE_ENV === "production" && !process.env.VITE_API_BASE_URL) {
-  throw new Error("VITE_API_BASE_URL must be set for production builds");
-}
-```
+`src/pages/OrgSettings.tsx` — org management page accessible at `/app/org/:slug/settings`:
+- Members table (with role badges, remove button for owner/admin)
+- Invite member by email form
+- Org plan display
+- Danger zone: Delete org
 
-### Phase 6 — Operator Tools (Admin gaps)
+`src/pages/OrgSwitcher.tsx` component — added to `TopHeader.tsx`:
+- Dropdown showing personal account + all org memberships
+- Selecting an org sets `localStorage: activeOrgSlug`
+- All subsequent API calls include `X-Org-Slug: <slug>` header
+- The `request()` function in `api.ts` reads this header from localStorage
 
-**6a — DLQ Inspector/Replay endpoint**
-
-New route: `GET /admin/dlq` — lists jobs in DLQ state (status = 'failed', in job_events with `job_failed_dlq`).
-New route: `POST /admin/dlq/:jobId/replay` — re-queues a failed job: resets status to `submitted`, sends to `JOB_QUEUE`.
-
-**6b — Config History Diffs**
-
-`GET /admin/config-history` — queries `config_changes` table (already exists from migration 0003) with diffs: old_value → new_value, changed_by, reason, timestamp. 
-
-**6c — Global Search**
-
-`GET /admin/search?q=<query>` — unified search across users (by email), jobs (by name/infohash), audit_logs (by action/actor). Returns categorized results with type + id + preview text.
-
-**6d — Mandatory Reason on Destructive Actions**
-
-Routes that currently accept optional `reason`:
-- `POST /admin/jobs/:id/terminate`
-- `POST /admin/users/:id/force-logout`
-- `POST /admin/storage/cleanup`
-
-Change these to **require** `reason` (min 10 chars) and **require** `ticketId` (min 1 char). Return 400 if either is missing.
-
-Frontend `DangerModal` (already has typed-confirmation UX) gets a "Ticket/Reason" field wired in.
-
-### Phase 7 — Documentation Overhaul
-
-**`README.md`** — Full rewrite:
-- Fix "TorrentFlow" → "tseeder" everywhere
-- Add complete environment variable table (all 15 secrets + 8 vars)
-- Add architecture diagram in text
-- Add "Quick Start (5 commands)" section
-- Add browser extension load instructions
-
-**`DEVELOPER.md`** — Fix all stale paths:
-- `apps/web/src/` → `src/`
-- `services/compute-agent/` → `workers/compute-agent/`
-- `r2-helpers.ts` → `apps/api/src/handlers/files.ts`
-- `handlers/usage.ts` → inside `handlers/admin.ts`
-- Add "API Key lifecycle" section
-- Add "Stripe webhook local testing with Stripe CLI" section
-
-**`INSTRUCTIONS.md`** — Fix `wrangler.toml` path from `apps/api` to `infra/`, add:
-- Step for Stripe secrets
-- `wrangler secret put STRIPE_SECRET_KEY`
-- `wrangler secret put STRIPE_WEBHOOK_SECRET`
-- Step for email verification (MailChannels domain lockdown setup)
-- Migration `0008` and `0009` in the apply loop
-
-### Phase 8 — Go-Live Checklist + Smoke Test
-
-**New file: `docs/go-live-checklist.md`**
-
-```markdown
-# Go-Live Checklist
-
-## Infrastructure
-- [ ] D1 database created: `wrangler d1 create rdm-database`
-- [ ] R2 bucket created: `wrangler r2 bucket create rdm-files`
-- [ ] Queues created: main + DLQ
-- [ ] KV namespaces created: RATE_LIMIT_KV, CSRF_KV
-- [ ] All 9 migrations applied
-- [ ] wrangler.toml IDs filled in (D1, KV x2)
-
-## Secrets (15 total)
-- [ ] SESSION_SECRET
-- [ ] CSRF_SECRET
-- [ ] CALLBACK_SIGNING_SECRET
-- [ ] TURNSTILE_SECRET_KEY
-- [ ] WORKER_CLUSTER_TOKEN
-- [ ] WORKER_CLUSTER_URL
-- [ ] R2_ACCESS_KEY_ID
-- [ ] R2_SECRET_ACCESS_KEY
-- [ ] STRIPE_SECRET_KEY
-- [ ] STRIPE_WEBHOOK_SECRET
-- [ ] SEEDR_EMAIL (if using Seedr provider)
-- [ ] SEEDR_PASSWORD (if using Seedr provider)
-
-## Deployment
-- [ ] Workers API deployed: `wrangler deploy --env production`
-- [ ] /health returns `{"status":"ok"}`
-- [ ] Frontend built with VITE_API_BASE_URL set
-- [ ] Cloudflare Pages deployed
-- [ ] Compute agent Docker image built + pushed
-- [ ] K8s deployment applied + rollout status OK
-- [ ] Agent /health accessible from Workers (via WORKER_CLUSTER_URL)
-
-## Verification
-- [ ] Turnstile site key set in Pages env
-- [ ] Admin account created (see smoke test)
-- [ ] First article published from /admin/blog
-- [ ] Stripe webhook endpoint registered in Stripe dashboard
-- [ ] Extension loaded in Chrome — auth bridge works
-
-## Security
-- [ ] Default credentials rotated (admin@tseeder.cc / demo@tseeder.cc)
-- [ ] Turnstile secret set to real key (not BYPASS_FOR_DEV)
-- [ ] CORS origin set to exact production domain
-- [ ] mTLS configured for /internal/* routes (optional but recommended)
-```
-
-**New file: `scripts/smoke-test.sh`**
-
-A bash script that runs the complete flow:
-```bash
-#!/usr/bin/env bash
-# tseeder Production Smoke Test
-# Usage: API_URL=https://api.tseeder.cc ./scripts/smoke-test.sh
-
-set -euo pipefail
-
-API="${API_URL:-http://localhost:8787}"
-TURNSTILE_TOKEN="${TURNSTILE_TOKEN:-BYPASS_FOR_DEV}"
-EMAIL="smoketest-$(date +%s)@tseeder.cc"
-PASS="SmokeTest123!"
-
-echo "=== 1. Health Check ==="
-curl -sf "$API/health" | grep '"status":"ok"'
-echo "PASS"
-
-echo "=== 2. Register ==="
-REGISTER=$(curl -sf -X POST "$API/auth/register" \
-  -H "Content-Type: application/json" \
-  -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS\",\"turnstileToken\":\"$TURNSTILE_TOKEN\",\"acceptedAup\":true}")
-echo "$REGISTER"
-
-echo "=== 3. (Skip email verify if BYPASS active) ==="
-# In dev: mark verified directly via D1
-# wrangler d1 execute rdm-database --command "UPDATE users SET email_verified=1 WHERE email='$EMAIL'"
-
-echo "=== 4. Login ==="
-LOGIN=$(curl -sf -X POST "$API/auth/login" \
-  -H "Content-Type: application/json" \
-  -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS\",\"turnstileToken\":\"$TURNSTILE_TOKEN\"}" \
-  -c /tmp/tseeder-cookies.txt -b /tmp/tseeder-cookies.txt)
-CSRF=$(echo "$LOGIN" | grep -o '"csrfToken":"[^"]*"' | cut -d'"' -f4)
-echo "CSRF: $CSRF — PASS"
-
-echo "=== 5. Create Job ==="
-JOB=$(curl -sf -X POST "$API/jobs" \
-  -H "Content-Type: application/json" \
-  -H "X-CSRF-Token: $CSRF" \
-  -b /tmp/tseeder-cookies.txt \
-  -d '{"type":"magnet","magnetUri":"magnet:?xt=urn:btih:a04e6cdb4d64c7d1df5d13cf2e6e0c27b2aae12f&dn=Ubuntu+24.04"}')
-JOB_ID=$(echo "$JOB" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
-echo "Job ID: $JOB_ID — PASS"
-
-echo "=== 6. List Jobs ==="
-curl -sf -b /tmp/tseeder-cookies.txt "$API/jobs" | grep "$JOB_ID"
-echo "PASS"
-
-echo "=== 7. SSE Connect (5 second check) ==="
-timeout 5 curl -sf -b /tmp/tseeder-cookies.txt \
-  "$API/do/job/$JOB_ID/sse" -N | head -3 || true
-echo "PASS (SSE endpoint reachable)"
-
-echo "=== 8. Admin Health ==="
-# Requires admin cookie — run separately with admin credentials
-echo "SKIP (requires admin session)"
-
-echo ""
-echo "=== Smoke Test Complete ==="
-echo "All basic checks passed."
-echo "Next: verify job progresses to 'downloading' in dashboard"
-echo "      verify file appears in R2 on completion"
-echo "      verify audit log entry at $API/admin/audit (admin required)"
-```
+**Admin visibility**: New admin endpoint `GET /admin/orgs` listing all organizations with member count, storage usage, plan.
 
 ---
 
-## Files to Create/Modify
+## File Summary
 
-| File | Action | Purpose |
-|------|--------|---------|
-| `packages/shared/migrations/0008_api_keys_user.sql` | Create | Add `user_id` + `key_prefix` columns to api_keys |
-| `packages/shared/migrations/0009_stripe_billing.sql` | Create | stripe_customers + stripe_subscriptions tables |
-| `packages/shared/src/schemas.ts` | Modify | Fix `newPassword` → `password` in ResetConfirmSchema |
-| `apps/api/src/handlers/auth.ts` | Modify | Wire email verification send on register |
-| `apps/api/src/handlers/stripe.ts` | Create | Checkout, portal, webhook handlers |
-| `apps/api/src/index.ts` | Modify | Register Stripe routes |
-| `apps/api/src/index.ts` | Modify | Add `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` to `Env` interface |
-| `infra/wrangler.toml` | Modify | Add `[vars] STRIPE_PUBLISHABLE_KEY` |
-| `workers/compute-agent/src/engine.ts` | Modify | Replace `StubTorrentEngine` with `WebTorrentEngine` |
-| `workers/compute-agent/src/r2-upload.ts` | Modify | Replace SigV4 stub with real `@aws-sdk/signature-v4` |
-| `workers/compute-agent/package.json` | Modify | Add `webtorrent`, `@aws-sdk/signature-v4`, `@aws-crypto/sha256-js` |
-| `apps/api/src/handlers/admin.ts` | Modify | Add DLQ inspector, replay, global search, require reason+ticket |
-| `apps/api/src/index.ts` | Modify | Register `/admin/dlq`, `/admin/search` routes |
-| `src/lib/api.ts` | Modify | Add `VITE_API_BASE_URL` prod guard, add `billing.*` and `admin.dlq.*` methods |
-| `src/pages/Settings.tsx` | Modify | Add Billing tab with Stripe checkout/portal buttons |
-| `vite.config.ts` | Modify | Fail build if `VITE_API_BASE_URL` missing in prod |
-| `README.md` | Rewrite | Fix brand, paths, add full env table, quick start |
-| `DEVELOPER.md` | Rewrite | Fix stale paths, add Stripe + MailChannels dev guides |
-| `INSTRUCTIONS.md` | Modify | Add Stripe secrets, email verification setup |
-| `docs/go-live-checklist.md` | Create | Complete pre-launch checklist |
-| `scripts/smoke-test.sh` | Create | End-to-end smoke test script |
-
----
-
-## Technical Constraints
-
-- All Stripe API calls happen server-side in Cloudflare Workers with `nodejs_compat` flag (already enabled in wrangler.toml)
-- WebTorrent runs in the Bun container (compute agent), NOT in Workers — the Worker only dispatches via Queue
-- SigV4 signing uses `@aws-sdk/signature-v4` which is pure JS, works in both Bun and Workers
-- MailChannels is already wired for password reset — same function signature for email verification
-- No new frontend dependencies needed for Stripe billing (uses `window.location.href` redirect to Stripe's hosted checkout)
-- The `StubTorrentEngine` is not deleted — it stays as a fallback reference implementation, but `workers/compute-agent/src/routes/start.ts` will import `WebTorrentEngine` instead
+| File | Action |
+|------|--------|
+| `packages/shared/migrations/0010_uptime_history.sql` | Create |
+| `packages/shared/migrations/0011_observability_metrics.sql` | Create |
+| `packages/shared/migrations/0012_organizations.sql` | Create |
+| `apps/api/src/uptime-sweeper.ts` | Create |
+| `apps/api/src/retention-sweeper.ts` | Create |
+| `apps/api/src/handlers/orgs.ts` | Create |
+| `apps/api/src/handlers/admin.ts` | Modify (uptime history, observability, multi-region, org admin endpoints) |
+| `apps/api/src/queue-consumer.ts` | Modify (multi-region worker selection) |
+| `apps/api/src/index.ts` | Modify (new routes, cron handlers) |
+| `infra/wrangler.toml` | Modify (add hourly + daily cron) |
+| `src/lib/api.ts` | Modify (statusHistory, adminObservability, orgs endpoints) |
+| `src/pages/Status.tsx` | Modify (90-day uptime history bars, real uptime %) |
+| `src/pages/admin/DLQ.tsx` | Create |
+| `src/pages/admin/GlobalSearch.tsx` | Create |
+| `src/pages/admin/ConfigHistory.tsx` | Create |
+| `src/pages/admin/Observability.tsx` | Create |
+| `src/pages/admin/Workers.tsx` | Modify (region badges, capacity bars, stale highlight) |
+| `src/pages/admin/Storage.tsx` | Modify (retention sweep section, last sweep timestamp) |
+| `src/pages/OrgSettings.tsx` | Create |
+| `src/components/OrgSwitcher.tsx` | Create |
+| `src/components/TopHeader.tsx` | Modify (add OrgSwitcher) |
+| `src/components/admin/AdminLayout.tsx` | Modify (DLQ/Search/ConfigHistory/Observability nav links, real alerts) |
+| `src/components/admin/AdminUI.tsx` | Modify (DangerModal: add ticketId field) |
+| `src/App.tsx` | Modify (register new routes) |
 
 ## Implementation Order
 
-1. Schema bug fixes (migrations 0008) — unblocks API key functionality
-2. Auth bug fixes (schema field mismatch + email verification) — unblocks all new user flows  
-3. Real engine + SigV4 — unblocks actual downloads
-4. Stripe billing — adds monetization
-5. Admin operator tools — completes enterprise requirements
-6. Docs + checklist + smoke test — makes the platform deployable by anyone
+1. **Migrations** (0010, 0011, 0012) — all other work depends on schema
+2. **Backend sweepers** (uptime-sweeper.ts, retention-sweeper.ts) + cron wiring
+3. **Backend handlers** (orgs.ts, observability endpoint, uptime history endpoint)
+4. **Queue consumer** (multi-region dispatch)
+5. **Frontend API client** (api.ts additions)
+6. **Status page** (uptime history bars)
+7. **New admin pages** (DLQ, Search, ConfigHistory, Observability)
+8. **AdminLayout** (nav links, real alerts)
+9. **AdminUI** (DangerModal ticketId)
+10. **Workers.tsx, Storage.tsx** updates
+11. **Org pages** (OrgSettings, OrgSwitcher, TopHeader)
 
+## Technical Notes
+
+- **Recharts** is already installed (`recharts ^2.15.4`) — used for Observability charts
+- **No new npm packages** needed for the frontend
+- **WebTorrentEngine** is already real — multi-region routing is purely server-side queue consumer logic
+- The `scheduled()` handler in `index.ts` already runs on cron; we extend it with new callers
+- The `DangerModal`'s `onConfirm` signature changes from `(reason: string) => void` to `(params: { reason: string; ticketId?: string }) => void` — all existing callers must be updated to match
+- Org context is opt-in via header — single-user flows are unaffected when no `X-Org-Slug` is sent
+- The `0012` migration includes the user→org migration INSERT statements so existing users are automatically wrapped in personal orgs on first migration apply
