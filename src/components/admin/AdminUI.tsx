@@ -257,8 +257,12 @@ export function Paginator({
 }
 
 // ── DangerModal ────────────────────────────────────────────────────────────────
+//
+// onConfirm receives { reason, ticketId } when ticketIdRequired is true.
+// For backwards-compatible callers that only pass a string, ticketId will be "".
+
 export function DangerModal({
-  open, title, description, confirmPhrase, reasonRequired,
+  open, title, description, confirmPhrase, reasonRequired, ticketIdRequired,
   onClose, onConfirm, isPending,
 }: {
   open: boolean;
@@ -266,23 +270,35 @@ export function DangerModal({
   description: string;
   confirmPhrase: string;
   reasonRequired?: boolean;
+  ticketIdRequired?: boolean;
   onClose: () => void;
-  onConfirm: (reason: string) => void;
+  onConfirm: (params: { reason: string; ticketId: string }) => void;
   isPending?: boolean;
 }) {
   const [typed, setTyped] = useState("");
   const [reason, setReason] = useState("");
+  const [ticketId, setTicketId] = useState("");
   const [shake, setShake] = useState(false);
 
   if (!open) return null;
 
-  const ready = typed === confirmPhrase && (!reasonRequired || reason.trim().length > 0);
+  const ready =
+    typed === confirmPhrase &&
+    (!reasonRequired || reason.trim().length >= 10) &&
+    (!ticketIdRequired || ticketId.trim().length > 0);
 
   const handleWrongType = () => {
     if (typed && typed !== confirmPhrase) {
       setShake(true);
       setTimeout(() => setShake(false), 500);
     }
+  };
+
+  const handleConfirm = () => {
+    onConfirm({ reason, ticketId });
+    setTyped("");
+    setReason("");
+    setTicketId("");
   };
 
   return (
@@ -312,13 +328,31 @@ export function DangerModal({
 
         {reasonRequired && (
           <div>
-            <label className="text-xs font-semibold text-foreground block mb-1.5 uppercase tracking-wider">Reason <span className="text-destructive">*</span></label>
+            <label className="text-xs font-semibold text-foreground block mb-1.5 uppercase tracking-wider">
+              Reason <span className="text-destructive">*</span>
+              <span className="text-muted-foreground normal-case tracking-normal font-normal ml-1">(min 10 chars)</span>
+            </label>
             <textarea
               value={reason}
               onChange={e => setReason(e.target.value)}
               rows={2}
               className="w-full bg-input border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-destructive/60 transition-colors resize-none"
-              placeholder="Enter a reason…"
+              placeholder="Enter a reason for this action…"
+            />
+          </div>
+        )}
+
+        {ticketIdRequired && (
+          <div>
+            <label className="text-xs font-semibold text-foreground block mb-1.5 uppercase tracking-wider">
+              Ticket ID <span className="text-destructive">*</span>
+            </label>
+            <input
+              type="text"
+              value={ticketId}
+              onChange={e => setTicketId(e.target.value)}
+              className="w-full bg-input border border-border rounded-lg px-3 py-2 text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-destructive/60 transition-colors"
+              placeholder="e.g. JIRA-1234 or INC-5678"
             />
           </div>
         )}
@@ -346,7 +380,7 @@ export function DangerModal({
           </button>
           <button
             disabled={!ready || isPending}
-            onClick={() => { onConfirm(reason); setTyped(""); setReason(""); }}
+            onClick={handleConfirm}
             className="flex-1 py-2.5 rounded-lg bg-destructive text-white text-sm font-bold disabled:opacity-30 disabled:cursor-not-allowed hover:opacity-90 transition-all shadow-glow-danger"
           >
             {isPending ? "Processing…" : "Confirm"}

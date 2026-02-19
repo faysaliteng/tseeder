@@ -208,7 +208,7 @@ export default function AdminSecurity() {
         description={`Add "${blocklist}" to the global blocklist. All active jobs with this infohash will be immediately cancelled.`}
         confirmPhrase="block"
         onClose={() => setBlockModalOpen(false)}
-        onConfirm={() => blocklistMutation.mutate()}
+        onConfirm={(_p) => blocklistMutation.mutate()}
         isPending={blocklistMutation.isPending}
       />
     </AdminLayout>

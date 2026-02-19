@@ -14,7 +14,7 @@ MAX_UPLOAD_BYTES = "5368709120"               # 5 GB default file size limit
 # Polls Seedr.cc every 2 minutes when Seedr provider is active.
 # Safe to leave enabled when using Cloudflare provider — poller is a no-op.
 [triggers]
-crons = ["*/2 * * * *"]
+crons = ["*/2 * * * *", "0 * * * *", "0 3 * * *"]
 
 # ── D1 Database ──────────────────────────────────────────────────────────────
 [[d1_databases]]
