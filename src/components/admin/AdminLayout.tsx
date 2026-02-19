@@ -5,25 +5,33 @@ import logoImg from "@/assets/logo.png";
 import {
   LayoutDashboard, Users, Briefcase, Server, HardDrive,
   ShieldAlert, ScrollText, Settings, ChevronLeft, ChevronRight,
-  LogOut, Search, Bell, Menu, X, Layers,
+  LogOut, Search, Bell, Menu, X, Layers, Zap,
 } from "lucide-react";
 
 const NAV = [
-  { to: "/admin/overview",        label: "Overview",       icon: LayoutDashboard },
-  { to: "/admin/users",           label: "Users",          icon: Users },
-  { to: "/admin/jobs",            label: "Jobs",           icon: Briefcase },
-  { to: "/admin/infrastructure",  label: "Infrastructure", icon: Layers },
-  { to: "/admin/workers",         label: "Workers",        icon: Server },
-  { to: "/admin/storage",         label: "Storage",        icon: HardDrive },
-  { to: "/admin/security",        label: "Security",       icon: ShieldAlert },
-  { to: "/admin/audit",           label: "Audit Log",      icon: ScrollText },
-  { to: "/admin/settings",        label: "Settings",       icon: Settings },
+  { to: "/admin/overview",        label: "Overview",       icon: LayoutDashboard, color: "text-primary" },
+  { to: "/admin/users",           label: "Users",          icon: Users,           color: "text-info" },
+  { to: "/admin/jobs",            label: "Jobs",           icon: Briefcase,       color: "text-warning" },
+  { to: "/admin/infrastructure",  label: "Infrastructure", icon: Layers,          color: "text-success" },
+  { to: "/admin/workers",         label: "Workers",        icon: Server,          color: "text-primary-glow" },
+  { to: "/admin/storage",         label: "Storage",        icon: HardDrive,       color: "text-info" },
+  { to: "/admin/security",        label: "Security",       icon: ShieldAlert,     color: "text-destructive" },
+  { to: "/admin/audit",           label: "Audit Log",      icon: ScrollText,      color: "text-muted-foreground" },
+  { to: "/admin/settings",        label: "Settings",       icon: Settings,        color: "text-muted-foreground" },
+];
+
+// Simulated alerts
+const ALERTS = [
+  { id: 1, msg: "Agent memory usage >85%", level: "warn" },
+  { id: 2, msg: "3 jobs failed in the last hour", level: "danger" },
+  { id: 3, msg: "New user registered: demo@test.com", level: "info" },
 ];
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [notifOpen, setNotifOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -31,36 +39,31 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
     <>
       {/* Logo */}
       <div className={cn(
-        "flex items-center gap-2.5 px-3 h-14 border-b border-[hsl(var(--sidebar-border))] shrink-0",
+        "flex items-center gap-2.5 px-3 h-14 border-b border-sidebar-border shrink-0",
         !mobile && collapsed && "justify-center px-0",
       )}>
-        <Link
-          to="/admin/overview"
-          onClick={() => setMobileOpen(false)}
-          className="flex items-center gap-2.5 min-w-0"
-        >
-          <img src={logoImg} alt="TorrentFlow" className="w-8 h-8 rounded-lg object-cover shrink-0" />
+        <Link to="/admin/overview" onClick={() => setMobileOpen(false)} className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 border border-primary/20"
+            style={{ boxShadow: "0 0 8px hsl(239 84% 67% / 0.2)" }}>
+            <img src={logoImg} alt="TorrentFlow" className="w-full h-full object-cover" />
+          </div>
           {(mobile || !collapsed) && (
             <div className="min-w-0">
-              <p className="text-xs font-bold text-[hsl(var(--sidebar-foreground))] tracking-widest uppercase leading-tight">TorrentFlow</p>
-              <p className="text-[10px] text-[hsl(var(--sidebar-primary))] font-semibold tracking-widest uppercase leading-tight">Admin Console</p>
+              <p className="text-xs font-bold text-sidebar-foreground tracking-widest uppercase leading-tight">TorrentFlow</p>
+              <p className="text-[10px] text-primary font-bold tracking-widest uppercase leading-tight">Admin Console</p>
             </div>
           )}
         </Link>
-        {/* Mobile close */}
         {mobile && (
-          <button
-            onClick={() => setMobileOpen(false)}
-            className="ml-auto text-[hsl(var(--sidebar-foreground))] hover:text-[hsl(var(--sidebar-accent-foreground))] transition-colors"
-          >
+          <button onClick={() => setMobileOpen(false)} className="ml-auto text-sidebar-foreground hover:text-foreground transition-colors">
             <X className="w-5 h-5" />
           </button>
         )}
       </div>
 
       {/* Nav items */}
-      <nav className="flex-1 py-3 overflow-y-auto overflow-x-hidden">
-        {NAV.map(({ to, label, icon: Icon }) => {
+      <nav className="flex-1 py-3 overflow-y-auto overflow-x-hidden space-y-0.5 px-2">
+        {NAV.map(({ to, label, icon: Icon, color }) => {
           const active = location.pathname === to || location.pathname.startsWith(to + "/");
           return (
             <Link
@@ -69,31 +72,33 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               onClick={() => setMobileOpen(false)}
               title={!mobile && collapsed ? label : undefined}
               className={cn(
-                "flex items-center gap-3 px-3 py-2 mx-2 rounded-lg text-sm font-medium transition-colors",
-                !mobile && collapsed && "justify-center px-0 mx-1",
+                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 group relative",
+                !mobile && collapsed && "justify-center px-0",
                 active
-                  ? "bg-[hsl(var(--sidebar-accent))] text-[hsl(var(--sidebar-primary))]"
-                  : "text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-accent))] hover:text-[hsl(var(--sidebar-accent-foreground))]",
+                  ? "bg-primary/10 text-primary shadow-[inset_0_0_0_1px_hsl(239_84%_67%/0.2)]"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:translate-x-0.5",
               )}
             >
-              <Icon className="w-4 h-4 shrink-0" />
+              {/* Active left accent */}
+              {active && (
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full bg-primary"
+                  style={{ boxShadow: "0 0 8px hsl(239 84% 67%)" }} />
+              )}
+              <Icon className={cn("w-4 h-4 shrink-0 transition-all", active ? "text-primary" : color, active && "drop-shadow-[0_0_4px_hsl(239_84%_67%/0.8)]")} />
               {(mobile || !collapsed) && <span className="truncate">{label}</span>}
             </Link>
           );
         })}
       </nav>
 
-      {/* Bottom: back to app + collapse */}
-      <div className={cn(
-        "border-t border-[hsl(var(--sidebar-border))] py-2 px-2 space-y-1",
-        !mobile && collapsed && "px-1",
-      )}>
+      {/* Bottom */}
+      <div className={cn("border-t border-sidebar-border py-2 px-2 space-y-1", !mobile && collapsed && "px-1")}>
         <Link
           to="/app/dashboard"
           onClick={() => setMobileOpen(false)}
           title={!mobile && collapsed ? "Back to App" : undefined}
           className={cn(
-            "flex items-center gap-3 px-2 py-2 rounded-lg text-xs text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-accent))] transition-colors",
+            "flex items-center gap-3 px-2 py-2 rounded-xl text-xs text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-all",
             !mobile && collapsed && "justify-center px-0",
           )}
         >
@@ -101,19 +106,17 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           {(mobile || !collapsed) && <span>Back to App</span>}
         </Link>
 
-        {/* Collapse toggle (desktop only) */}
         {!mobile && (
           <button
             onClick={() => setCollapsed(c => !c)}
             className={cn(
-              "w-full flex items-center gap-3 px-2 py-2 rounded-lg text-xs text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-accent))] transition-colors",
+              "w-full flex items-center gap-3 px-2 py-2 rounded-xl text-xs text-sidebar-foreground hover:bg-sidebar-accent transition-all",
               collapsed && "justify-center px-0",
             )}
           >
             {collapsed
               ? <ChevronRight className="w-4 h-4" />
-              : <><ChevronLeft className="w-4 h-4" /><span>Collapse</span></>
-            }
+              : <><ChevronLeft className="w-4 h-4" /><span>Collapse</span></>}
           </button>
         )}
       </div>
@@ -123,69 +126,97 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen bg-background overflow-hidden">
 
-      {/* ── Mobile overlay sidebar ───────────────────────────────────── */}
+      {/* Mobile overlay sidebar */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setMobileOpen(false)}
-          />
-          {/* Drawer */}
-          <aside className="absolute left-0 top-0 h-full w-64 bg-[hsl(var(--sidebar-background))] border-r border-[hsl(var(--sidebar-border))] flex flex-col z-10 animate-in slide-in-from-left duration-200">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
+          <aside className="absolute left-0 top-0 h-full w-64 bg-sidebar-background border-r border-sidebar-border flex flex-col z-10 animate-slide-up-fade">
             <SidebarContent mobile />
           </aside>
         </div>
       )}
 
-      {/* ── Desktop sidebar ──────────────────────────────────────────── */}
+      {/* Desktop sidebar */}
       <aside className={cn(
-        "hidden lg:flex flex-col bg-[hsl(var(--sidebar-background))] border-r border-[hsl(var(--sidebar-border))] shrink-0 transition-all duration-200 z-30",
+        "hidden lg:flex flex-col bg-sidebar-background border-r border-sidebar-border shrink-0 transition-all duration-200 z-30",
         collapsed ? "w-14" : "w-56",
       )}>
         <SidebarContent />
       </aside>
 
-      {/* ── Main area ─────────────────────────────────────────────────── */}
+      {/* Main area */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         {/* Top bar */}
-        <header className="h-14 flex items-center gap-3 px-4 bg-card border-b border-border shrink-0">
-          {/* Mobile hamburger */}
+        <header className="h-14 flex items-center gap-3 px-4 border-b border-border/40 shrink-0 relative"
+          style={{ background: "hsl(220 24% 10% / 0.8)", backdropFilter: "blur(16px)" }}>
+
           <button
             onClick={() => setMobileOpen(true)}
-            className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            className="lg:hidden w-9 h-9 flex items-center justify-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-all"
           >
             <Menu className="w-5 h-5" />
           </button>
 
-          {/* Global search — hidden on very small screens */}
+          {/* Search */}
           <div className="relative flex-1 max-w-md hidden sm:block">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <input
               type="text"
-              placeholder="Search users, jobs, infohash…"
+              placeholder="Search users, jobs, infohash… (⌘K)"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full bg-input border border-border rounded-lg pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
+              className="w-full bg-input/40 border border-border/50 rounded-xl pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 focus:shadow-[0_0_0_2px_hsl(239_84%_67%/0.08)] transition-all backdrop-blur-sm"
             />
           </div>
 
           <div className="flex-1" />
 
           {/* Notification bell */}
-          <button className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors relative">
-            <Bell className="w-5 h-5" />
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setNotifOpen(o => !o)}
+              className="w-9 h-9 flex items-center justify-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-all relative"
+            >
+              <Bell className="w-5 h-5" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-destructive border border-background"
+                style={{ boxShadow: "0 0 4px hsl(0 72% 51%)" }} />
+            </button>
+            {notifOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
+                <div className="absolute right-0 top-11 z-50 w-72 glass-premium rounded-2xl shadow-[0_16px_48px_hsl(220_26%_0%/0.6)] overflow-hidden animate-scale-in border border-primary/10">
+                  <div className="px-4 py-3 border-b border-border/40 flex items-center gap-2">
+                    <Bell className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-bold text-foreground">System Alerts</span>
+                    <span className="ml-auto w-5 h-5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center">3</span>
+                  </div>
+                  {ALERTS.map(a => (
+                    <div key={a.id} className={cn(
+                      "flex items-start gap-3 px-4 py-3 border-b border-border/30 last:border-0 hover:bg-muted/10 transition-colors",
+                    )}>
+                      <div className={cn("w-2 h-2 rounded-full mt-1.5 shrink-0",
+                        a.level === "danger" ? "bg-destructive" : a.level === "warn" ? "bg-warning" : "bg-info")}
+                        style={{ boxShadow: a.level === "danger" ? "0 0 4px hsl(0 72% 51%)" : undefined }} />
+                      <p className="text-xs text-foreground leading-relaxed">{a.msg}</p>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
 
           {/* Admin badge */}
-          <div className="flex items-center gap-2 bg-secondary rounded-lg px-3 py-1.5">
-            <div className="w-2 h-2 rounded-full bg-[hsl(var(--success))]" />
-            <span className="text-xs font-semibold text-foreground hidden sm:inline">Admin Session</span>
-            <span className="text-xs font-semibold text-foreground sm:hidden">Admin</span>
+          <div className="flex items-center gap-2 glass-card rounded-xl px-3 py-1.5 border border-primary/10">
+            <div className="w-6 h-6 rounded-full gradient-primary flex items-center justify-center text-[10px] text-white font-bold shadow-glow-primary">A</div>
+            <div className="hidden sm:flex flex-col">
+              <span className="text-xs font-bold text-foreground leading-tight">Admin</span>
+              <span className="text-[10px] text-success leading-tight flex items-center gap-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-success inline-block" />Session active
+              </span>
+            </div>
           </div>
         </header>
 
-        {/* Page content */}
         <main className="flex-1 overflow-y-auto">
           {children}
         </main>
