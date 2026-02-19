@@ -5,7 +5,10 @@
 
 import { Router } from "./router";
 import { authMiddleware, rbacMiddleware, csrfMiddleware, rateLimitMiddleware } from "./middleware";
-import { handleRegister, handleLogin, handleLogout, handleReset, handleVerifyEmail, handleListApiKeys, handleCreateApiKey, handleRevokeApiKey } from "./handlers/auth";
+import {
+  handleRegister, handleLogin, handleLogout, handleReset, handleResetConfirm,
+  handleVerifyEmail, handleListApiKeys, handleCreateApiKey, handleRevokeApiKey,
+} from "./handlers/auth";
 import { handleCreateJob, handleListJobs, handleGetJob, handleJobAction, handleJobCallback } from "./handlers/jobs";
 import { handleGetFiles, handleSignedUrl, handleDeleteFile } from "./handlers/files";
 import { handleGetUsage, handleGetPlans } from "./handlers/admin";
@@ -17,6 +20,8 @@ import {
   handleAdminBlocklist, handleAdminListBlocklist,
   handleAdminSecurityEvents,
   handleAdminListFlags, handleAdminUpdateFlag,
+  handleAdminListWorkers, handleAdminCordonWorker, handleAdminDrainWorker, handleWorkerHeartbeat,
+  handleAdminStorage, handleAdminStorageCleanup,
 } from "./handlers/admin";
 import {
   handleListProviders, handleGetActiveProvider, handleSwitchProvider,
@@ -57,11 +62,12 @@ router.get("/health", [], async () =>
 );
 
 // ── Auth (public, rate-limited) ────────────────────────────────────────────────
-router.post("/auth/register",     [rateLimitMiddleware("register", 5, 60)],   handleRegister);
-router.post("/auth/login",        [rateLimitMiddleware("login", 10, 60)],     handleLogin);
-router.post("/auth/logout",       [authMiddleware],                           handleLogout);
-router.post("/auth/reset",        [rateLimitMiddleware("reset", 3, 3600)],    handleReset);
-router.post("/auth/verify-email", [],                                         handleVerifyEmail);
+router.post("/auth/register",       [rateLimitMiddleware("register", 5, 60)],    handleRegister);
+router.post("/auth/login",          [rateLimitMiddleware("login", 10, 60)],      handleLogin);
+router.post("/auth/logout",         [authMiddleware],                            handleLogout);
+router.post("/auth/reset",          [rateLimitMiddleware("reset", 3, 3600)],     handleReset);
+router.post("/auth/reset/confirm",  [rateLimitMiddleware("reset-c", 5, 3600)],   handleResetConfirm);
+router.post("/auth/verify-email",   [],                                          handleVerifyEmail);
 
 // ── API Keys (authenticated) ───────────────────────────────────────────────────
 router.get("/auth/api-keys",           [authMiddleware],                           handleListApiKeys);
@@ -118,6 +124,17 @@ router.get("/admin/security-events",        [authMiddleware, rbacMiddleware("adm
 router.get("/admin/feature-flags",          [authMiddleware, rbacMiddleware("admin")], handleAdminListFlags);
 router.patch("/admin/feature-flags/:key",   [authMiddleware, rbacMiddleware("superadmin"), csrfMiddleware], handleAdminUpdateFlag);
 
+// ── Admin — Workers / Fleet ────────────────────────────────────────────────────
+// NOTE: heartbeat must be registered BEFORE the :id wildcard routes
+router.post("/admin/workers/heartbeat",     [], handleWorkerHeartbeat);
+router.get("/admin/workers",                [authMiddleware, rbacMiddleware("admin")], handleAdminListWorkers);
+router.post("/admin/workers/:id/cordon",    [authMiddleware, rbacMiddleware("admin"), csrfMiddleware], handleAdminCordonWorker);
+router.post("/admin/workers/:id/drain",     [authMiddleware, rbacMiddleware("admin"), csrfMiddleware], handleAdminDrainWorker);
+
+// ── Admin — Storage ────────────────────────────────────────────────────────────
+router.get("/admin/storage",                [authMiddleware, rbacMiddleware("admin")], handleAdminStorage);
+router.post("/admin/storage/cleanup",       [authMiddleware, rbacMiddleware("admin"), csrfMiddleware], handleAdminStorageCleanup);
+
 // ── Admin — Providers ──────────────────────────────────────────────────────────
 router.get("/admin/providers",                [authMiddleware, rbacMiddleware("admin")], handleListProviders);
 router.get("/admin/providers/active",         [authMiddleware, rbacMiddleware("admin")], handleGetActiveProvider);
@@ -146,7 +163,6 @@ export default {
 
     try {
       const response = await router.handle(enriched, env, ctx);
-      // Security headers
       const headers = new Headers(response.headers);
       headers.set("X-Correlation-ID", correlationId);
       headers.set("X-Content-Type-Options", "nosniff");
@@ -167,5 +183,29 @@ export default {
   async queue(batch: MessageBatch<unknown>, env: Env): Promise<void> {
     const { handleQueueBatch } = await import("./queue-consumer");
     await handleQueueBatch(batch, env);
+  },
+
+  // ── Cron Triggers ────────────────────────────────────────────────────────────
+  // Polls Seedr.cc every 2 minutes for active Seedr-provider job progress
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil((async () => {
+      console.log(JSON.stringify({
+        ts: new Date().toISOString(), level: "info",
+        service: "workers-api", event: "cron",
+        cron: event.cron,
+        scheduledTime: new Date(event.scheduledTime).toISOString(),
+      }));
+
+      const { runSeedrPoller } = await import("./seedr-poller");
+      try {
+        await runSeedrPoller(env);
+      } catch (err) {
+        console.error(JSON.stringify({
+          ts: new Date().toISOString(), level: "error",
+          service: "workers-api", event: "cron_error",
+          error: String(err), stack: (err as Error).stack,
+        }));
+      }
+    })());
   },
 };

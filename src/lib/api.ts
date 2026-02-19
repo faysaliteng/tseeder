@@ -62,6 +62,12 @@ export const auth = {
 
   resetRequest: (email: string) =>
     request<{ message: string }>("/auth/reset", { method: "POST", body: JSON.stringify({ email }) }),
+
+  resetConfirm: (token: string, password: string) =>
+    request<{ message: string }>("/auth/reset/confirm", {
+      method: "POST",
+      body: JSON.stringify({ token, password }),
+    }),
 };
 
 // ── Jobs ─────────────────────────────────────────────────────────────────────
@@ -223,6 +229,61 @@ export const admin = {
   updateFlag: (key: string, value: number, reason?: string) =>
     request<{ key: string; value: number }>(`/admin/feature-flags/${key}`, {
       method: "PATCH", body: JSON.stringify({ value, reason }),
+    }),
+};
+
+// ── Admin — Workers ────────────────────────────────────────────────────────────
+
+export interface ApiWorker {
+  id: string;
+  version: string | null;
+  status: "healthy" | "draining" | "cordoned" | "offline";
+  region: string | null;
+  active_jobs: number;
+  max_jobs: number;
+  disk_free_gb: number | null;
+  disk_total_gb: number | null;
+  bandwidth_mbps: number | null;
+  last_heartbeat: string;
+  registered_at: string;
+  heartbeat_count_1h: number;
+  avg_cpu_1h: number | null;
+  is_stale: boolean;
+}
+
+export const adminWorkers = {
+  list: () => request<{ workers: ApiWorker[]; total: number }>("/admin/workers"),
+  cordon: (id: string) =>
+    request<{ id: string; status: string; message: string }>(`/admin/workers/${encodeURIComponent(id)}/cordon`, { method: "POST" }),
+  drain: (id: string) =>
+    request<{ id: string; status: string; message: string }>(`/admin/workers/${encodeURIComponent(id)}/drain`, { method: "POST" }),
+};
+
+// ── Admin — Storage ────────────────────────────────────────────────────────────
+
+export interface ApiStorageStats {
+  files: { total_files: number; total_bytes: number; complete_files: number; complete_bytes: number };
+  orphans: { orphan_count: number; orphan_bytes: number };
+  jobs: { total_jobs: number; completed_jobs: number; terminal_jobs: number };
+  disk: { disk_free_gb: number | null; disk_total_gb: number | null; created_at: string } | null;
+  latestSnapshot: unknown;
+  ts: string;
+}
+
+export const adminStorage = {
+  get: () => request<ApiStorageStats>("/admin/storage"),
+  cleanup: (opts?: { reason?: string; dryRun?: boolean }) =>
+    request<{
+      dryRun?: boolean;
+      deletedFromR2?: number;
+      deletedFromD1?: number;
+      bytesReclaimed?: number;
+      orphanFilesFound?: number;
+      orphanBytesFound?: number;
+      message: string;
+    }>("/admin/storage/cleanup", {
+      method: "POST",
+      body: JSON.stringify(opts ?? {}),
     }),
 };
 

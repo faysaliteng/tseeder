@@ -222,7 +222,13 @@ export async function handleReset(req: Request, env: Env): Promise<Response> {
       VALUES (?, ?, ?)
     `).bind(tokenHash, user.id, expiresAt).run();
 
-    // TODO: Send email with reset link: `${env.APP_DOMAIN}/auth/reset?token=${token}`
+    const resetUrl = `${env.APP_DOMAIN}/auth/reset?token=${token}`;
+
+    // Send email via MailChannels (Cloudflare Workers native, free tier available)
+    await sendPasswordResetEmail(env, user.email, resetUrl, correlationId).catch(err => {
+      console.error(JSON.stringify({ correlationId, msg: "Email send failed", error: String(err) }));
+    });
+
     console.log(JSON.stringify({
       ts: new Date().toISOString(), level: "info", correlationId,
       msg: "Password reset token created", userId: user.id,
@@ -230,6 +236,148 @@ export async function handleReset(req: Request, env: Env): Promise<Response> {
   }
 
   return Response.json({ message: "If that email is registered, a reset link has been sent." });
+}
+
+// ── POST /auth/reset/confirm ──────────────────────────────────────────────────
+
+export async function handleResetConfirm(req: Request, env: Env): Promise<Response> {
+  const correlationId = req.headers.get("X-Correlation-ID") ?? crypto.randomUUID();
+  const ip = req.headers.get("CF-Connecting-IP") ?? "unknown";
+
+  const rlKey = `rl:reset-confirm:${ip}`;
+  const allowed = await rateLimitCheck(env.RATE_LIMIT_KV, rlKey, 5, 3600);
+  if (!allowed) return apiError("RATE_LIMITED", "Too many attempts", 429, correlationId);
+
+  const body = await req.json().catch(() => null);
+  const parsed = ResetConfirmSchema.safeParse(body);
+  if (!parsed.success) return apiError("VALIDATION_ERROR", formatZodError(parsed.error), 400, correlationId);
+
+  const { token, password } = parsed.data;
+  const tokenHash = await hashToken(token);
+
+  const tokenRow = await env.DB.prepare(`
+    SELECT * FROM password_reset_tokens
+    WHERE token = ? AND expires_at > datetime('now') AND used = 0 LIMIT 1
+  `).bind(tokenHash).first<{ user_id: string; token: string }>();
+
+  if (!tokenRow) {
+    return apiError("AUTH_INVALID", "Invalid or expired reset token", 400, correlationId);
+  }
+
+  const passwordHash = await hashPassword(password);
+
+  await env.DB.batch([
+    env.DB.prepare("UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?")
+      .bind(passwordHash, tokenRow.user_id),
+    env.DB.prepare("UPDATE password_reset_tokens SET used = 1 WHERE token = ?")
+      .bind(tokenHash),
+    // Invalidate all existing sessions for security
+    env.DB.prepare("DELETE FROM sessions WHERE user_id = ?")
+      .bind(tokenRow.user_id),
+  ]);
+
+  await writeAuditLog(env.DB, {
+    actorId: tokenRow.user_id, action: "user.password_reset",
+    targetType: "user", targetId: tokenRow.user_id,
+    metadata: { ip }, ipAddress: ip,
+  });
+
+  console.log(JSON.stringify({
+    ts: new Date().toISOString(), level: "info", correlationId,
+    msg: "Password reset completed", userId: tokenRow.user_id,
+  }));
+
+  return Response.json({ message: "Password reset successful. Please sign in with your new password." });
+}
+
+// ── Email via MailChannels ────────────────────────────────────────────────────
+
+async function sendPasswordResetEmail(
+  env: Env,
+  toEmail: string,
+  resetUrl: string,
+  correlationId: string,
+): Promise<void> {
+  const appDomain = env.APP_DOMAIN ?? "https://tseeder.cc";
+  const fromEmail = (env as any).MAIL_FROM ?? `noreply@${new URL(appDomain).hostname}`;
+  const fromName = "tseeder";
+
+  const htmlBody = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reset your tseeder password</title>
+</head>
+<body style="margin:0;padding:0;background:#0a0a0f;font-family:system-ui,-apple-system,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0f;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#12121a;border:1px solid rgba(255,255,255,0.08);border-radius:16px;overflow:hidden;">
+        <tr>
+          <td style="background:linear-gradient(135deg,#3b29cc,#6d28d9);padding:32px 40px;text-align:center;">
+            <h1 style="margin:0;color:#fff;font-size:24px;font-weight:800;letter-spacing:-0.5px;">tseeder</h1>
+            <p style="margin:8px 0 0;color:rgba(255,255,255,0.7);font-size:14px;">Remote Download Manager</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:40px;">
+            <h2 style="margin:0 0 16px;color:#fff;font-size:20px;font-weight:700;">Reset your password</h2>
+            <p style="margin:0 0 24px;color:rgba(255,255,255,0.6);font-size:15px;line-height:1.6;">
+              We received a request to reset the password for your account (<strong style="color:rgba(255,255,255,0.85);">${toEmail}</strong>).
+              Click the button below to choose a new password. This link expires in <strong style="color:#a78bfa;">1 hour</strong>.
+            </p>
+            <div style="text-align:center;margin:32px 0;">
+              <a href="${resetUrl}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;text-decoration:none;padding:14px 36px;border-radius:12px;font-size:15px;font-weight:700;letter-spacing:0.3px;">
+                Reset Password
+              </a>
+            </div>
+            <p style="margin:24px 0 0;color:rgba(255,255,255,0.4);font-size:13px;line-height:1.5;">
+              If you didn't request this, you can safely ignore this email. Your password will not change.
+              <br><br>
+              Or copy and paste this URL into your browser:<br>
+              <span style="color:#818cf8;word-break:break-all;">${resetUrl}</span>
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:20px 40px;border-top:1px solid rgba(255,255,255,0.06);text-align:center;">
+            <p style="margin:0;color:rgba(255,255,255,0.3);font-size:12px;">
+              &copy; ${new Date().getFullYear()} tseeder &mdash; Remote Download Manager
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
+  `.trim();
+
+  const payload = {
+    personalizations: [{ to: [{ email: toEmail }] }],
+    from: { email: fromEmail, name: fromName },
+    subject: "Reset your tseeder password",
+    content: [
+      { type: "text/plain", value: `Reset your tseeder password: ${resetUrl}\n\nThis link expires in 1 hour.` },
+      { type: "text/html", value: htmlBody },
+    ],
+  };
+
+  const res = await fetch("https://api.mailchannels.net/tx/v1/send", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Correlation-ID": correlationId,
+    },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(10_000),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => `HTTP ${res.status}`);
+    throw new Error(`MailChannels error: ${res.status} ${text}`);
+  }
 }
 
 // ── POST /auth/verify-email ───────────────────────────────────────────────────

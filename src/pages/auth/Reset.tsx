@@ -1,10 +1,10 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { auth, ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, AlertCircle, CheckCircle2, Mail, ArrowLeft } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2, Mail, ArrowLeft, Eye, EyeOff, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import tseederLogo from "@/assets/tseeder-logo.png";
 
@@ -44,8 +44,138 @@ function AuthBlobs() {
   );
 }
 
+const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
+
+// ── Password confirm subpage (when ?token= is in URL) ────────────────────────
+
+function ResetConfirmForm({ token }: { token: string }) {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [showPwd, setShowPwd] = useState(false);
+  const [apiError, setApiError] = useState("");
+  const [done, setDone] = useState(false);
+
+  const passwordValid = PASSWORD_REGEX.test(password);
+  const confirmMatch = password === confirm;
+
+  const confirmMutation = useMutation({
+    mutationFn: () => auth.resetConfirm(token, password),
+    onSuccess: () => {
+      setDone(true);
+      toast({ title: "Password updated!", description: "You can now sign in with your new password." });
+    },
+    onError: (err) => {
+      const msg = err instanceof ApiError ? err.message : "Reset failed. The link may have expired.";
+      setApiError(msg);
+      toast({ title: "Reset failed", description: msg, variant: "destructive" });
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setApiError("");
+    if (!passwordValid) { setApiError("Password must be at least 8 characters with 1 uppercase and 1 number."); return; }
+    if (!confirmMatch) { setApiError("Passwords do not match."); return; }
+    confirmMutation.mutate();
+  };
+
+  if (done) {
+    return (
+      <div className="glass-premium rounded-2xl p-7 text-center space-y-4 animate-scale-in">
+        <div className="w-14 h-14 rounded-full bg-success/10 border border-success/30 flex items-center justify-center mx-auto shadow-glow-success animate-float">
+          <CheckCircle2 className="w-7 h-7 text-success" />
+        </div>
+        <div>
+          <p className="text-base font-bold text-foreground mb-1">Password updated!</p>
+          <p className="text-xs text-muted-foreground">You can now sign in with your new password.</p>
+        </div>
+        <Button
+          onClick={() => navigate("/auth/login")}
+          className="w-full h-11 gradient-primary border-0 text-white font-semibold rounded-xl"
+        >
+          Sign in
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-4 glass-premium rounded-2xl p-7 animate-slide-up-fade"
+      style={{ animationDelay: "0.1s" }}
+    >
+      {apiError && (
+        <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-xl text-xs text-destructive animate-scale-in">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {apiError}
+        </div>
+      )}
+
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">New Password</label>
+        <div className="relative">
+          <Input
+            type={showPwd ? "text" : "password"}
+            placeholder="Min 8 chars, 1 uppercase, 1 number"
+            value={password} onChange={e => setPassword(e.target.value)}
+            required autoComplete="new-password"
+            className="bg-input/60 border-border/60 focus:border-primary/60 focus:shadow-[0_0_0_2px_hsl(239_84%_67%/0.1)] transition-all rounded-xl h-11 pr-10"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPwd(s => !s)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
+        {password && !passwordValid && (
+          <p className="text-xs text-destructive flex items-center gap-1">
+            <AlertCircle className="w-3 h-3" /> Min 8 chars, 1 uppercase, 1 number
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Confirm Password</label>
+        <Input
+          type="password" placeholder="••••••••"
+          value={confirm} onChange={e => setConfirm(e.target.value)}
+          required autoComplete="new-password"
+          className="bg-input/60 border-border/60 focus:border-primary/60 focus:shadow-[0_0_0_2px_hsl(239_84%_67%/0.1)] transition-all rounded-xl h-11"
+        />
+        {confirm && !confirmMatch && (
+          <p className="text-xs text-destructive flex items-center gap-1">
+            <AlertCircle className="w-3 h-3" /> Passwords do not match
+          </p>
+        )}
+      </div>
+
+      <Button
+        type="submit"
+        className="w-full h-11 gradient-primary border-0 text-white font-semibold rounded-xl relative overflow-hidden group"
+        disabled={confirmMutation.isPending || !password || !confirm}
+      >
+        <span className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        <span className="relative flex items-center justify-center gap-2">
+          {confirmMutation.isPending
+            ? <><Loader2 className="w-4 h-4 animate-spin" />Updating…</>
+            : <><Lock className="w-4 h-4" />Set new password</>}
+        </span>
+      </Button>
+    </form>
+  );
+}
+
+// ── Main Reset page ───────────────────────────────────────────────────────────
+
 export default function ResetPage() {
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+  const resetToken = searchParams.get("token") ?? "";
+
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [apiError, setApiError] = useState("");
@@ -78,11 +208,19 @@ export default function ResetPage() {
           <div className="flex items-center justify-center w-16 h-16 rounded-2xl overflow-hidden border border-primary/20 mx-auto mb-4 shadow-glow-primary animate-float">
             <img src={tseederLogo} alt="tseeder" className="w-full h-full object-cover" />
           </div>
-          <h1 className="text-2xl font-bold text-gradient">Reset password</h1>
-          <p className="text-sm text-muted-foreground mt-1.5">We'll send a reset link to your inbox</p>
+          <h1 className="text-2xl font-bold text-gradient">
+            {resetToken ? "Set new password" : "Reset password"}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1.5">
+            {resetToken ? "Choose a strong password for your account" : "We'll send a reset link to your inbox"}
+          </p>
         </div>
 
-        {sent ? (
+        {/* ── Confirm flow (has token in URL) ─────────────────────── */}
+        {resetToken ? (
+          <ResetConfirmForm token={resetToken} />
+        ) : sent ? (
+          /* ── Sent state ──────────────────────────────────────────── */
           <div className="glass-premium rounded-2xl p-7 text-center space-y-4 animate-scale-in">
             <div className="w-14 h-14 rounded-full bg-success/10 border border-success/30 flex items-center justify-center mx-auto shadow-glow-success animate-float">
               <CheckCircle2 className="w-7 h-7 text-success" />
@@ -101,6 +239,7 @@ export default function ResetPage() {
             </button>
           </div>
         ) : (
+          /* ── Request form ────────────────────────────────────────── */
           <form
             onSubmit={handleSubmit}
             className="space-y-4 glass-premium rounded-2xl p-7 animate-slide-up-fade"
@@ -108,8 +247,7 @@ export default function ResetPage() {
           >
             {apiError && (
               <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-xl text-xs text-destructive animate-scale-in">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                {apiError}
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {apiError}
               </div>
             )}
 

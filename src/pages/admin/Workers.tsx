@@ -1,49 +1,67 @@
-import { useQuery } from "@tanstack/react-query";
-import { admin as adminApi } from "@/lib/api";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { adminWorkers, type ApiWorker, ApiError } from "@/lib/api";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { AdminPageHeader, StatCard } from "@/components/admin/AdminUI";
-import { Server, Activity, AlertTriangle, CheckCircle, XCircle, RefreshCw } from "lucide-react";
+import { Server, Activity, CheckCircle, XCircle, RefreshCw, Shield, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
-interface AgentHealth {
-  status?: string;
-  activeJobs?: number;
-  maxJobs?: number;
-  version?: string;
-  uptime?: number;
-  diskFreeGb?: number;
-  diskTotalGb?: number;
-  bandwidthMbps?: number;
-  workers?: Array<{
-    id: string; status: string; activeJobs: number; maxJobs: number;
-    version?: string; region?: string; lastHeartbeat?: string;
-  }>;
-}
-
-interface Health {
-  agent?: AgentHealth | null;
-  status?: string;
-  jobs?: Record<string, number>;
-  ts?: string;
-}
+const STATUS_COLORS: Record<string, string> = {
+  healthy: "text-[hsl(var(--success))]",
+  draining: "text-[hsl(38_92%_50%)]",
+  cordoned: "text-[hsl(38_92%_50%)]",
+  offline: "text-destructive",
+};
 
 export default function AdminWorkers() {
-  const { data: health, isLoading, refetch, isFetching } = useQuery<Health>({
-    queryKey: ["admin-health"],
-    queryFn: () => adminApi.systemHealth() as Promise<Health>,
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [actionPending, setActionPending] = useState<string | null>(null);
+
+  const { data, isLoading, refetch, isFetching } = useQuery({
+    queryKey: ["admin-workers"],
+    queryFn: () => adminWorkers.list(),
     refetchInterval: 15_000,
   });
 
-  const agent = health?.agent;
-  const workers: AgentHealth["workers"] = agent?.workers ?? [];
-  const agentOk = health?.status === "healthy";
+  const cordonMutation = useMutation({
+    mutationFn: (id: string) => adminWorkers.cordon(id),
+    onSuccess: (result) => {
+      toast({ title: "Worker cordoned", description: result.message });
+      qc.invalidateQueries({ queryKey: ["admin-workers"] });
+      setActionPending(null);
+    },
+    onError: (err) => {
+      toast({ title: "Error", description: err instanceof ApiError ? err.message : "Action failed", variant: "destructive" });
+      setActionPending(null);
+    },
+  });
+
+  const drainMutation = useMutation({
+    mutationFn: (id: string) => adminWorkers.drain(id),
+    onSuccess: (result) => {
+      toast({ title: "Worker draining", description: result.message });
+      qc.invalidateQueries({ queryKey: ["admin-workers"] });
+      setActionPending(null);
+    },
+    onError: (err) => {
+      toast({ title: "Error", description: err instanceof ApiError ? err.message : "Action failed", variant: "destructive" });
+      setActionPending(null);
+    },
+  });
+
+  const workers: ApiWorker[] = data?.workers ?? [];
+  const healthyCount = workers.filter(w => w.status === "healthy").length;
+  const totalActive = workers.reduce((s, w) => s + w.active_jobs, 0);
+  const totalCapacity = workers.reduce((s, w) => s + w.max_jobs, 0);
 
   return (
     <AdminLayout>
       <div className="p-4 sm:p-6 space-y-5 sm:space-y-6">
         <AdminPageHeader
           title="Worker Fleet"
-          description="Compute agent health, capacity, and version tracking."
+          description="Compute agent registry, capacity, heartbeats, and fleet operations."
           actions={
             <button
               onClick={() => refetch()}
@@ -55,122 +73,101 @@ export default function AdminWorkers() {
           }
         />
 
-        {/* KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatCard label="Total Workers" value={isLoading ? "…" : data?.total ?? 0} icon={Server} />
           <StatCard
-            label="Agent Status"
-            value={isLoading ? "…" : agentOk ? "Healthy" : "Unreachable"}
-            icon={Server}
-            variant={isLoading ? "default" : agentOk ? "success" : "danger"}
-          />
-          <StatCard
-            label="Active Jobs"
-            value={isLoading ? "…" : agent?.activeJobs ?? "—"}
-            icon={Activity}
-          />
-          <StatCard
-            label="Capacity"
-            value={isLoading ? "…" : agent?.maxJobs ?? "—"}
+            label="Healthy" value={isLoading ? "…" : healthyCount}
             icon={CheckCircle}
+            variant={healthyCount === data?.total && !isLoading ? "success" : "warn"}
           />
-          <StatCard
-            label="Agent Version"
-            value={isLoading ? "…" : agent?.version ?? "—"}
-            icon={Server}
-          />
+          <StatCard label="Active Jobs" value={isLoading ? "…" : totalActive} icon={Activity} />
+          <StatCard label="Total Capacity" value={isLoading ? "…" : totalCapacity} icon={Server} />
         </div>
 
-        {/* Agent details */}
-        {agent && (
-          <div className="bg-card border border-border rounded-xl p-5 shadow-card space-y-4">
-            <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <Server className="w-4 h-4 text-primary" /> Compute Agent Details
-            </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {agent.diskFreeGb !== undefined && (
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Disk Free</p>
-                  <p className="text-sm font-semibold text-foreground">{agent.diskFreeGb?.toFixed(1)} / {agent.diskTotalGb?.toFixed(1)} GB</p>
-                  <div className="mt-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-primary"
-                      style={{ width: `${agent.diskTotalGb ? (1 - (agent.diskFreeGb! / agent.diskTotalGb!)) * 100 : 0}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-              {agent.bandwidthMbps !== undefined && (
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Bandwidth</p>
-                  <p className="text-sm font-semibold text-foreground">{agent.bandwidthMbps} Mbps</p>
-                </div>
-              )}
-              {agent.uptime !== undefined && (
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Uptime</p>
-                  <p className="text-sm font-semibold text-foreground">{Math.floor(agent.uptime / 3600)}h {Math.floor((agent.uptime % 3600) / 60)}m</p>
-                </div>
-              )}
-            </div>
+        <div className="bg-card border border-border rounded-xl shadow-card overflow-hidden">
+          <div className="px-4 py-3 border-b border-border">
+            <h2 className="text-sm font-semibold text-foreground">Worker Registry</h2>
           </div>
-        )}
-
-        {/* Workers table (if multi-worker) */}
-        {workers.length > 0 ? (
-          <div className="bg-card border border-border rounded-xl shadow-card overflow-hidden">
-            <div className="px-4 py-3 border-b border-border">
-              <h2 className="text-sm font-semibold text-foreground">Workers ({workers.length})</h2>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
+          ) : workers.length === 0 ? (
+            <div className="px-4 py-12 text-center text-sm text-muted-foreground">
+              <Server className="w-8 h-8 mx-auto mb-3 opacity-30" />
+              <p>No workers registered.</p>
+              <p className="text-xs mt-1 opacity-60">Compute agents self-register via POST /admin/workers/heartbeat</p>
+            </div>
+          ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-muted/30 border-b border-border">
-                    {["Worker ID", "Status", "Jobs", "Capacity", "Region", "Version", "Last Heartbeat"].map(h => (
-                      <th key={h} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{h}</th>
+                    {["Worker ID", "Status", "Jobs", "Disk Free", "Region", "Version", "Last Beat", "Actions"].map(h => (
+                      <th key={h} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {workers.map(w => (
-                    <tr key={w.id} className="hover:bg-muted/20 transition-colors">
-                      <td className="px-4 py-3 font-mono text-xs text-foreground">{w.id}</td>
+                    <tr key={w.id} className={cn("hover:bg-muted/20 transition-colors", w.is_stale && "opacity-60")}>
+                      <td className="px-4 py-3 font-mono text-xs text-foreground max-w-[160px] truncate">{w.id}</td>
                       <td className="px-4 py-3">
-                        <span className={cn("flex items-center gap-1.5 text-xs font-medium",
-                          w.status === "healthy" ? "text-[hsl(var(--success))]" : "text-destructive")}>
+                        <span className={cn("flex items-center gap-1.5 text-xs font-medium capitalize", STATUS_COLORS[w.status] ?? "text-muted-foreground")}>
                           {w.status === "healthy" ? <CheckCircle className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
-                          {w.status}
+                          {w.status}{w.is_stale ? " (stale)" : ""}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-foreground">{w.activeJobs}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{w.maxJobs}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{w.region ?? "—"}</td>
-                      <td className="px-4 py-3 text-muted-foreground font-mono">{w.version ?? "—"}</td>
+                      <td className="px-4 py-3 text-foreground text-xs">
+                        {w.active_jobs} / {w.max_jobs}
+                        {w.max_jobs > 0 && (
+                          <div className="mt-1 h-1 w-16 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full bg-primary rounded-full" style={{ width: `${Math.min(100, (w.active_jobs / w.max_jobs) * 100)}%` }} />
+                          </div>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">
-                        {w.lastHeartbeat ? new Date(w.lastHeartbeat).toLocaleTimeString() : "—"}
+                        {w.disk_free_gb != null ? `${w.disk_free_gb.toFixed(1)} GB` : "—"}
+                        {w.disk_total_gb != null && (
+                          <span className="text-muted-foreground/50"> / {w.disk_total_gb.toFixed(1)}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{w.region ?? "—"}</td>
+                      <td className="px-4 py-3 text-xs font-mono text-muted-foreground">{w.version ?? "—"}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
+                        {w.last_heartbeat ? new Date(w.last_heartbeat).toLocaleTimeString() : "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5">
+                          {w.status !== "cordoned" && (
+                            <button
+                              onClick={() => { setActionPending(w.id + ":cordon"); cordonMutation.mutate(w.id); }}
+                              disabled={actionPending === w.id + ":cordon"}
+                              className="text-xs px-2 py-1 rounded border border-[hsl(38_92%_50%/0.4)] text-[hsl(38_92%_50%)] hover:bg-[hsl(38_92%_50%/0.1)] transition-colors flex items-center gap-1"
+                            >
+                              {actionPending === w.id + ":cordon" ? <Loader2 className="w-3 h-3 animate-spin" /> : <Shield className="w-3 h-3" />}
+                              Cordon
+                            </button>
+                          )}
+                          {w.status === "healthy" && (
+                            <button
+                              onClick={() => { setActionPending(w.id + ":drain"); drainMutation.mutate(w.id); }}
+                              disabled={actionPending === w.id + ":drain"}
+                              className="text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors flex items-center gap-1"
+                            >
+                              {actionPending === w.id + ":drain" ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                              Drain
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </div>
-        ) : !isLoading && (
-          <div className="bg-card border border-border rounded-xl p-10 text-center shadow-card">
-            {agentOk ? (
-              <div className="space-y-2">
-                <CheckCircle className="w-8 h-8 text-[hsl(var(--success))] mx-auto" />
-                <p className="text-sm text-foreground font-medium">Single-node agent connected</p>
-                <p className="text-xs text-muted-foreground">Multi-worker fleet details will appear here when the agent reports individual worker metrics.</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <XCircle className="w-8 h-8 text-destructive mx-auto" />
-                <p className="text-sm text-destructive font-medium">Agent Unreachable</p>
-                <p className="text-xs text-muted-foreground">Check WORKER_CLUSTER_URL configuration and agent health endpoint.</p>
-              </div>
-            )}
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </AdminLayout>
   );
