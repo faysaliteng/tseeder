@@ -26,15 +26,15 @@ export default function TermsPage() {
 
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 space-y-8">
           <Section title="1. Acceptance of Terms">
-            By accessing or using tseeder.cc (the "Service"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree, do not use the Service.
+            By accessing or using fseeder.cc (the "Service"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree, do not use the Service.
           </Section>
 
           <Section title="2. Eligibility">
-            You must be at least 16 years old to use tseeder. By using the Service, you represent that you meet this requirement and have the legal capacity to enter into this agreement.
+            You must be at least 16 years old to use fseeder. By using the Service, you represent that you meet this requirement and have the legal capacity to enter into this agreement.
           </Section>
 
           <Section title="3. Acceptable Use Policy">
-            You agree to use tseeder only for lawful purposes. You may not use the Service to:
+            You agree to use fseeder only for lawful purposes. You may not use the Service to:
             <ul className="list-disc list-inside space-y-1 mt-2">
               <li>Download, store, or distribute content that infringes any intellectual property rights.</li>
               <li>Download, store, or distribute illegal content including but not limited to child sexual abuse material (CSAM), which is strictly prohibited and will result in immediate account termination and referral to law enforcement.</li>
@@ -47,11 +47,11 @@ export default function TermsPage() {
           </Section>
 
           <Section title="4. Content Ownership and Responsibility">
-            You retain ownership of any content you upload or download using the Service. You are solely responsible for ensuring you have the right to download, store, and access any content processed through tseeder. We are a neutral conduit and do not review or monitor content unless legally compelled or when responding to DMCA notices.
+            You retain ownership of any content you upload or download using the Service. You are solely responsible for ensuring you have the right to download, store, and access any content processed through fseeder. We are a neutral conduit and do not review or monitor content unless legally compelled or when responding to DMCA notices.
           </Section>
 
           <Section title="5. DMCA and Copyright">
-            We respect intellectual property rights and comply with the Digital Millennium Copyright Act. If you believe content stored via tseeder infringes your copyright, please submit a notice at{" "}
+            We respect intellectual property rights and comply with the Digital Millennium Copyright Act. If you believe content stored via fseeder infringes your copyright, please submit a notice at{" "}
             <Link to="/dmca" className="text-indigo-600 hover:text-indigo-800 transition-colors underline underline-offset-2">/dmca</Link>. We will respond to valid notices promptly.
           </Section>
 
@@ -83,7 +83,7 @@ export default function TermsPage() {
           </Section>
 
           <Section title="11. Limitation of Liability">
-            TO THE MAXIMUM EXTENT PERMITTED BY LAW, TSEEDER SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF DATA, REVENUE, OR PROFITS ARISING FROM YOUR USE OF THE SERVICE.
+            TO THE MAXIMUM EXTENT PERMITTED BY LAW, FSEEDER SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF DATA, REVENUE, OR PROFITS ARISING FROM YOUR USE OF THE SERVICE.
           </Section>
 
           <Section title="12. Changes to Terms">
@@ -95,8 +95,8 @@ export default function TermsPage() {
           </Section>
 
           <Section title="14. Contact">
-            <strong className="text-gray-900">tseeder Legal</strong><br />
-            Email: legal@tseeder.cc
+            <strong className="text-gray-900">fseeder Legal</strong><br />
+            Email: legal@fseeder.cc
           </Section>
         </div>
 

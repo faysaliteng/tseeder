@@ -79,13 +79,13 @@ export default function BlogPage() {
         {/* Hero */}
         <div className="text-center space-y-4">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-indigo-200 bg-indigo-50 text-indigo-600 text-xs font-bold uppercase tracking-widest">
-            tseeder Blog
+            fseeder Blog
           </div>
           <h1 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight">
             Guides, Tutorials &amp; Updates
           </h1>
           <p className="text-gray-500 max-w-2xl mx-auto text-lg">
-            Everything you need to get the most out of tseeder — from first-time setup to advanced API automation.
+            Everything you need to get the most out of fseeder — from first-time setup to advanced API automation.
           </p>
         </div>
 

@@ -26,7 +26,7 @@ export default function PrivacyPage() {
 
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 space-y-8">
           <Section title="1. Introduction">
-            tseeder ("we", "us", "our") operates <strong className="text-gray-900">tseeder.cc</strong> — a remote cloud download manager. This Privacy Policy explains how we collect, use, disclose, and protect information about you when you use our service. By using tseeder, you agree to this policy.
+            fseeder ("we", "us", "our") operates <strong className="text-gray-900">fseeder.cc</strong> — a remote cloud download manager. This Privacy Policy explains how we collect, use, disclose, and protect information about you when you use our service. By using fseeder, you agree to this policy.
           </Section>
 
           <Section title="2. Information We Collect">
@@ -82,7 +82,7 @@ export default function PrivacyPage() {
               <li>Export your data in a portable format.</li>
               <li>Withdraw consent for optional processing.</li>
             </ul>
-            To exercise these rights, email <strong className="text-gray-900">privacy@tseeder.cc</strong>.
+            To exercise these rights, email <strong className="text-gray-900">privacy@fseeder.cc</strong>.
           </Section>
 
           <Section title="8. Cookies">
@@ -95,7 +95,7 @@ export default function PrivacyPage() {
           </Section>
 
           <Section title="9. Children">
-            tseeder is not intended for use by anyone under 16 years of age. We do not knowingly collect data from minors. If you believe a minor has created an account, contact us at privacy@tseeder.cc.
+            fseeder is not intended for use by anyone under 16 years of age. We do not knowingly collect data from minors. If you believe a minor has created an account, contact us at privacy@fseeder.cc.
           </Section>
 
           <Section title="10. Changes to This Policy">
@@ -103,8 +103,8 @@ export default function PrivacyPage() {
           </Section>
 
           <Section title="11. Contact">
-            <strong className="text-gray-900">tseeder Privacy Team</strong><br />
-            Email: privacy@tseeder.cc<br />
+            <strong className="text-gray-900">fseeder Privacy Team</strong><br />
+            Email: privacy@fseeder.cc<br />
             Response time: within 72 hours for privacy requests.
           </Section>
         </div>

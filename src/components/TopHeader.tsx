@@ -6,7 +6,7 @@ import {
   Plus, Upload, Zap, Menu, X, Star,
   LogOut, User, HelpCircle, Settings, CloudLightning,
 } from "lucide-react";
-import tseederLogo from "@/assets/tseeder-logo.png";
+import fseederLogo from "@/assets/fseeder-logo.png";
 import { OrgSwitcher } from "@/components/OrgSwitcher";
 
 interface TopHeaderProps {
@@ -140,7 +140,7 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
           className="relative flex items-center justify-center w-12 h-12 rounded-xl overflow-hidden shrink-0 hover:scale-105 transition-transform duration-200"
           style={{ border: "1px solid hsl(239 84% 67% / 0.3)", boxShadow: "0 0 16px hsl(239 84% 67% / 0.15)" }}
         >
-          <img src={tseederLogo} alt="tseeder" className="w-full h-full object-cover" />
+          <img src={fseederLogo} alt="fseeder" className="w-full h-full object-cover" />
         </Link>
 
         {/* Storage ring + plan info */}
@@ -261,7 +261,7 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
         {/* Avatar circle */}
         <div className="w-9 h-9 rounded-full overflow-hidden border border-primary/20 bg-secondary flex items-center justify-center shrink-0 hidden sm:block ml-1"
           style={{ boxShadow: "0 0 8px hsl(239 84% 67% / 0.2)" }}>
-          <img src={tseederLogo} alt="" className="w-full h-full object-cover opacity-90" />
+          <img src={fseederLogo} alt="" className="w-full h-full object-cover opacity-90" />
         </div>
       </div>
 

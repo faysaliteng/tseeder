@@ -10,7 +10,7 @@ import {
   Cloud, Server, FileVideo, Music, BookOpen, Check,
   ChevronDown, BadgeCheck, X,
 } from "lucide-react";
-import tseederLogo from "@/assets/tseeder-logo.png";
+import fseederLogo from "@/assets/fseeder-logo.png";
 
 // ─── Animated Counter ─────────────────────────────────────────────────────────
 
@@ -66,8 +66,6 @@ function StatsStrip() {
   );
 }
 
-// ─── Trust Logos ──────────────────────────────────────────────────────────────
-
 function TrustLogos() {
   const logos = [
     { name: "Stremio",   icon: "🎬" },
@@ -96,8 +94,6 @@ function TrustLogos() {
   );
 }
 
-// ─── Hero Signup Card ─────────────────────────────────────────────────────────
-
 function HeroSignupCard() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -117,7 +113,7 @@ function HeroSignupCard() {
 
   return (
     <div className="rounded-2xl overflow-hidden shadow-[0_8px_64px_rgba(0,0,0,0.18)] border border-gray-200 bg-white">
-      <div className="h-1 w-full" style={{ background: "linear-gradient(90deg, #6c63ff, #a78bfa, #38bdf8)" }} />
+      <div className="h-1 w-full" style={{ background: "linear-gradient(90deg, #e05252, #f39c12, #38bdf8)" }} />
       <div className="p-7">
         <h2 className="text-2xl font-bold text-gray-900 mb-5">
           {mode === "signup" ? "Get Started — Free" : "Welcome back"}
@@ -156,7 +152,7 @@ function HeroSignupCard() {
           )}
           <button type="submit"
             className="w-full py-3 rounded-xl font-semibold text-sm text-white transition-all hover:opacity-95"
-            style={{ background: "linear-gradient(135deg, #6c63ff, #38bdf8)", boxShadow: "0 4px 16px rgba(108,99,255,0.35)" }}>
+            style={{ background: "linear-gradient(135deg, #e05252, #f39c12, #38bdf8)", boxShadow: "0 4px 16px rgba(224,82,82,0.35)" }}>
             {mode === "signup" ? "Continue" : "Sign In"}
           </button>
         </form>
@@ -178,7 +174,6 @@ function HeroSignupCard() {
           <span className="text-sm font-medium text-gray-700 flex-1 text-center">Continue with Google</span>
         </Link>
 
-        {/* 14-day guarantee micro-copy */}
         <div className="flex items-center justify-center gap-1.5 mt-3">
           <BadgeCheck className="w-3.5 h-3.5 text-emerald-500" />
           <span className="text-xs text-gray-500">14-day money-back guarantee</span>
@@ -207,7 +202,7 @@ const PLANS = [
 const PRICING_FAQ = [
   { q: "Can I cancel anytime?", a: "Yes — no contracts, no lock-in. Cancel from your account settings with one click, effective immediately." },
   { q: "What happens to my files if I downgrade?", a: "Files within the lower plan's storage limit are kept. Files exceeding the new limit are flagged; you get 7 days to download them before deletion." },
-  { q: "Is there a free tier?", a: "Yes. The free plan gives you 5 GB storage and 2 concurrent task slots — enough to try tseeder before committing to a paid plan." },
+  { q: "Is there a free tier?", a: "Yes. The free plan gives you 5 GB storage and 2 concurrent task slots — enough to try fseeder before committing to a paid plan." },
 ];
 
 const FEATURE_COMPARISON = [
@@ -221,22 +216,19 @@ const FEATURE_COMPARISON = [
   { feature: "Premium support",   basic: "✓",        pro: "✓",       master: "✓" },
 ];
 
-// ─── Testimonials ─────────────────────────────────────────────────────────────
-
 const TESTIMONIALS = [
   { name: "Marcus L.",  initials: "ML", role: "Pro subscriber", months: "8 months", plan: "Pro", gradient: "from-indigo-500 to-violet-500", quote: "Pasted a link and 15 GB was ready in seconds. Streamed it right on my phone during a flight — no downloads needed." },
-  { name: "Sophie K.",  initials: "SK", role: "Master subscriber", months: "14 months", plan: "Master", gradient: "from-purple-500 to-pink-500", quote: "Connected tseeder to Plex and now my whole library streams to every screen in the house. WebDAV setup was instant." },
+  { name: "Sophie K.",  initials: "SK", role: "Master subscriber", months: "14 months", plan: "Master", gradient: "from-purple-500 to-pink-500", quote: "Connected fseeder to Plex and now my whole library streams to every screen in the house. WebDAV setup was instant." },
   { name: "Ryan M.",    initials: "RM", role: "Pro subscriber", months: "6 months", plan: "Pro", gradient: "from-sky-500 to-indigo-500", quote: "Sonarr integration is flawless. Series episodes appear in my Plex library automatically. I haven't touched a torrent client in months." },
   { name: "Dev T.",     initials: "DT", role: "Master subscriber", months: "11 months", plan: "Master", gradient: "from-emerald-500 to-teal-500", quote: "The REST API is clean and well-documented. I have 3 scripts that auto-queue content based on RSS feeds. Zero downtime in 11 months." },
-  { name: "Aisha N.",   initials: "AN", role: "Pro subscriber", months: "4 months", plan: "Pro", gradient: "from-orange-500 to-rose-500", quote: "ISP notices were a real concern. Since switching to tseeder my connection looks completely clean to my ISP. Worth every penny." },
+  { name: "Aisha N.",   initials: "AN", role: "Pro subscriber", months: "4 months", plan: "Pro", gradient: "from-orange-500 to-rose-500", quote: "ISP notices were a real concern. Since switching to fseeder my connection looks completely clean to my ISP. Worth every penny." },
 ];
 
-// FALLBACK_ARTICLES shown during loading/error
 const FALLBACK_ARTICLES: ApiArticle[] = [
-  { id:"1", slug:"stremio-plugin-setup", title:"How to Set Up the tseeder Stremio Plugin", category:"Tutorials · How-Tos", excerpt:"Connect tseeder to Stremio and stream your torrents directly.", coverImage:"https://images.unsplash.com/photo-1593642632559-0c6d3fc62b89?w=600&h=338&fit=crop&q=80", readTime:"7 min", status:"published", tags:[], authorId:null, authorName:null, publishedAt:"2026-02-10", createdAt:"2026-02-10", updatedAt:"2026-02-10", body:"" },
-  { id:"2", slug:"sonarr-radarr-automation", title:"Automate Your Media Library with Sonarr & Radarr", category:"Tutorials · How-Tos", excerpt:"Point Sonarr and Radarr at tseeder as your download client.", coverImage:"https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&h=338&fit=crop&q=80", readTime:"11 min", status:"published", tags:[], authorId:null, authorName:null, publishedAt:"2026-01-25", createdAt:"2026-01-25", updatedAt:"2026-01-25", body:"" },
-  { id:"3", slug:"mount-webdav-sftp", title:"Mount tseeder Like a Drive (FTP, SFTP & WebDAV)", category:"Tutorials · How-Tos", excerpt:"Mount your tseeder vault as a local drive on any OS.", coverImage:"https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=600&h=338&fit=crop&q=80", readTime:"9 min", status:"published", tags:[], authorId:null, authorName:null, publishedAt:"2026-01-19", createdAt:"2026-01-19", updatedAt:"2026-01-19", body:"" },
-  { id:"4", slug:"stream-vlc-kodi", title:"Streaming tseeder Files in VLC and Kodi", category:"Guides", excerpt:"Generate a signed streaming URL and open it in VLC or Kodi.", coverImage:"https://images.unsplash.com/photo-1586899028174-e7098604235b?w=600&h=338&fit=crop&q=80", readTime:"5 min", status:"published", tags:[], authorId:null, authorName:null, publishedAt:"2026-01-08", createdAt:"2026-01-08", updatedAt:"2026-01-08", body:"" },
+  { id:"1", slug:"stremio-plugin-setup", title:"How to Set Up the fseeder Stremio Plugin", category:"Tutorials · How-Tos", excerpt:"Connect fseeder to Stremio and stream your torrents directly.", coverImage:"https://images.unsplash.com/photo-1593642632559-0c6d3fc62b89?w=600&h=338&fit=crop&q=80", readTime:"7 min", status:"published", tags:[], authorId:null, authorName:null, publishedAt:"2026-02-10", createdAt:"2026-02-10", updatedAt:"2026-02-10", body:"" },
+  { id:"2", slug:"sonarr-radarr-automation", title:"Automate Your Media Library with Sonarr & Radarr", category:"Tutorials · How-Tos", excerpt:"Point Sonarr and Radarr at fseeder as your download client.", coverImage:"https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&h=338&fit=crop&q=80", readTime:"11 min", status:"published", tags:[], authorId:null, authorName:null, publishedAt:"2026-01-25", createdAt:"2026-01-25", updatedAt:"2026-01-25", body:"" },
+  { id:"3", slug:"mount-webdav-sftp", title:"Mount fseeder Like a Drive (FTP, SFTP & WebDAV)", category:"Tutorials · How-Tos", excerpt:"Mount your fseeder vault as a local drive on any OS.", coverImage:"https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=600&h=338&fit=crop&q=80", readTime:"9 min", status:"published", tags:[], authorId:null, authorName:null, publishedAt:"2026-01-19", createdAt:"2026-01-19", updatedAt:"2026-01-19", body:"" },
+  { id:"4", slug:"stream-vlc-kodi", title:"Streaming fseeder Files in VLC and Kodi", category:"Guides", excerpt:"Generate a signed streaming URL and open it in VLC or Kodi.", coverImage:"https://images.unsplash.com/photo-1586899028174-e7098604235b?w=600&h=338&fit=crop&q=80", readTime:"5 min", status:"published", tags:[], authorId:null, authorName:null, publishedAt:"2026-01-08", createdAt:"2026-01-08", updatedAt:"2026-01-08", body:"" },
 ];
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -263,9 +255,9 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-6">
           <Link to="/" className="flex items-center gap-2.5 shrink-0 group">
             <div className="w-9 h-9 rounded-xl overflow-hidden border border-indigo-100 group-hover:scale-105 transition-transform">
-              <img src={tseederLogo} alt="tseeder" className="w-full h-full object-cover" />
+              <img src={fseederLogo} alt="fseeder" className="w-full h-full object-cover" />
             </div>
-            <span className="text-xl font-extrabold tracking-tight text-indigo-600">tseeder</span>
+            <span className="text-xl font-extrabold tracking-tight text-indigo-600">fseeder</span>
           </Link>
 
           <div className="hidden md:flex items-center gap-7 text-sm font-medium text-gray-500">
@@ -285,10 +277,9 @@ export default function LandingPage() {
             </Link>
             <Link to="/auth/register"
               className="px-5 py-2 rounded-full text-white text-sm font-bold transition-all hover:opacity-90"
-              style={{ background: "linear-gradient(135deg, #6c63ff, #38bdf8)", boxShadow: "0 2px 12px rgba(108,99,255,0.3)" }}>
+              style={{ background: "linear-gradient(135deg, #e05252, #f39c12, #38bdf8)", boxShadow: "0 2px 12px rgba(224,82,82,0.3)" }}>
               Try Now
             </Link>
-            {/* Mobile hamburger */}
             <button
               className="md:hidden flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-gray-600 hover:border-indigo-200 hover:text-indigo-600 transition-all ml-1"
               onClick={() => setMobileNavOpen(o => !o)}
@@ -302,7 +293,6 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Mobile slide-down menu */}
         {mobileNavOpen && (
           <div className="md:hidden border-t border-gray-100 bg-white animate-fade-in px-6 py-4 space-y-3">
             {[
@@ -324,7 +314,7 @@ export default function LandingPage() {
               </Link>
               <Link to="/auth/register" onClick={() => setMobileNavOpen(false)}
                 className="flex-1 text-center py-2.5 rounded-xl text-white text-sm font-bold transition-all hover:opacity-90"
-                style={{ background: "linear-gradient(135deg, #6c63ff, #38bdf8)" }}>
+                style={{ background: "linear-gradient(135deg, #e05252, #f39c12, #38bdf8)" }}>
                 Get started
               </Link>
             </div>
@@ -336,17 +326,15 @@ export default function LandingPage() {
       <section className="relative pt-12 pb-16 px-6 bg-[#f4f6fb]">
         <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-[1fr_400px] gap-12 items-start">
-            {/* Left */}
             <div className="flex flex-col justify-center">
-              {/* Animated Dashboard Mockup */}
               <div className="relative max-w-[520px] mb-10">
-                <div className="rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-[0_8px_48px_rgba(108,99,255,0.12)]">
+                <div className="rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-[0_8px_48px_rgba(224,82,82,0.12)]">
                   <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 bg-gray-50">
                     <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
                     <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
                     <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
                     <div className="flex-1 mx-3 h-5 rounded-md bg-gray-200 flex items-center px-3">
-                      <span className="text-[10px] font-mono text-gray-400">tseeder.cc/app/dashboard</span>
+                      <span className="text-[10px] font-mono text-gray-400">fseeder.cc/app/dashboard</span>
                     </div>
                   </div>
                   <div className="px-4 pt-4 pb-2">
@@ -354,12 +342,11 @@ export default function LandingPage() {
                       <Download className="w-4 h-4 text-indigo-400 shrink-0" />
                       <span className="text-xs text-gray-400 font-mono flex-1">Paste a magnet link or .torrent URL…</span>
                       <div className="px-3 py-1 rounded-lg text-[11px] font-bold text-white shrink-0"
-                        style={{ background: "linear-gradient(135deg, #6c63ff, #38bdf8)" }}>Go</div>
+                        style={{ background: "linear-gradient(135deg, #e05252, #f39c12, #38bdf8)" }}>Go</div>
                     </div>
-                    {/* Animated download rows */}
                     {[
                       { name: "Ubuntu 24.04 LTS.iso", size: "5.2 GB", color: "#2ecc71", animDuration: "8s", animDelay: "0s" },
-                      { name: "Kali Linux 2024.4.iso", size: "3.8 GB", color: "#6c63ff", animDuration: "8s", animDelay: "2s" },
+                      { name: "Kali Linux 2024.4.iso", size: "3.8 GB", color: "#e05252", animDuration: "8s", animDelay: "2s" },
                       { name: "Arch Linux 2025.iso",   size: "1.1 GB", color: "#f39c12", animDuration: "8s", animDelay: "4s" },
                     ].map((row, i) => (
                       <div key={i} className="flex items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-gray-50 transition-colors">
@@ -397,7 +384,8 @@ export default function LandingPage() {
 
               <h1 className="text-[42px] sm:text-5xl lg:text-[52px] font-extrabold leading-[1.1] tracking-tight mb-4 text-gray-900">
                 Paste a link from<br />another website, then{" "}
-                <span style={{ color: "#e05252" }}>Play</span>{" "}and{" "}
+                <span style={{ color: "#e05252" }}>Play</span>{" "}
+                and{" "}
                 <span style={{ color: "#38bdf8" }}>Download</span>{" "}
                 it to any device.<br />
                 <span className="text-gray-700">No software required!</span>
@@ -407,12 +395,11 @@ export default function LandingPage() {
 
               <Link to="/auth/register"
                 className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full text-white font-bold text-base hover:opacity-90 transition-all self-start"
-                style={{ background: "linear-gradient(135deg, #6c63ff, #38bdf8)", boxShadow: "0 4px 20px rgba(108,99,255,0.4)" }}>
+                style={{ background: "linear-gradient(135deg, #e05252, #f39c12, #38bdf8)", boxShadow: "0 4px 20px rgba(224,82,82,0.4)" }}>
                 Start Now — It's Free <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
 
-            {/* Right — Signup card */}
             <div className="relative z-10 pt-4">
               <HeroSignupCard />
             </div>
@@ -420,7 +407,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ════ STATS STRIP ════ */}
       <StatsStrip />
 
       {/* ════ UNLOCK PREMIUM STRIP ════ */}
@@ -445,18 +431,16 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ════ TRUST LOGOS ════ */}
       <TrustLogos />
 
       {/* ════ FEATURES ════ */}
       <section id="features" className="relative z-10 py-20 px-6 bg-white">
         <div className="max-w-6xl mx-auto space-y-24">
-          {/* Feature 1 */}
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div className="order-2 md:order-1">
               <p className="text-xs font-bold text-indigo-500 uppercase tracking-widest mb-3">Streaming</p>
               <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-4 text-gray-900">
-                Play on any device,<br /><span style={{ color: "#6c63ff" }}>anytime, anywhere!</span>
+                Play on any device,<br /><span style={{ color: "#e05252" }}>anytime, anywhere!</span>
               </h2>
               <p className="text-gray-500 leading-relaxed mb-6">
                 Watch, listen, read — anything is accessible. Stream in 4K directly from your vault to Desktop, Mobile, Smart TV, or Chromecast. No download required.
@@ -490,13 +474,12 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Feature 2 */}
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div className="rounded-2xl p-8 border border-gray-100 bg-gradient-to-br from-yellow-50 to-green-50">
               <div className="space-y-3">
                 {[
                   { icon: Music, name: "Interstellar.flac", size: "892 MB", pct: 100, color: "#2ecc71" },
-                  { icon: FileVideo, name: "Dune Part 2 4K.mkv", size: "58 GB", pct: 78, color: "#38bdf8" },
+                  { icon: FileVideo, name: "Dune Part 2 4K.mkv", size: "58 GB", pct: 78, color: "#e05252" },
                   { icon: BookOpen, name: "SICP 6th Edition.epub", size: "12 MB", pct: 100, color: "#9b59b6" },
                 ].map((row, i) => (
                   <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white border border-gray-100 shadow-sm">
@@ -531,7 +514,6 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Feature 3 */}
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div className="order-2 md:order-1">
               <p className="text-xs font-bold text-green-500 uppercase tracking-widest mb-3">Privacy First</p>
@@ -539,7 +521,7 @@ export default function LandingPage() {
                 Private and secure.<br /><span style={{ color: "#2ecc71" }}>Your IP never touches a peer.</span>
               </h2>
               <p className="text-gray-500 leading-relaxed mb-6">
-                When you paste a magnet link, tseeder connects to the swarm from our datacenter — your IP is never exposed. Close the browser, the download keeps going.
+                When you paste a magnet link, fseeder connects to the swarm from our datacenter — your IP is never exposed. Close the browser, the download keeps going.
               </p>
               <ul className="space-y-3 mb-6">
                 {["Zero-knowledge encrypted vault", "Your real IP is never exposed to peers", "No logs. No tracking. No ads.", "Cloudflare-grade DDoS protection"].map(f => (
@@ -561,7 +543,7 @@ export default function LandingPage() {
                   {[
                     { label: "IP Protected", val: "100%", color: "#2ecc71" },
                     { label: "Encrypted", val: "AES-256", color: "#38bdf8" },
-                    { label: "Uptime", val: "99.97%", color: "#6c63ff" },
+                    { label: "Uptime", val: "99.97%", color: "#e05252" },
                     { label: "Data Logs", val: "Zero", color: "#9b59b6" },
                   ].map(s => (
                     <div key={s.label} className="p-3 rounded-xl bg-white border border-gray-100 shadow-sm">
@@ -582,36 +564,37 @@ export default function LandingPage() {
           <div>
             <p className="text-xs font-bold text-indigo-500 uppercase tracking-widest mb-3">Browser Extension</p>
             <h2 className="text-3xl font-extrabold tracking-tight mb-4 text-gray-900">
-              Add links with a single click.<br /><span style={{ color: "#6c63ff" }}>From any webpage.</span>
+              Add links with a single click.<br /><span style={{ color: "#e05252" }}>From any webpage.</span>
             </h2>
             <p className="text-gray-500 leading-relaxed mb-6">
-              Right-click any magnet link or torrent URL and send it straight to tseeder. The extension auto-detects links on the page and adds one-click send buttons. Manifest v3, no analytics.
+              Right-click any magnet link or torrent URL and send it straight to fseeder. The extension auto-detects links on the page and adds one-click send buttons. Manifest v3, no analytics.
             </p>
             <Link to="/extension"
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white font-bold text-sm hover:opacity-90 transition-all"
-              style={{ background: "linear-gradient(135deg, #6c63ff, #a78bfa)" }}>
+              style={{ background: "linear-gradient(135deg, #e05252, #f39c12, #38bdf8)" }}>
               <Puzzle className="w-4 h-4" /> Get Extension
             </Link>
           </div>
           <div className="flex justify-center">
             <div className="w-72 rounded-2xl border border-gray-200 bg-white shadow-[0_8px_40px_rgba(0,0,0,0.12)] overflow-hidden">
-              <div className="h-1.5 w-full" style={{ background: "linear-gradient(90deg, #6c63ff, #38bdf8)" }} />
+              <div className="h-1.5 w-full" style={{ background: "linear-gradient(90deg, #e05252, #f39c12, #38bdf8)" }} />
               <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded-lg overflow-hidden border border-indigo-100">
-                  <img src={tseederLogo} alt="tseeder" className="w-full h-full object-cover" />
+                  <img src={fseederLogo} alt="fseeder" className="w-full h-full object-cover" />
                 </div>
-                <span className="text-sm font-bold text-indigo-600">tseeder</span>
+                <span className="text-sm font-bold text-indigo-600">fseeder</span>
               </div>
               <div className="p-3 space-y-2.5">
                 <div className="flex gap-2">
                   <input className="flex-1 text-xs px-3 py-2 border border-gray-200 rounded-lg focus:outline-none bg-gray-50 text-gray-500 placeholder:text-gray-400"
                     placeholder="Paste magnet link or URL…" readOnly />
-                  <button className="px-3 py-2 rounded-lg text-white text-xs font-bold" style={{ background: "linear-gradient(135deg, #6c63ff, #38bdf8)" }}>Add</button>
+                  <button className="px-3 py-2 rounded-lg text-white text-xs font-bold"
+                    style={{ background: "linear-gradient(135deg, #e05252, #f39c12, #38bdf8)" }}>Add</button>
                 </div>
                 <div className="text-[10px] text-gray-400 text-center">or right-click any link on a page</div>
                 <div className="pt-1">
                   {[
-                    { name: "ubuntu.iso", status: "Downloading…", color: "#6c63ff", pct: 72 },
+                    { name: "ubuntu.iso", status: "Downloading…", color: "#e05252", pct: 72 },
                     { name: "arch.torrent", status: "Completed", color: "#2ecc71", pct: 100 },
                   ].map((item, i) => (
                     <div key={i} className="flex items-center gap-2 py-2 border-t border-gray-100 first:border-0">
@@ -673,13 +656,12 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-4">
             <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900">
-              Get More with tseeder{" "}
+              Get More with fseeder{" "}
               <span style={{ background: "linear-gradient(135deg, #f39c12, #9b59b6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>✦ Premium</span>
             </h2>
             <p className="text-gray-500 mt-3 text-sm">No lock-in. Cancel any time. Files safe until retention expires.</p>
           </div>
 
-          {/* Billing toggle */}
           <div className="flex items-center justify-center gap-6 mb-10">
             <button onClick={() => setBillingYearly(false)}
               className={`text-sm font-semibold transition-all ${!billingYearly ? "text-gray-900" : "text-gray-400 hover:text-gray-700"}`}>
@@ -697,7 +679,6 @@ export default function LandingPage() {
             </button>
           </div>
 
-          {/* Plan cards */}
           <div className="grid md:grid-cols-3 gap-5 items-start">
             {PLANS.map((plan) => {
               const price = billingYearly ? (plan.price * 10).toFixed(2) : plan.price.toFixed(2);
@@ -705,10 +686,10 @@ export default function LandingPage() {
               return (
                 <div key={plan.name}
                   className={`relative rounded-2xl overflow-hidden border bg-white transition-all hover:-translate-y-1 duration-300 ${plan.popular
-                    ? "shadow-[0_12px_48px_rgba(46,204,113,0.25)] border-green-300 scale-[1.03] ring-2 ring-green-300/50"
+                    ? "shadow-[0_12px_48px_rgba(224,82,82,0.25)] border-red-300 scale-[1.03] ring-2 ring-red-300/50"
                     : "border-gray-200 shadow-sm"}`}>
                   {plan.popular && (
-                    <div className="text-center py-2 text-xs font-black uppercase tracking-widest text-white" style={{ background: "#2ecc71" }}>
+                    <div className="text-center py-2 text-xs font-black uppercase tracking-widest text-white" style={{ background: "#e05252" }}>
                       ⭐ Most Popular
                     </div>
                   )}
@@ -760,13 +741,11 @@ export default function LandingPage() {
             })}
           </div>
 
-          {/* Money-back badge */}
           <div className="flex items-center justify-center gap-2 mt-8">
             <BadgeCheck className="w-5 h-5 text-emerald-500" />
             <span className="text-sm font-semibold text-gray-600">14-day money-back guarantee on all paid plans</span>
           </div>
 
-          {/* Comparison table toggle */}
           <div className="mt-8 text-center">
             <button onClick={() => setShowComparison(c => !c)}
               className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors">
@@ -803,7 +782,6 @@ export default function LandingPage() {
             </div>
           )}
 
-          {/* Pricing FAQ */}
           <div className="mt-10">
             <h3 className="text-center text-lg font-bold text-gray-900 mb-5">Frequently Asked Questions</h3>
             <div className="space-y-3 max-w-2xl mx-auto">
@@ -866,33 +844,30 @@ export default function LandingPage() {
       <footer className="relative z-10 bg-gray-900 text-gray-400 pt-14 pb-8 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
-            {/* Col 1 — Brand */}
             <div className="col-span-2 md:col-span-1">
               <div className="flex items-center gap-2.5 mb-4">
                 <div className="w-9 h-9 rounded-xl overflow-hidden border border-white/10">
-                  <img src={tseederLogo} alt="tseeder" className="w-full h-full object-cover" />
+                  <img src={fseederLogo} alt="fseeder" className="w-full h-full object-cover" />
                 </div>
-                <span className="text-lg font-black text-white">tseeder</span>
+                <span className="text-lg font-black text-white">fseeder</span>
               </div>
               <p className="text-xs leading-relaxed mb-5">Remote cloud download manager. Paste a link, download to any device. Your IP stays hidden. Always encrypted.</p>
-              {/* Social links */}
               <div className="flex items-center gap-3">
-                <a href="https://twitter.com/tseeder" target="_blank" rel="noopener noreferrer"
+                <a href="https://twitter.com/fseeder" target="_blank" rel="noopener noreferrer"
                   className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors border border-white/10 hover:border-white/20">
                   <svg className="w-3.5 h-3.5 text-gray-400 fill-current" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.259 5.631 5.905-5.631zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
                 </a>
-                <a href="https://github.com/tseeder" target="_blank" rel="noopener noreferrer"
+                <a href="https://github.com/fseeder" target="_blank" rel="noopener noreferrer"
                   className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors border border-white/10 hover:border-white/20">
                   <svg className="w-3.5 h-3.5 text-gray-400 fill-current" viewBox="0 0 24 24"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
                 </a>
-                <a href="https://discord.gg/tseeder" target="_blank" rel="noopener noreferrer"
+                <a href="https://discord.gg/fseeder" target="_blank" rel="noopener noreferrer"
                   className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors border border-white/10 hover:border-white/20">
                   <svg className="w-3.5 h-3.5 text-gray-400 fill-current" viewBox="0 0 24 24"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057.1 18.079.11 18.1.129 18.11a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
                 </a>
               </div>
             </div>
 
-            {/* Col 2 — Product */}
             <div>
               <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-4">Product</h4>
               <ul className="space-y-2.5 text-sm">
@@ -904,28 +879,26 @@ export default function LandingPage() {
               </ul>
             </div>
 
-            {/* Col 3 — Support */}
             <div>
               <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-4">Support</h4>
-              <ul className="space-y-2.5 text-sm">
+              <ul className="space-y-2.5 text-xs">
                 <li><Link to="/status" className="hover:text-white transition-colors">System Status</Link></li>
                 <li><Link to="/dmca" className="hover:text-white transition-colors">DMCA / Abuse</Link></li>
                 <li><Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
                 <li><Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link></li>
-                <li><a href="mailto:support@tseeder.cc" className="hover:text-white transition-colors">Contact</a></li>
+                <li><a href="mailto:support@fseeder.cc" className="hover:text-white transition-colors">Contact</a></li>
               </ul>
             </div>
 
-            {/* Col 4 — Newsletter */}
             <div>
               <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-4">Stay Updated</h4>
-              <p className="text-xs mb-3 leading-relaxed">Get feature releases and security notices — no spam, ever.</p>
+              <p className="text-xs mb-3 leading-relaxed">Feature releases & security notices — no spam, ever.</p>
               <NewsletterForm compact />
             </div>
           </div>
 
           <div className="border-t border-white/10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-            <span>© {new Date().getFullYear()} tseeder.cc · All rights reserved</span>
+            <span>© {new Date().getFullYear()} fseeder.cc · All rights reserved</span>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-emerald-400" style={{ boxShadow: "0 0 4px #34d399" }} />
@@ -941,7 +914,6 @@ export default function LandingPage() {
         </div>
       </footer>
 
-      {/* Progress bar animation keyframes */}
       <style>{`
         @keyframes hero-progress {
           0%   { width: 15%; }
@@ -954,8 +926,6 @@ export default function LandingPage() {
     </div>
   );
 }
-
-// ─── Newsletter Form ──────────────────────────────────────────────────────────
 
 function NewsletterForm({ compact = false }: { compact?: boolean }) {
   const [email, setEmail] = useState("");

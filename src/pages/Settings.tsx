@@ -170,10 +170,10 @@ function ConfigRow({ label, value, mono = true }: { label: string; value: string
 
 // ── The full integrations section ───────────────────────────────────────────
 function IntegrationsSection({ apiKeys, userEmail }: { apiKeys: ApiKey[]; userEmail: string }) {
-  const apiBase = import.meta.env.VITE_API_BASE_URL ?? "https://api.tseeder.com";
+  const apiBase = import.meta.env.VITE_API_BASE_URL ?? "https://api.fseeder.cc";
   const webdavUrl = apiBase.replace("api.", "webdav.") + "/" + (userEmail !== "—" ? userEmail.split("@")[0] : "your-username");
-  const qbtHost = "qbt.tseeder.com";
-  const stremioAddonUrl = "https://stremio.tseeder.com/YOUR_API_KEY/manifest.json";
+  const qbtHost = "qbt.fseeder.cc";
+  const stremioAddonUrl = "https://stremio.fseeder.cc/YOUR_API_KEY/manifest.json";
   const firstKey = apiKeys[0];
   const apiKeyDisplay = firstKey ? `${firstKey.prefix}••••••••` : "Generate an API key above first";
 

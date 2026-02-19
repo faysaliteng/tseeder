@@ -34,7 +34,7 @@ export default function DMCAPage() {
           <p className="text-xs font-bold text-indigo-500 uppercase tracking-widest mb-3">Legal</p>
           <h1 className="text-4xl font-black tracking-tight text-gray-900 mb-3">DMCA &amp; Abuse</h1>
           <p className="text-sm text-gray-500">
-            tseeder respects intellectual property rights and complies with the Digital Millennium Copyright Act (DMCA). Use this page to submit a takedown notice or report abuse.
+            fseeder respects intellectual property rights and complies with the Digital Millennium Copyright Act (DMCA). Use this page to submit a takedown notice or report abuse.
           </p>
         </div>
 
@@ -50,7 +50,7 @@ export default function DMCAPage() {
             <h2 className="font-bold text-sm text-gray-900 mb-1">Illegal Content / CSAM</h2>
             <p className="text-xs text-gray-500">
               To report child sexual abuse material or other illegal content, email{" "}
-              <strong className="text-gray-900">abuse@tseeder.cc</strong> immediately. We report all CSAM to NCMEC.
+              <strong className="text-gray-900">abuse@fseeder.cc</strong> immediately. We report all CSAM to NCMEC.
             </p>
           </div>
         </div>
@@ -132,7 +132,7 @@ export default function DMCAPage() {
               </button>
 
               <p className="text-xs text-gray-400 text-center">
-                For urgent abuse reports, email <strong className="text-gray-700">abuse@tseeder.cc</strong> directly.
+                For urgent abuse reports, email <strong className="text-gray-700">abuse@fseeder.cc</strong> directly.
               </p>
             </form>
           </div>
