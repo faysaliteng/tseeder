@@ -1,10 +1,89 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#6366f1"/>
-      <stop offset="100%" stop-color="#8b5cf6"/>
+    <!-- Dark navy background gradient matching logo -->
+    <radialGradient id="bg128" cx="50%" cy="40%" r="65%">
+      <stop offset="0%" stop-color="#0d1240"/>
+      <stop offset="100%" stop-color="#060918"/>
+    </radialGradient>
+
+    <!-- Lightning bolt gradient: neon magenta-purple to electric blue -->
+    <linearGradient id="bolt128" x1="0.5" y1="0" x2="0.3" y2="1">
+      <stop offset="0%" stop-color="#e040fb"/>
+      <stop offset="40%" stop-color="#9c27b0"/>
+      <stop offset="100%" stop-color="#3d5afe"/>
     </linearGradient>
+
+    <!-- Outer glow (wide, soft) -->
+    <filter id="glow128" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur2"/>
+      <feMerge>
+        <feMergeNode in="blur1"/>
+        <feMergeNode in="blur2"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Core bright glow (tight) -->
+    <filter id="core128" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Clip to rounded square -->
+    <clipPath id="clip128">
+      <rect width="128" height="128" rx="22"/>
+    </clipPath>
   </defs>
-  <rect width="128" height="128" rx="24" fill="url(#g)"/>
-  <text x="64" y="95" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="80" font-weight="900" fill="white" text-anchor="middle">T</text>
+
+  <!-- Background -->
+  <rect width="128" height="128" rx="22" fill="url(#bg128)"/>
+
+  <!-- Subtle radial light behind bolt -->
+  <ellipse cx="64" cy="64" rx="38" ry="48" fill="#6600cc" opacity="0.15"/>
+
+  <!-- Outer glow layer (large, diffuse) -->
+  <g filter="url(#glow128)" clip-path="url(#clip128)">
+    <!-- Lightning bolt path (center of 128x128 canvas) -->
+    <!-- Top section: 72,18 → 46,62 → 62,62 → 36,110 → 82,58 → 65,58 → 88,18 -->
+    <polygon
+      points="72,18 44,64 62,64 34,112 86,58 66,58 90,18"
+      fill="#c060ff"
+      opacity="0.4"
+    />
+  </g>
+
+  <!-- Mid glow layer -->
+  <g filter="url(#core128)" clip-path="url(#clip128)">
+    <polygon
+      points="72,18 44,64 62,64 34,112 86,58 66,58 90,18"
+      fill="url(#bolt128)"
+      opacity="0.75"
+    />
+  </g>
+
+  <!-- Main lightning bolt -->
+  <polygon
+    points="72,18 44,64 62,64 34,112 86,58 66,58 90,18"
+    fill="url(#bolt128)"
+    clip-path="url(#clip128)"
+  />
+
+  <!-- Bright white core highlight -->
+  <polygon
+    points="72,18 44,64 62,64 34,112 86,58 66,58 90,18"
+    fill="white"
+    opacity="0.18"
+    clip-path="url(#clip128)"
+  />
+
+  <!-- Thin hot-white edge on top-right face of bolt -->
+  <line x1="72" y1="18" x2="90" y2="18" stroke="white" stroke-width="1.2" opacity="0.5"/>
+  <line x1="90" y1="18" x2="66" y2="58" stroke="white" stroke-width="0.8" opacity="0.35"/>
+
+  <!-- Bottom tip electric-blue accent glow -->
+  <ellipse cx="58" cy="106" rx="10" ry="5" fill="#448aff" opacity="0.55" filter="url(#glow128)"/>
 </svg>
