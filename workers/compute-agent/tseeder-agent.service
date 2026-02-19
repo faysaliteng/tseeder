@@ -1,0 +1,80 @@
+[Unit]
+Description=tseeder Compute Agent
+Documentation=https://github.com/your-org/tseeder/blob/main/docs/vm-install.md
+After=network-online.target
+Wants=network-online.target
+# Restart automatically if it crashes at unit level
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=tseeder-agent
+Group=tseeder-agent
+WorkingDirectory=/opt/tseeder-agent
+
+# All secrets/config come from this file (mode 640, owned root:tseeder-agent)
+EnvironmentFile=/etc/tseeder-agent.env
+
+# Entrypoint — Bun runs the TypeScript source directly (no build step needed)
+ExecStart=/usr/local/bin/bun run /opt/tseeder-agent/src/index.ts
+
+# Restart policy
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=30s
+TimeoutStopSec=30s
+
+# ── Security hardening ──────────────────────────────────────────────────────
+# Prevent privilege escalation
+NoNewPrivileges=yes
+
+# Mount /usr, /boot, /etc as read-only; only listed ReadWritePaths are writable
+ProtectSystem=strict
+
+# Hide /home and /root from the service
+ProtectHome=yes
+
+# Private /tmp — not shared with other services or the host
+PrivateTmp=yes
+
+# No access to raw device files
+PrivateDevices=yes
+
+# Prevent modifying kernel tunables
+ProtectKernelTunables=yes
+
+# Prevent loading kernel modules
+ProtectKernelModules=yes
+
+# Prevent writing to cgroups hierarchy
+ProtectControlGroups=yes
+
+# Prevent acquiring real-time scheduling
+RestrictRealtime=yes
+
+# Prevent setuid/setgid bits from taking effect
+RestrictSUIDSGID=yes
+
+# Prevent changing execution domain / personality
+LockPersonality=yes
+
+# Drop all ambient capabilities
+AmbientCapabilities=
+
+# Allow write access only to the data directory
+ReadWritePaths=/var/lib/tseeder-agent
+
+# ── Resource limits ─────────────────────────────────────────────────────────
+# 65536 open file descriptors — needed for many simultaneous torrent connections
+LimitNOFILE=65536
+# Reasonable process limit
+LimitNPROC=4096
+
+# ── Logging ─────────────────────────────────────────────────────────────────
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tseeder-agent
+
+[Install]
+WantedBy=multi-user.target
