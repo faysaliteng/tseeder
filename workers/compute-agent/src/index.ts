@@ -9,8 +9,7 @@
 import { createServer } from "node:http";
 import { handleStart } from "./routes/start";
 import { handleStop } from "./routes/stop";
-import { handleStatus } from "./routes/status";
-import { handleFiles } from "./routes/files";
+import { handleStatus, handleFiles } from "./routes/status";
 import { handleHealth } from "./routes/health";
 import { logger } from "./logger";
 
