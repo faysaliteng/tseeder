@@ -34,7 +34,7 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[hsl(220,26%,6%)] px-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-[hsl(220,26%,6%)] px-4 py-8 relative overflow-hidden">
 
       {/* Scanline overlay */}
       <div
