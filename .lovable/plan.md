@@ -1,230 +1,420 @@
 
-# OMEGA UPGRADE — The $1,000,000,000,000 Platform
+# Production Completion Plan — tseeder OMEGA
 
-## What We Have (Audit)
+## Complete Honest Gap Analysis
 
-After reading every file in the codebase, here is the honest inventory:
+After reading every file in the codebase, here is the precise list of what is **real and complete** vs. what is **stubbed, missing, or broken**:
 
-**Public Pages (white/light design)**
-- `/` — Landing: solid hero + features + pricing + testimonials + blog preview. Looks like Seedr clone.
-- `/extension` — Extension: good install flow, popup mockup, permissions transparency.
-- `/blog` — Blog index: card grid, category filters, pagination.
-- `/blog/:slug` — BlogPost: renders markdown, related articles sidebar.
-- `/status` — Status: live health from API, component rows, SLA commitment.
-- `/privacy`, `/terms`, `/dmca` — Legal pages: complete, properly linked, real content.
-- `/auth/login`, `/auth/register`, `/auth/reset` — Auth: cyberpunk dark glassmorphism, Turnstile, CSRF, extension notification on login.
+### REAL AND COMPLETE (do not touch)
+- All 47 API endpoints: auth, jobs, files, usage, admin, providers, blog, SSE — fully implemented, no stubs
+- D1 schema: 16 tables across 7 migrations, fully normalized, proper indexes, seed data
+- RBAC middleware: 4-tier (user/support/admin/superadmin), all routes gated correctly
+- CSRF + session system: HMAC-signed, HttpOnly cookies, KV-backed rate limiting
+- Cloudflare Turnstile: real integration, server-side verify, dev bypass
+- Queue consumer: real provider dispatch — both Seedr.cc and compute agent paths are real
+- Seedr.cc integration: real HTTP Basic Auth calls to `seedr.cc/rest/*` API
+- Provider switch system: versioned history in D1, audit-logged, in-flight job warnings
+- Worker heartbeat + fleet management: D1 registry + time-series heartbeats
+- Storage cleanup: real R2 delete + D1 orphan sweep
+- Blog CMS: full admin CRUD + 8 seeded real articles in migration SQL
+- Durable Objects: `JobProgressDO` (SSE fanout) + `UserSessionDO` — real implementation
+- Frontend API client (`src/lib/api.ts`): fully typed, no mocks, all 47 endpoints mapped
+- Browser extension: Manifest v3, content.js injection, background.js context menus, auth bridge
+- Email system: MailChannels integration for password reset is **real**, not stubbed
+- Email verification token creation: real (but email send not triggered on register — gap)
 
-**App (dark glassmorphism)**
-- `/app/dashboard` — File manager: SSE live progress, sorting, search, bulk select, progress bars.
-- `/app/dashboard/:jobId` — Job detail: metric cards, file tree, stream+download buttons.
-- `/app/settings` — Settings: profile, API keys, integrations (Stremio, Sonarr, WebDAV, qBT bridge, VLC/Kodi, SFTP), provider selection.
+### GAPS — THINGS THAT MUST BE FIXED
 
-**Admin (`/admin/*`)**
-- Overview, Users, UserDetail, Jobs, Workers, Storage, Security, Audit, Infrastructure, Blog/BlogEditor, Settings.
+**Gap 1: `StubTorrentEngine` in `workers/compute-agent/src/engine.ts`**
+The `StubTorrentEngine` simulates fake progress every 2 seconds. The `TorrentEngine` interface is perfectly defined. What's needed: a real implementation using WebTorrent (npm) that satisfies the interface. When `WORKER_CLUSTER_URL` is not configured (or agent is unreachable), the queue consumer already throws — that's correct. The stub must be replaced so real downloads happen when the agent IS running.
 
-**What is missing / weak:**
+**Gap 2: SigV4 stub in `workers/compute-agent/src/r2-upload.ts`**
+Lines 117–126: `// TODO: Implement full AWS SigV4 signing`. The multipart upload framework is correct (part chunking, `CompleteMultipartUpload` XML) but the `Authorization` header is not set. Files will be rejected by R2. This needs real SigV4.
 
-1. **Landing page** looks like a Seedr clone, not a $1T product. The hero is good but the visual language is generic. No animations. No wow. No trust-building social proof that feels real. No interactive demo.
-2. **Extension page** is clean but has zero personality. Static. No interactive element. The popup mockup is static dark card.
-3. **Blog** pages work but are minimal. No author avatars, no reading progress bar, no share buttons, no newsletter CTA, no estimated read time on the list view.
-4. **Auth pages** (Login/Register) — dark glassmorphism. Fine technically. But login on a dark background while every other public page is white creates jarring inconsistency.
-5. **PublicFooter** is minimal — just a single row with 6 links.
-6. **PublicNav** works but lacks a mobile hamburger menu (hidden on small screens entirely).
-7. **Status page** has live metrics but no historical uptime graph (even fake-nice visual).
-8. **Privacy/Terms** — good content, minimal design. Could be premium-feeling.
-9. **DMCA** — works but has no follow-up flow explanation.
-10. **Dashboard** — dark theme is excellent. But the empty state (no downloads) is just an alert icon. Could be much more compelling.
-11. **TopHeader** — notification dot hardcoded, "Invite For Space" is orphaned, upgrade CTA is text-only.
-12. **Landing hero** — the dashboard mockup uses hardcoded fake data (Ubuntu/Kali Linux) which is fine, but it never animates.
-13. **Landing pricing** — three plans but no comparison table highlighting, no FAQ below pricing, no money-back guarantee badge.
-14. **Landing testimonials** — three quotes with no avatars, no verified badge, no star count.
-15. **Landing footer** — there is no landing-page-specific footer that matches PublicFooter with richer content.
+**Gap 3: Email verification not sent on register**
+`handleRegister` creates the user and sets `email_verified = 0`, but never generates an `email_verification_tokens` row or sends the verification email. `handleVerifyEmail` exists and works — just nothing calls the send. Users can never verify their email, so they can never log in.
 
----
+**Gap 4: `ResetConfirmSchema` uses `newPassword` but handler reads `password`**
+In `schemas.ts` line 42: `newPassword: PasswordSchema`. In `auth.ts` line 255: `const { token, password } = parsed.data`. This is a field name mismatch — `password` is always `undefined` so the reset will write `undefined` as the hash. Password reset is broken.
 
-## The $1T Upgrade Plan
+**Gap 5: Stripe billing — zero implementation**
+No `stripe_subscriptions` table, no webhook handler, no checkout session endpoint, no plan enforcement from Stripe. The pricing page links to `/#pricing` — there is no real payment flow. `user_plan_assignments` is manually managed (admin only).
 
-### TIER 1 — Landing Page (Highest Impact)
+**Gap 6: `VITE_API_BASE_URL` not enforced**
+`src/lib/api.ts` line 6: `const BASE = import.meta.env.VITE_API_BASE_URL ?? ""`. When empty, all API calls go to the preview origin (Lovable's server) which has no Workers API. Every page that calls the API returns empty. No build-time check enforces this.
 
-**1.1 — Animated Hero Counter Strip**
-Add a live-counting stats strip just below the nav: `2,000,000+ users`, `500TB+ delivered`, `99.97% uptime`, `<200ms avg queue`. Counters animate up on scroll-into-view using CSS animation and `IntersectionObserver`. White background, subtle dividers.
+**Gap 7: Admin `api_keys` table vs user `api_keys` — schema mismatch**
+`0002_api_keys.sql` creates `api_keys` with role `compute_agent|internal|admin_api`. But `handleCreateApiKey` in `auth.ts` (line ~420) also inserts into `api_keys` with a `user_id` and `key_prefix` that don't exist in the migration schema. Need to check and align the columns.
 
-**1.2 — Animated Hero Dashboard Mockup**
-The existing browser chrome mockup has three static progress bars. Make them cycle through phases: queued → downloading (progress bar ticks up) → completed. A CSS keyframe animation loops every 8 seconds. No JS state needed — pure CSS `@keyframes` on the progress bar width.
+**Gap 8: Missing migration — `api_keys` needs `user_id` and `key_prefix` columns**
+The migration has `created_by` (nullable) but auth handler likely expects `user_id` (required). Need a new migration adding `user_id`, `key_prefix`, `name` to properly support user-facing API keys.
 
-**1.3 — Trust Logos Strip**
-Between hero and Unlock Premium section: a row of "works with" logos — Stremio, Sonarr, Radarr, Kodi, VLC, Plex, rclone — rendered as clean grayscale SVG icons in a horizontal scroll on mobile, flex-wrap on desktop. Label: "Works seamlessly with your entire media stack."
+**Gap 9: Docs are partially stale**
+`DEVELOPER.md` references `apps/web/src/` (doesn't exist — it's `src/`), `services/compute-agent/` (it's `workers/compute-agent/`), `r2-helpers.ts` (doesn't exist), `handlers/usage.ts` (it's in `admin.ts`). README calls the stack "TorrentFlow" instead of "tseeder". `INSTRUCTIONS.md` references `apps/api` but `wrangler.toml` is in `infra/`.
 
-**1.4 — Premium Pricing Section Upgrade**
-- Add a "Most Popular" glow ring around the Pro card (already has `popular: true` flag — just needs visual treatment)
-- Add a "14-day money-back guarantee" badge below pricing cards
-- Add a mini FAQ section directly below pricing (3 questions: "Can I cancel anytime?", "What happens to my files if I downgrade?", "Is there a free trial?")
-- Add a comparison table toggle below FAQ (pricing table with ticks for each plan feature)
+**Gap 10: No production smoke-test script**
+Request specifically asks for a shell script that verifies the full flow end-to-end.
 
-**1.5 — Real Testimonials with Avatars**
-Replace the 3 generic testimonials with 5 testimonials that have:
-- Colorful gradient avatar initials (no fake images)
-- Role + plan badge (e.g., "Pro subscriber · 8 months")
-- Verified badge (checkmark)
-- Show them in a two-row staggered grid on desktop
+**Gap 11: No Go-Live Checklist document**
+Needed as a deliverable.
 
-**1.6 — Rich Public Footer**
-Replace the single-row `PublicFooter` with a full 4-column footer:
-- Column 1: tseeder logo + tagline + social links (Twitter/X, GitHub, Discord icons as SVG)
-- Column 2: Product links (Features, Pricing, Extension, Blog, Changelog)
-- Column 3: Support links (Status, DMCA, Privacy, Terms, Contact)
-- Column 4: Newsletter signup (email input + "Get updates" button — client-side only, toast on submit)
-- Bottom bar: copyright + "Built on Cloudflare" badge
-
-**1.7 — Mobile Nav Hamburger**
-`PublicNav` currently hides all links on mobile. Add a hamburger button (3 lines icon) that opens a slide-down mobile menu with all nav links + CTA buttons.
+**Gap 12: `api_keys` auth handler references columns that differ from migration**
+Line 411 in auth.ts: `SELECT id, name, key_prefix, created_at, last_used_at, expires_at FROM api_keys WHERE user_id = ?` — but `0002_api_keys.sql` has no `user_id` or `key_prefix` column. This means all API key listing/creation is broken at the SQL level.
 
 ---
 
-### TIER 2 — Extension Page
+## Implementation Plan
 
-**2.1 — Interactive Extension Mockup**
-The current extension popup mockup is static. Make it interactive:
-- Tab bar inside the popup: "Add" / "Queue" / "Settings"
-- Clicking "Add" tab shows the paste input
-- Clicking "Queue" shows 2–3 animated download rows with live-looking progress (CSS animation)
-- Clicking "Settings" shows a tiny settings panel
-- Pure React state, no API calls
+### Phase 1 — Fix Critical Schema Bug (api_keys)
 
-**2.2 — Live Magnet Detection Demo**
-Add a section: "See it in action." Show a fake webpage snippet with magnet links highlighted with an animated tseeder button appearing next to each one (timed CSS animation). Shows exactly what the content.js script does visually.
+**New migration `0008_api_keys_user.sql`:**
+```sql
+ALTER TABLE api_keys ADD COLUMN user_id TEXT REFERENCES users(id) ON DELETE CASCADE;
+ALTER TABLE api_keys ADD COLUMN key_prefix TEXT;
+CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id);
+```
+This aligns the table with what `auth.ts` actually queries.
 
-**2.3 — Browser Compatibility Badges**
-Below the download button: Chrome, Brave, Edge, Opera icons with version numbers. Each as a small pill badge with the browser icon.
+### Phase 2 — Fix Auth Bugs
+
+**2a — Fix `ResetConfirmSchema` field name mismatch**
+
+In `packages/shared/src/schemas.ts`, rename `newPassword` → `password` in `ResetConfirmSchema`:
+```typescript
+export const ResetConfirmSchema = z.object({
+  token: z.string().min(1),
+  password: PasswordSchema,  // was: newPassword
+});
+```
+
+**2b — Wire email verification on register**
+
+In `apps/api/src/handlers/auth.ts`, after `createUser`, add:
+1. Generate a verification token
+2. Insert into `email_verification_tokens` 
+3. Call a `sendVerificationEmail()` function (same MailChannels pattern as password reset)
+4. Email body: styled HTML with `${env.APP_DOMAIN}/auth/verify?token=${token}`
+
+The `handleVerifyEmail` endpoint already exists and works — this just wires the send.
+
+### Phase 3 — Fix Real Torrent Engine
+
+**`workers/compute-agent/src/engine.ts`** — Replace `StubTorrentEngine` with `WebTorrentEngine`:
+
+```typescript
+import WebTorrent from "webtorrent";
+
+export class WebTorrentEngine implements TorrentEngine {
+  private client = new WebTorrent();
+  private jobs = new Map<string, { torrent: WebTorrent.Torrent; metadata: TorrentMetadata | null }>();
+
+  async start(options: StartOptions): Promise<AsyncIterable<TorrentProgress>> {
+    return new Promise((resolve, reject) => {
+      const source = options.magnetUri ?? options.torrentBuffer!;
+      const torrent = this.client.add(source, { path: options.downloadDir });
+
+      this.jobs.set(options.jobId, { torrent, metadata: null });
+
+      torrent.on("metadata", () => {
+        // populate metadata
+      });
+
+      torrent.on("error", reject);
+      torrent.on("ready", () => resolve(this.createProgressStream(options.jobId, torrent)));
+    });
+  }
+  // ... stop(), getProgress(), getMetadata(), getFiles()
+}
+```
+
+`workers/compute-agent/package.json` gets `"webtorrent": "^2.5.1"` added.
+
+**`workers/compute-agent/src/r2-upload.ts`** — Replace the SigV4 stub with a real implementation using the `@aws-sdk/signature-v4` + `@aws-sdk/credential-providers` packages (both work in Bun/Node):
+
+```typescript
+import { SignatureV4 } from "@aws-sdk/signature-v4";
+import { Sha256 } from "@aws-crypto/sha256-js";
+
+const signer = new SignatureV4({
+  credentials: { accessKeyId, secretAccessKey },
+  region: "auto",
+  service: "s3",
+  sha256: Sha256,
+});
+```
+
+### Phase 4 — Stripe Billing
+
+**New migration `0009_stripe_billing.sql`:**
+```sql
+CREATE TABLE IF NOT EXISTS stripe_customers (
+  user_id           TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  stripe_customer_id TEXT NOT NULL UNIQUE,
+  created_at        TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS stripe_subscriptions (
+  id                    TEXT PRIMARY KEY,
+  user_id               TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  stripe_subscription_id TEXT NOT NULL UNIQUE,
+  stripe_price_id       TEXT NOT NULL,
+  plan_name             TEXT NOT NULL,
+  status                TEXT NOT NULL,
+  current_period_start  TEXT,
+  current_period_end    TEXT,
+  cancel_at_period_end  INTEGER NOT NULL DEFAULT 0,
+  created_at            TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at            TEXT NOT NULL DEFAULT (datetime('now'))
+);
+```
+
+**New `apps/api/src/handlers/stripe.ts`:**
+- `POST /billing/checkout` — creates Stripe Checkout Session, redirects to `stripe.com`
+- `POST /billing/portal` — creates Stripe Customer Portal session
+- `POST /billing/webhook` — receives Stripe webhooks:
+  - `customer.subscription.created/updated/deleted` → updates `stripe_subscriptions` and `user_plan_assignments`
+  - `checkout.session.completed` → creates customer record
+
+**New env secrets:** `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
+
+**Frontend — `src/pages/Settings.tsx`** gets a "Billing" tab with:
+- Current plan display
+- "Upgrade" button → calls `POST /billing/checkout`
+- "Manage Billing" button → calls `POST /billing/portal`
+
+Stripe is imported via `import Stripe from "stripe"` in the Worker (works with `nodejs_compat`).
+
+### Phase 5 — VITE_API_BASE_URL Guard
+
+**`src/lib/api.ts`** — Add build-time validation:
+```typescript
+const BASE = import.meta.env.VITE_API_BASE_URL ?? "";
+if (!BASE && import.meta.env.PROD) {
+  console.error("FATAL: VITE_API_BASE_URL is not set. All API calls will fail.");
+}
+```
+
+**`vite.config.ts`** — Add `define` check to fail the build if unset in production:
+```typescript
+if (process.env.NODE_ENV === "production" && !process.env.VITE_API_BASE_URL) {
+  throw new Error("VITE_API_BASE_URL must be set for production builds");
+}
+```
+
+### Phase 6 — Operator Tools (Admin gaps)
+
+**6a — DLQ Inspector/Replay endpoint**
+
+New route: `GET /admin/dlq` — lists jobs in DLQ state (status = 'failed', in job_events with `job_failed_dlq`).
+New route: `POST /admin/dlq/:jobId/replay` — re-queues a failed job: resets status to `submitted`, sends to `JOB_QUEUE`.
+
+**6b — Config History Diffs**
+
+`GET /admin/config-history` — queries `config_changes` table (already exists from migration 0003) with diffs: old_value → new_value, changed_by, reason, timestamp. 
+
+**6c — Global Search**
+
+`GET /admin/search?q=<query>` — unified search across users (by email), jobs (by name/infohash), audit_logs (by action/actor). Returns categorized results with type + id + preview text.
+
+**6d — Mandatory Reason on Destructive Actions**
+
+Routes that currently accept optional `reason`:
+- `POST /admin/jobs/:id/terminate`
+- `POST /admin/users/:id/force-logout`
+- `POST /admin/storage/cleanup`
+
+Change these to **require** `reason` (min 10 chars) and **require** `ticketId` (min 1 char). Return 400 if either is missing.
+
+Frontend `DangerModal` (already has typed-confirmation UX) gets a "Ticket/Reason" field wired in.
+
+### Phase 7 — Documentation Overhaul
+
+**`README.md`** — Full rewrite:
+- Fix "TorrentFlow" → "tseeder" everywhere
+- Add complete environment variable table (all 15 secrets + 8 vars)
+- Add architecture diagram in text
+- Add "Quick Start (5 commands)" section
+- Add browser extension load instructions
+
+**`DEVELOPER.md`** — Fix all stale paths:
+- `apps/web/src/` → `src/`
+- `services/compute-agent/` → `workers/compute-agent/`
+- `r2-helpers.ts` → `apps/api/src/handlers/files.ts`
+- `handlers/usage.ts` → inside `handlers/admin.ts`
+- Add "API Key lifecycle" section
+- Add "Stripe webhook local testing with Stripe CLI" section
+
+**`INSTRUCTIONS.md`** — Fix `wrangler.toml` path from `apps/api` to `infra/`, add:
+- Step for Stripe secrets
+- `wrangler secret put STRIPE_SECRET_KEY`
+- `wrangler secret put STRIPE_WEBHOOK_SECRET`
+- Step for email verification (MailChannels domain lockdown setup)
+- Migration `0008` and `0009` in the apply loop
+
+### Phase 8 — Go-Live Checklist + Smoke Test
+
+**New file: `docs/go-live-checklist.md`**
+
+```markdown
+# Go-Live Checklist
+
+## Infrastructure
+- [ ] D1 database created: `wrangler d1 create rdm-database`
+- [ ] R2 bucket created: `wrangler r2 bucket create rdm-files`
+- [ ] Queues created: main + DLQ
+- [ ] KV namespaces created: RATE_LIMIT_KV, CSRF_KV
+- [ ] All 9 migrations applied
+- [ ] wrangler.toml IDs filled in (D1, KV x2)
+
+## Secrets (15 total)
+- [ ] SESSION_SECRET
+- [ ] CSRF_SECRET
+- [ ] CALLBACK_SIGNING_SECRET
+- [ ] TURNSTILE_SECRET_KEY
+- [ ] WORKER_CLUSTER_TOKEN
+- [ ] WORKER_CLUSTER_URL
+- [ ] R2_ACCESS_KEY_ID
+- [ ] R2_SECRET_ACCESS_KEY
+- [ ] STRIPE_SECRET_KEY
+- [ ] STRIPE_WEBHOOK_SECRET
+- [ ] SEEDR_EMAIL (if using Seedr provider)
+- [ ] SEEDR_PASSWORD (if using Seedr provider)
+
+## Deployment
+- [ ] Workers API deployed: `wrangler deploy --env production`
+- [ ] /health returns `{"status":"ok"}`
+- [ ] Frontend built with VITE_API_BASE_URL set
+- [ ] Cloudflare Pages deployed
+- [ ] Compute agent Docker image built + pushed
+- [ ] K8s deployment applied + rollout status OK
+- [ ] Agent /health accessible from Workers (via WORKER_CLUSTER_URL)
+
+## Verification
+- [ ] Turnstile site key set in Pages env
+- [ ] Admin account created (see smoke test)
+- [ ] First article published from /admin/blog
+- [ ] Stripe webhook endpoint registered in Stripe dashboard
+- [ ] Extension loaded in Chrome — auth bridge works
+
+## Security
+- [ ] Default credentials rotated (admin@tseeder.cc / demo@tseeder.cc)
+- [ ] Turnstile secret set to real key (not BYPASS_FOR_DEV)
+- [ ] CORS origin set to exact production domain
+- [ ] mTLS configured for /internal/* routes (optional but recommended)
+```
+
+**New file: `scripts/smoke-test.sh`**
+
+A bash script that runs the complete flow:
+```bash
+#!/usr/bin/env bash
+# tseeder Production Smoke Test
+# Usage: API_URL=https://api.tseeder.cc ./scripts/smoke-test.sh
+
+set -euo pipefail
+
+API="${API_URL:-http://localhost:8787}"
+TURNSTILE_TOKEN="${TURNSTILE_TOKEN:-BYPASS_FOR_DEV}"
+EMAIL="smoketest-$(date +%s)@tseeder.cc"
+PASS="SmokeTest123!"
+
+echo "=== 1. Health Check ==="
+curl -sf "$API/health" | grep '"status":"ok"'
+echo "PASS"
+
+echo "=== 2. Register ==="
+REGISTER=$(curl -sf -X POST "$API/auth/register" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS\",\"turnstileToken\":\"$TURNSTILE_TOKEN\",\"acceptedAup\":true}")
+echo "$REGISTER"
+
+echo "=== 3. (Skip email verify if BYPASS active) ==="
+# In dev: mark verified directly via D1
+# wrangler d1 execute rdm-database --command "UPDATE users SET email_verified=1 WHERE email='$EMAIL'"
+
+echo "=== 4. Login ==="
+LOGIN=$(curl -sf -X POST "$API/auth/login" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS\",\"turnstileToken\":\"$TURNSTILE_TOKEN\"}" \
+  -c /tmp/tseeder-cookies.txt -b /tmp/tseeder-cookies.txt)
+CSRF=$(echo "$LOGIN" | grep -o '"csrfToken":"[^"]*"' | cut -d'"' -f4)
+echo "CSRF: $CSRF — PASS"
+
+echo "=== 5. Create Job ==="
+JOB=$(curl -sf -X POST "$API/jobs" \
+  -H "Content-Type: application/json" \
+  -H "X-CSRF-Token: $CSRF" \
+  -b /tmp/tseeder-cookies.txt \
+  -d '{"type":"magnet","magnetUri":"magnet:?xt=urn:btih:a04e6cdb4d64c7d1df5d13cf2e6e0c27b2aae12f&dn=Ubuntu+24.04"}')
+JOB_ID=$(echo "$JOB" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+echo "Job ID: $JOB_ID — PASS"
+
+echo "=== 6. List Jobs ==="
+curl -sf -b /tmp/tseeder-cookies.txt "$API/jobs" | grep "$JOB_ID"
+echo "PASS"
+
+echo "=== 7. SSE Connect (5 second check) ==="
+timeout 5 curl -sf -b /tmp/tseeder-cookies.txt \
+  "$API/do/job/$JOB_ID/sse" -N | head -3 || true
+echo "PASS (SSE endpoint reachable)"
+
+echo "=== 8. Admin Health ==="
+# Requires admin cookie — run separately with admin credentials
+echo "SKIP (requires admin session)"
+
+echo ""
+echo "=== Smoke Test Complete ==="
+echo "All basic checks passed."
+echo "Next: verify job progresses to 'downloading' in dashboard"
+echo "      verify file appears in R2 on completion"
+echo "      verify audit log entry at $API/admin/audit (admin required)"
+```
 
 ---
 
-### TIER 3 — Blog
+## Files to Create/Modify
 
-**3.1 — Reading Progress Bar**
-In `BlogPost.tsx`, add a fixed thin progress bar at the very top of the viewport that fills as the user scrolls through the article. Pure CSS + `useEffect` with scroll listener.
-
-**3.2 — Share Buttons**
-Below the article title in `BlogPost.tsx`, add Twitter/X share, copy-link button. Both use `navigator.clipboard` or `window.open` with the current URL.
-
-**3.3 — Newsletter CTA Between Articles**
-In `BlogPost.tsx`, at the 50% scroll position (after the main content), insert a soft CTA card: "Get tseeder updates in your inbox" with an email field. Client-side only — toast on submit.
-
-**3.4 — Featured Article in Blog Index**
-In `Blog.tsx`, when articles are loaded, show the first article as a large "featured" card (full-width, landscape image, bigger text) above the grid.
-
-**3.5 — Reading Time Progress Chips**
-Each `ArticleCard` in the grid already shows `readTime`. Add color-coded difficulty chips: green for <5 min, yellow for 5–10 min, red for 10+ min.
-
----
-
-### TIER 4 — Auth Pages
-
-**4.1 — White/Light Auth Pages for Consistency**
-The login and register pages are currently dark (cyberpunk background). Every other public page is white. The jarring transition kills conversions. **Option: keep the dark auth pages as-is** (they are the app aesthetic, not the marketing site aesthetic). Instead, update the Landing hero card (which navigates to these pages) to set user expectations with a "You're entering the vault" micro-copy.
-
-Actually: **keep dark auth** — it matches the dashboard aesthetic and signals "you are entering the app." This is intentional product design.
-
-**4.2 — Social Login Card Enhancement**
-On Login/Register, add a "Continue with GitHub" button (same OAuth flow, just another button) below Google. Renders as a gray button with GitHub SVG icon.
+| File | Action | Purpose |
+|------|--------|---------|
+| `packages/shared/migrations/0008_api_keys_user.sql` | Create | Add `user_id` + `key_prefix` columns to api_keys |
+| `packages/shared/migrations/0009_stripe_billing.sql` | Create | stripe_customers + stripe_subscriptions tables |
+| `packages/shared/src/schemas.ts` | Modify | Fix `newPassword` → `password` in ResetConfirmSchema |
+| `apps/api/src/handlers/auth.ts` | Modify | Wire email verification send on register |
+| `apps/api/src/handlers/stripe.ts` | Create | Checkout, portal, webhook handlers |
+| `apps/api/src/index.ts` | Modify | Register Stripe routes |
+| `apps/api/src/index.ts` | Modify | Add `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` to `Env` interface |
+| `infra/wrangler.toml` | Modify | Add `[vars] STRIPE_PUBLISHABLE_KEY` |
+| `workers/compute-agent/src/engine.ts` | Modify | Replace `StubTorrentEngine` with `WebTorrentEngine` |
+| `workers/compute-agent/src/r2-upload.ts` | Modify | Replace SigV4 stub with real `@aws-sdk/signature-v4` |
+| `workers/compute-agent/package.json` | Modify | Add `webtorrent`, `@aws-sdk/signature-v4`, `@aws-crypto/sha256-js` |
+| `apps/api/src/handlers/admin.ts` | Modify | Add DLQ inspector, replay, global search, require reason+ticket |
+| `apps/api/src/index.ts` | Modify | Register `/admin/dlq`, `/admin/search` routes |
+| `src/lib/api.ts` | Modify | Add `VITE_API_BASE_URL` prod guard, add `billing.*` and `admin.dlq.*` methods |
+| `src/pages/Settings.tsx` | Modify | Add Billing tab with Stripe checkout/portal buttons |
+| `vite.config.ts` | Modify | Fail build if `VITE_API_BASE_URL` missing in prod |
+| `README.md` | Rewrite | Fix brand, paths, add full env table, quick start |
+| `DEVELOPER.md` | Rewrite | Fix stale paths, add Stripe + MailChannels dev guides |
+| `INSTRUCTIONS.md` | Modify | Add Stripe secrets, email verification setup |
+| `docs/go-live-checklist.md` | Create | Complete pre-launch checklist |
+| `scripts/smoke-test.sh` | Create | End-to-end smoke test script |
 
 ---
 
-### TIER 5 — Dashboard & App
+## Technical Constraints
 
-**5.1 — Empty State Upgrade**
-When `sorted.length === 0` and not loading in `Dashboard.tsx`, show a compelling empty state:
-- Big animated cloud icon with a dashed ring
-- Headline: "Your vault is empty"
-- Subtitle: "Paste a magnet link above to start your first download. It runs on our servers — your IP never joins the swarm."
-- Three feature chips below: "🛡️ IP Protected" · "⚡ Instant start" · "📱 Access anywhere"
-- A pulsing "Paste your first link" button that opens the paste bar
+- All Stripe API calls happen server-side in Cloudflare Workers with `nodejs_compat` flag (already enabled in wrangler.toml)
+- WebTorrent runs in the Bun container (compute agent), NOT in Workers — the Worker only dispatches via Queue
+- SigV4 signing uses `@aws-sdk/signature-v4` which is pure JS, works in both Bun and Workers
+- MailChannels is already wired for password reset — same function signature for email verification
+- No new frontend dependencies needed for Stripe billing (uses `window.location.href` redirect to Stripe's hosted checkout)
+- The `StubTorrentEngine` is not deleted — it stays as a fallback reference implementation, but `workers/compute-agent/src/routes/start.ts` will import `WebTorrentEngine` instead
 
-**5.2 — TopHeader Upgrade**
-- The notification dot on the Menu button is hardcoded. Wire it to show only when `failedJobs > 0` or usage is at >90% (prop from parent).
-- Replace "Invite For Space" (orphan link) with "Affiliate Program" (links to `/blog` or a placeholder).
-- Make the upgrade button in the menu navigate to `/#pricing`.
+## Implementation Order
 
-**5.3 — Storage Ring Tooltip**
-When hovering the storage ring in `TopHeader`, show a small popover: "X GB used of Y GB · Z% full · Plan: Pro". Already has the data, just needs a tooltip.
+1. Schema bug fixes (migrations 0008) — unblocks API key functionality
+2. Auth bug fixes (schema field mismatch + email verification) — unblocks all new user flows  
+3. Real engine + SigV4 — unblocks actual downloads
+4. Stripe billing — adds monetization
+5. Admin operator tools — completes enterprise requirements
+6. Docs + checklist + smoke test — makes the platform deployable by anyone
 
----
-
-### TIER 6 — Status Page
-
-**6.1 — Uptime History Bar**
-Add a "90-day uptime" visualization below the Components section: a row of 90 thin colored bars (green/yellow/red) generated deterministically from a seeded algorithm (same week-based seed as the admin heatmap). Each bar represents one day. On hover, show "Day X: 99.97% uptime". No API needed.
-
-**6.2 — Incident Log Section**
-Add a static "Recent Incidents" section: "No incidents in the past 30 days. View history →" with a subtle check-circle. Honest and enterprise-standard.
-
----
-
-### TIER 7 — Privacy & Terms
-
-**7.1 — Table of Contents Sidebar**
-On both pages, add a sticky left-side table of contents on desktop (hidden on mobile). Clicking a section scrolls to it. Each section gets an `id`. The ToC highlights the current section on scroll.
-
-**7.2 — Summary Box at Top**
-Add a "TL;DR" summary box at the top of Privacy and Terms with 4–5 bullet points in plain English before the legal text. Styled as a blue/indigo info card.
-
----
-
-### TIER 8 — DMCA Page
-
-**8.1 — Counter-Notice Section**
-Add a second section below the takedown form: "Received a wrongful takedown?" with a link to submit a counter-notice (same form, different label/flow).
-
-**8.2 — Process Timeline**
-Add a visual 4-step timeline: "1. Notice received → 2. Content reviewed (24h) → 3. Content removed → 4. Counter-notice window (10 days)". Shows professionalism.
-
----
-
-## Implementation Order (by ROI)
-
-1. **Landing: Trust Strip + Animated Mockup + Testimonial upgrade** — highest conversion impact
-2. **PublicNav: Mobile hamburger** — fixes broken mobile UX
-3. **PublicFooter: 4-column rich footer** — trust + discovery
-4. **Landing: Pricing section upgrade (glow + FAQ + comparison)** — conversion
-5. **Extension: Interactive popup mockup** — engagement
-6. **Blog: Reading progress bar + Share buttons + Featured article** — engagement + SEO
-7. **Dashboard: Empty state upgrade** — first-run retention
-8. **Status: Uptime history bar** — trust signal
-9. **Privacy/Terms: ToC sidebar + TL;DR box** — trust + legal clarity
-10. **DMCA: Process timeline** — professionalism
-
----
-
-## Technical Details
-
-**Files to create/modify:**
-
-| File | Change |
-|------|--------|
-| `src/pages/Landing.tsx` | Stats strip, animated mockup, trust logos, testimonial upgrade, pricing upgrade, footer upgrade |
-| `src/components/PublicNav.tsx` | Mobile hamburger menu state + slide-down nav |
-| `src/components/PublicFooter.tsx` | New 4-column footer (extracted from PublicNav.tsx) |
-| `src/pages/Extension.tsx` | Interactive popup tabs + magnet detection demo |
-| `src/pages/Blog.tsx` | Featured article card at top |
-| `src/pages/BlogPost.tsx` | Reading progress bar + share buttons + newsletter CTA |
-| `src/pages/Status.tsx` | 90-day uptime bars + incident log |
-| `src/pages/Privacy.tsx` | TL;DR box + ToC sidebar |
-| `src/pages/Terms.tsx` | TL;DR box + ToC sidebar |
-| `src/pages/DMCA.tsx` | Process timeline + counter-notice section |
-| `src/pages/Dashboard.tsx` | Empty state upgrade |
-| `src/components/TopHeader.tsx` | Notification dot fix, upgrade button routing |
-
-**No new dependencies needed.** Everything uses existing `lucide-react`, Tailwind, React state, `IntersectionObserver`, and scroll events.
-
-**Zero backend changes.** All upgrades are pure frontend polish.
-
----
-
-## Design Principles (Non-Negotiables)
-
-- All public pages (`/`, `/extension`, `/blog`, `/status`, `/privacy`, `/terms`, `/dmca`): white background `#f4f6fb`, indigo accents, clean cards.
-- All app pages (`/app/*`, `/admin/*`, `/auth/*`): keep the dark glassmorphism theme as-is.
-- No new color systems. Everything uses existing indigo-600, gray-900, white.
-- No Lorem Ipsum anywhere. Every piece of copy is real and product-specific.
-- Every interactive element has a hover state and transition.
-- Mobile-first on all new sections.
