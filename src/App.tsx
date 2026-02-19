@@ -23,6 +23,7 @@ import AdminAudit from "./pages/admin/Audit";
 import AdminSettingsPage from "./pages/admin/AdminSettings";
 import AdminUserDetail from "./pages/admin/UserDetail";
 import AdminLoginPage from "./pages/admin/AdminLogin";
+import AdminInfrastructure from "./pages/admin/Infrastructure";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -72,6 +73,7 @@ const App = () => (
           <Route path="/admin/security" element={<AdminSecurity />} />
           <Route path="/admin/audit" element={<AdminAudit />} />
           <Route path="/admin/settings" element={<AdminSettingsPage />} />
+          <Route path="/admin/infrastructure" element={<AdminInfrastructure />} />
 
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -5,18 +5,19 @@ import logoImg from "@/assets/logo.png";
 import {
   LayoutDashboard, Users, Briefcase, Server, HardDrive,
   ShieldAlert, ScrollText, Settings, ChevronLeft, ChevronRight,
-  LogOut, Search, Bell, Menu, X,
+  LogOut, Search, Bell, Menu, X, Layers,
 } from "lucide-react";
 
 const NAV = [
-  { to: "/admin/overview",  label: "Overview",  icon: LayoutDashboard },
-  { to: "/admin/users",     label: "Users",      icon: Users },
-  { to: "/admin/jobs",      label: "Jobs",       icon: Briefcase },
-  { to: "/admin/workers",   label: "Workers",    icon: Server },
-  { to: "/admin/storage",   label: "Storage",    icon: HardDrive },
-  { to: "/admin/security",  label: "Security",   icon: ShieldAlert },
-  { to: "/admin/audit",     label: "Audit Log",  icon: ScrollText },
-  { to: "/admin/settings",  label: "Settings",   icon: Settings },
+  { to: "/admin/overview",        label: "Overview",       icon: LayoutDashboard },
+  { to: "/admin/users",           label: "Users",          icon: Users },
+  { to: "/admin/jobs",            label: "Jobs",           icon: Briefcase },
+  { to: "/admin/infrastructure",  label: "Infrastructure", icon: Layers },
+  { to: "/admin/workers",         label: "Workers",        icon: Server },
+  { to: "/admin/storage",         label: "Storage",        icon: HardDrive },
+  { to: "/admin/security",        label: "Security",       icon: ShieldAlert },
+  { to: "/admin/audit",           label: "Audit Log",      icon: ScrollText },
+  { to: "/admin/settings",        label: "Settings",       icon: Settings },
 ];
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
