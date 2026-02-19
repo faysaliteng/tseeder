@@ -21,6 +21,7 @@ import AdminSecurity from "./pages/admin/Security";
 import AdminAudit from "./pages/admin/Audit";
 import AdminSettingsPage from "./pages/admin/AdminSettings";
 import AdminUserDetail from "./pages/admin/UserDetail";
+import AdminLoginPage from "./pages/admin/AdminLogin";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -54,6 +55,9 @@ const App = () => (
           <Route path="/dashboard" element={<Navigate to="/app/dashboard" replace />} />
           <Route path="/dashboard/:jobId" element={<Navigate to="/app/dashboard" replace />} />
           <Route path="/settings" element={<Navigate to="/app/settings" replace />} />
+
+          {/* Admin auth */}
+          <Route path="/admin/login" element={<AdminLoginPage />} />
 
           {/* Admin console under /admin/* — RBAC enforced server-side */}
           <Route path="/admin" element={<Navigate to="/admin/overview" replace />} />

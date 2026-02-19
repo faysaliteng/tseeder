@@ -41,12 +41,23 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="gradient-glow fixed inset-0 pointer-events-none" />
       <div className="w-full max-w-sm space-y-6 relative">
+        {/* Logo + branding */}
         <div className="text-center">
           <div className="flex items-center justify-center w-16 h-16 rounded-2xl overflow-hidden border border-border mx-auto mb-4 shadow-primary">
             <img src={logoImg} alt="TorrentFlow" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Sign in to TorrentFlow</h1>
-          <p className="text-sm text-muted-foreground mt-1">Enterprise remote download manager</p>
+          <p className="text-sm text-muted-foreground mt-1">Your personal remote download manager</p>
+        </div>
+
+        {/* Plan pills */}
+        <div className="flex items-center gap-2 justify-center">
+          <span className="text-xs px-3 py-1 rounded-full border border-border bg-secondary text-muted-foreground font-medium">
+            Free · 5 GB
+          </span>
+          <span className="text-xs px-3 py-1 rounded-full border border-warning/60 bg-warning/10 text-warning font-bold flex items-center gap-1">
+            ★ Premium · 2 TB
+          </span>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 bg-card border border-border rounded-xl p-6 shadow-card">
