@@ -62,6 +62,7 @@ export default function RegisterPage() {
   const [apiError, setApiError] = useState("");
   const [success, setSuccess] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileReady, setTurnstileReady] = useState(false);
   const turnstileRef = useRef<TurnstileInstance>(null);
 
   const passwordValid = PASSWORD_REGEX.test(password);
@@ -97,7 +98,7 @@ export default function RegisterPage() {
   };
 
   const canSubmit = !registerMutation.isPending && !!accepted && !!email && !!password && !!confirm &&
-    (!TURNSTILE_SITE_KEY || !!turnstileToken);
+    (!TURNSTILE_SITE_KEY || !!turnstileToken || !turnstileReady);
 
   if (success) {
     return (
@@ -194,8 +195,8 @@ export default function RegisterPage() {
               <Turnstile
                 ref={turnstileRef}
                 siteKey={TURNSTILE_SITE_KEY}
-                onSuccess={setTurnstileToken}
-                onError={() => setTurnstileToken("")}
+                onSuccess={(token) => { setTurnstileToken(token); setTurnstileReady(true); }}
+                onError={() => { setTurnstileToken(""); setTurnstileReady(false); }}
                 onExpire={() => setTurnstileToken("")}
                 options={{ theme: "dark", size: "normal" }}
               />

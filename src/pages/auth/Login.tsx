@@ -89,6 +89,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [apiError, setApiError] = useState("");
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileReady, setTurnstileReady] = useState(false);
   const turnstileRef = useRef<TurnstileInstance>(null);
 
   const loginMutation = useMutation({
@@ -126,7 +127,7 @@ export default function LoginPage() {
   };
 
   const canSubmit = !loginMutation.isPending && !!email && !!password &&
-    (!TURNSTILE_SITE_KEY || !!turnstileToken);
+    (!TURNSTILE_SITE_KEY || !!turnstileToken || !turnstileReady);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 relative">
@@ -214,8 +215,8 @@ export default function LoginPage() {
               <Turnstile
                 ref={turnstileRef}
                 siteKey={TURNSTILE_SITE_KEY}
-                onSuccess={setTurnstileToken}
-                onError={() => { setTurnstileToken(""); }}
+                onSuccess={(token) => { setTurnstileToken(token); setTurnstileReady(true); }}
+                onError={() => { setTurnstileToken(""); setTurnstileReady(false); }}
                 onExpire={() => { setTurnstileToken(""); }}
                 options={{ theme: "dark", size: "normal" }}
               />
