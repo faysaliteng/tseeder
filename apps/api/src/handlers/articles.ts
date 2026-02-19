@@ -143,6 +143,18 @@ export async function handleAdminListArticles(req: Request, env: Env, ctx: Ctx) 
   });
 }
 
+// ─── Admin: get single article by id ──────────────────────────────────────────
+
+export async function handleAdminGetArticle(req: Request, env: Env, ctx: Ctx) {
+  const { id } = ctx.params;
+  if (!id) return err("NOT_FOUND", "Article not found", 404);
+
+  const row = await env.DB.prepare("SELECT * FROM articles WHERE id = ?").bind(id).first();
+  if (!row) return err("NOT_FOUND", "Article not found", 404);
+  return json({ article: rowToArticle(row as Record<string, unknown>) });
+}
+
+
 // ─── Admin: create article ─────────────────────────────────────────────────────
 
 export async function handleAdminCreateArticle(req: Request, env: Env, ctx: Ctx) {

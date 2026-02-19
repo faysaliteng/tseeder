@@ -5,27 +5,29 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 ENVIRONMENT = "production"
-APP_DOMAIN = "https://your-app.pages.dev"
+APP_DOMAIN = "https://your-app.pages.dev"     # Set to your real domain before deploy
 R2_BUCKET_NAME = "rdm-files"
-MAX_UPLOAD_BYTES = "5368709120"
+MAX_UPLOAD_BYTES = "5368709120"               # 5 GB default file size limit
 
 # ── Cron Triggers ────────────────────────────────────────────────────────────
+# Polls Seedr.cc every 2 minutes when Seedr provider is active.
+# Safe to leave enabled when using Cloudflare provider — poller is a no-op.
 [triggers]
-crons = ["*/2 * * * *"]  # every 2 minutes — Seedr transfer poller
+crons = ["*/2 * * * *"]
 
 # ── D1 Database ──────────────────────────────────────────────────────────────
 [[d1_databases]]
 binding = "DB"
 database_name = "rdm-database"
-database_id = "REPLACE_WITH_YOUR_D1_ID"
+database_id = "REPLACE_WITH_YOUR_D1_ID"        # wrangler d1 create rdm-database
 migrations_dir = "../../packages/shared/migrations"
 
 # ── R2 Bucket ────────────────────────────────────────────────────────────────
 [[r2_buckets]]
 binding = "FILES_BUCKET"
-bucket_name = "rdm-files"
+bucket_name = "rdm-files"                       # wrangler r2 bucket create rdm-files
 
-# ── Cloudflare Queues ────────────────────────────────────────────────────────
+# ── Cloudflare Queues — Job dispatch ─────────────────────────────────────────
 [[queues.producers]]
 queue = "rdm-job-queue"
 binding = "JOB_QUEUE"
@@ -37,11 +39,14 @@ max_batch_timeout = 5
 max_retries = 5
 dead_letter_queue = "rdm-job-dlq"
 
+# ── Cloudflare Queues — Dead Letter Queue ────────────────────────────────────
 [[queues.producers]]
 queue = "rdm-job-dlq"
 binding = "JOB_DLQ"
 
-# ── Durable Objects ──────────────────────────────────────────────────────────
+# ── Durable Objects ───────────────────────────────────────────────────────────
+# JobProgressDO: per-job SSE fanout + realtime progress state
+# UserSessionDO: session invalidation helper (force-logout)
 [[durable_objects.bindings]]
 name = "JOB_PROGRESS_DO"
 class_name = "JobProgressDO"
@@ -50,38 +55,67 @@ class_name = "JobProgressDO"
 name = "USER_SESSION_DO"
 class_name = "UserSessionDO"
 
+# DO migration tag — must increment when you add/rename DO classes
 [[migrations]]
 tag = "v1"
 new_classes = ["JobProgressDO", "UserSessionDO"]
 
-# ── KV (rate-limit counters, CSRF tokens) ────────────────────────────────────
+# ── KV Namespaces ─────────────────────────────────────────────────────────────
+# Rate-limit sliding-window counters (TTL-based keys)
 [[kv_namespaces]]
 binding = "RATE_LIMIT_KV"
-id = "REPLACE_WITH_YOUR_KV_ID"
+id = "REPLACE_WITH_YOUR_KV_ID"                  # wrangler kv:namespace create RATE_LIMIT_KV
 
+# CSRF token store (HTTP-only, single-use, 1h TTL)
 [[kv_namespaces]]
 binding = "CSRF_KV"
-id = "REPLACE_WITH_YOUR_CSRF_KV_ID"
+id = "REPLACE_WITH_YOUR_CSRF_KV_ID"             # wrangler kv:namespace create CSRF_KV
 
-# ── Secrets (set via: wrangler secret put <NAME>) ────────────────────────────
-# SESSION_SECRET          — 64-char random hex (openssl rand -hex 32)
-# CSRF_SECRET             — 64-char random hex
-# CALLBACK_SIGNING_SECRET — 64-char random hex (shared with compute agents)
-# TURNSTILE_SECRET_KEY    — from Cloudflare Turnstile dashboard
-# WORKER_CLUSTER_URL      — https://your-compute-cluster.example.com
-# WORKER_CLUSTER_TOKEN    — shared bearer token for compute agent auth
-# R2_ACCESS_KEY_ID        — R2 API token access key
-# R2_SECRET_ACCESS_KEY    — R2 API token secret
-# SEEDR_EMAIL             — (optional) Seedr.cc account email for provider
-# SEEDR_PASSWORD          — (optional) Seedr.cc account password for provider
-# MAIL_FROM               — (optional) sender address for MailChannels emails
+# ── Secrets ───────────────────────────────────────────────────────────────────
+# Set ALL secrets with: wrangler secret put <NAME>
+#
+#   SESSION_SECRET          — 64-char random hex  (openssl rand -hex 32)
+#   CSRF_SECRET             — 64-char random hex
+#   CALLBACK_SIGNING_SECRET — 64-char random hex  (shared with compute agents)
+#   TURNSTILE_SECRET_KEY    — from Cloudflare Turnstile dashboard (server-side)
+#   WORKER_CLUSTER_URL      — https://your-compute-cluster.example.com
+#   WORKER_CLUSTER_TOKEN    — shared bearer token for compute agent auth
+#   R2_ACCESS_KEY_ID        — R2 S3-compatible API token access key
+#   R2_SECRET_ACCESS_KEY    — R2 S3-compatible API token secret
+#   SEEDR_EMAIL             — (optional) Seedr.cc account email
+#   SEEDR_PASSWORD          — (optional) Seedr.cc account password
 
-# ── Rate Limiting ────────────────────────────────────────────────────────────
+# ── CPU limits ───────────────────────────────────────────────────────────────
 [limits]
 cpu_ms = 50
 
-# ── Routes ───────────────────────────────────────────────────────────────────
+# ── Preview environment ───────────────────────────────────────────────────────
+[env.preview]
+name = "rdm-api-preview"
+vars = { ENVIRONMENT = "preview", APP_DOMAIN = "https://your-preview.pages.dev" }
+
+[[env.preview.d1_databases]]
+binding = "DB"
+database_name = "rdm-database-preview"
+database_id = "REPLACE_WITH_YOUR_PREVIEW_D1_ID"
+
+[[env.preview.r2_buckets]]
+binding = "FILES_BUCKET"
+bucket_name = "rdm-files-preview"
+
+[[env.preview.kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "REPLACE_WITH_YOUR_PREVIEW_KV_ID"
+
+[[env.preview.kv_namespaces]]
+binding = "CSRF_KV"
+id = "REPLACE_WITH_YOUR_PREVIEW_CSRF_KV_ID"
+
+# ── Production routing ────────────────────────────────────────────────────────
 [env.production]
+name = "rdm-api"
+vars = { ENVIRONMENT = "production", APP_DOMAIN = "https://tseeder.cc", R2_BUCKET_NAME = "rdm-files", MAX_UPLOAD_BYTES = "5368709120" }
+
 routes = [
-  { pattern = "api.your-app.com/*", zone_name = "your-app.com" }
+  { pattern = "api.tseeder.cc/*", zone_name = "tseeder.cc" }
 ]
