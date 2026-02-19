@@ -1,73 +1,142 @@
-# Welcome to your Lovable project
+# TorrentFlow — Enterprise Remote Download Manager
 
-## Project info
+A production-grade remote torrent/magnet-link download manager built on the **Cloudflare-first stack** (Pages · Workers · Durable Objects · Queues · R2 · D1).
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+---
 
-## How can I edit this code?
+## Architecture at a Glance
 
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```
+Browser (React/Vite)       ← Cloudflare Pages
+    ↕  REST + SSE
+Workers API (Hono)         ← Cloudflare Workers
+    ↕                 ↕           ↕             ↕
+   D1 (SQL)   Durable Objects  Queues       R2 Storage
+                 (SSE fanout)  (dispatch)   (files)
+                                   ↕
+                         Compute Agent Cluster
+                         (Node/Bun containers)
+                                   ↕
+                              R2 multipart upload
 ```
 
-**Edit a file directly in GitHub**
+Full architecture spec: [`ARCHITECTURE.md`](ARCHITECTURE.md)
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+---
 
-**Use GitHub Codespaces**
+## Repository Layout
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```
+/apps/api              Cloudflare Workers API gateway (Hono)
+/packages/shared       Zod schemas, TypeScript types, D1 migrations
+/infra                 wrangler.toml, environment config
+/workers/compute-agent External torrent-engine skeleton (Node/Bun)
+/src                   React frontend (Vite + Tailwind + shadcn/ui)
+/docs                  Architecture, runbooks, threat model
+```
 
-## What technologies are used for this project?
+---
 
-This project is built with:
+## Frontend Routes
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+| Route | Description |
+|---|---|
+| `/` | Redirects to `/app/dashboard` |
+| `/auth/login` | User login (email + password + Turnstile) |
+| `/auth/register` | User registration |
+| `/auth/reset` | Password reset request |
+| `/app/dashboard` | Main file manager / download list |
+| `/app/dashboard/:jobId` | Job detail with realtime progress + file browser |
+| `/app/settings` | Account, storage, API keys, danger zone |
+| `/admin/login` | Admin-only login gate |
+| `/admin/overview` | System health overview |
+| `/admin/users` | User management (RBAC) |
+| `/admin/users/:id` | User detail with audit timeline |
+| `/admin/jobs` | Global job operations |
+| `/admin/workers` | Compute agent fleet status |
+| `/admin/storage` | R2 storage and blocklist |
+| `/admin/security` | Security events and feature flags |
+| `/admin/audit` | Immutable audit log |
+| `/admin/settings` | Feature flags and operational controls |
 
-## How can I deploy this project?
+---
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## Environment Variables
 
-## Can I connect a custom domain to my Lovable project?
+### Frontend (Vite)
 
-Yes, you can!
+| Variable | Description | Default |
+|---|---|---|
+| `VITE_API_BASE_URL` | Base URL of the Workers API | `""` (same origin) |
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+### Workers API
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+All set via `wrangler secret put` — see [`INSTRUCTIONS.md`](INSTRUCTIONS.md) for the full list.
+
+---
+
+## Local Development
+
+```bash
+# Install dependencies
+npm install
+
+# Start the frontend dev server (Vite)
+npm run dev
+# → http://localhost:5173
+```
+
+Point `VITE_API_BASE_URL` to your deployed or locally-running Workers API.
+
+### Running the Workers API locally
+
+```bash
+cd apps/api
+npm install
+npx wrangler dev --env local
+# → http://localhost:8787
+```
+
+---
+
+## Production Deployment
+
+Full step-by-step: [`INSTRUCTIONS.md`](INSTRUCTIONS.md)
+
+Quick summary:
+1. Create D1, R2, Queues, KV namespaces via `wrangler`
+2. Set all secrets via `wrangler secret put`
+3. Run D1 migrations: `packages/shared/migrations/*.sql`
+4. Deploy Workers API: `npx wrangler deploy --env production`
+5. Build + deploy frontend to Cloudflare Pages
+6. Deploy compute agent containers (Docker/K8s)
+
+---
+
+## Security
+
+- RBAC: `user`, `support`, `admin`, `superadmin`
+- CSRF token on every mutating request
+- HttpOnly secure session cookies
+- Cloudflare Turnstile bot protection on auth
+- Immutable audit log for all admin actions
+- Infohash blocklist with auto-termination
+- Rate limiting via KV
+
+See [`docs/threat-model.md`](docs/threat-model.md) for full threat analysis.
+
+---
+
+## Technology Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React 18 · Vite · TypeScript · Tailwind CSS · shadcn/ui |
+| State | TanStack Query (server state) · React hooks (local) |
+| Realtime | Server-Sent Events via Durable Objects |
+| API | Cloudflare Workers · Hono · Zod |
+| Database | Cloudflare D1 (SQLite) |
+| Storage | Cloudflare R2 |
+| Queue | Cloudflare Queues |
+| Realtime state | Cloudflare Durable Objects |
+| Compute | Node.js/Bun containers (K8s or VMs) |

@@ -173,6 +173,7 @@ export default function DashboardPage() {
   const queryClient = useQueryClient();
 
   const [addOpen, setAddOpen] = useState(false);
+  const [initialMagnet, setInitialMagnet] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [sortCol, setSortCol] = useState<SortCol>("date");
@@ -254,8 +255,8 @@ export default function DashboardPage() {
   };
 
   const handleMagnetAdd = (uri: string) => {
-    // optimistic: AddDownloadModal handles the API call
-    // just close the paste bar — modal handles real submission
+    setInitialMagnet(uri);
+    setAddOpen(true);
   };
 
   const handleJobAdded = () => {
@@ -403,8 +404,9 @@ export default function DashboardPage() {
 
       <AddDownloadModal
         open={addOpen}
-        onOpenChange={setAddOpen}
+        onOpenChange={(v) => { setAddOpen(v); if (!v) setInitialMagnet(""); }}
         onJobAdded={handleJobAdded}
+        initialMagnetUri={initialMagnet}
       />
     </div>
   );

@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { jobs as jobsApi, ApiError } from "@/lib/api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -14,19 +14,32 @@ interface AddDownloadModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onJobAdded: () => void;
+  /** Pre-fill the magnet URI field and switch to the magnet tab */
+  initialMagnetUri?: string;
 }
 
 const MAGNET_REGEX = /^magnet:\?xt=urn:btih:[a-f0-9]{32,40}/i;
 
-export function AddDownloadModal({ open, onOpenChange, onJobAdded }: AddDownloadModalProps) {
+export function AddDownloadModal({ open, onOpenChange, onJobAdded, initialMagnetUri }: AddDownloadModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<"magnet" | "torrent">("magnet");
-  const [magnetUri, setMagnetUri] = useState("");
+  const [magnetUri, setMagnetUri] = useState(initialMagnetUri ?? "");
   const [magnetError, setMagnetError] = useState("");
   const [dragActive, setDragActive] = useState(false);
   const [torrentFile, setTorrentFile] = useState<File | null>(null);
   const [apiError, setApiError] = useState("");
+
+  // Sync initialMagnetUri when modal opens
+  useEffect(() => {
+    if (open && initialMagnetUri) {
+      setMagnetUri(initialMagnetUri);
+      setTab("magnet");
+      validateMagnet(initialMagnetUri);
+    }
+    if (!open) { setApiError(""); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialMagnetUri]);
 
   const validateMagnet = (val: string) => {
     if (!val) { setMagnetError(""); return; }
