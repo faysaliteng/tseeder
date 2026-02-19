@@ -4,7 +4,7 @@ import { admin as adminApi } from "@/lib/api";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { StatCard, AdminPageHeader } from "@/components/admin/AdminUI";
 import { StatusBadge } from "@/components/StatusBadge";
-import { formatBytes } from "@/lib/mock-data";
+import { formatBytes } from "@/lib/utils";
 import {
   Activity, AlertTriangle, Server, Users, Briefcase,
   CheckCircle, XCircle, RefreshCw, Clock,
@@ -61,11 +61,20 @@ function LiveFeed() {
   );
 }
 
-// Activity heatmap (7×24 grid)
+// Activity heatmap (7×24 grid) — deterministic pattern based on hour/day
 function ActivityHeatmap() {
+  // Use a deterministic pseudo-random based on current week + cell index
+  // so it's consistent within a session but varies week to week
+  const weekNum = Math.floor(Date.now() / (7 * 24 * 3600 * 1000));
   const cells = Array.from({ length: 7 * 24 }, (_, i) => {
-    const v = Math.random();
-    return v < 0.5 ? 0 : v < 0.7 ? 1 : v < 0.85 ? 2 : v < 0.95 ? 3 : 4;
+    const seed = (weekNum * 168 + i * 31 + i * i * 7) % 100;
+    // Higher activity during work hours (hours 8–18), lower on weekends (days 5,6)
+    const day = Math.floor(i / 24);
+    const hour = i % 24;
+    const workBonus = (hour >= 8 && hour <= 18) ? 20 : 0;
+    const weekendPenalty = (day >= 5) ? -15 : 0;
+    const val = Math.min(99, Math.max(0, seed + workBonus + weekendPenalty));
+    return val < 20 ? 0 : val < 40 ? 1 : val < 60 ? 2 : val < 80 ? 3 : 4;
   });
   const colors = [
     "hsl(220 20% 18%)",
@@ -164,7 +173,7 @@ export default function AdminOverview() {
 
         <AdminPageHeader
           title="System Overview"
-          description="Real-time health and KPIs for the Gravl platform"
+          description="Real-time health and KPIs for the tseeder platform"
           actions={
             <button
               onClick={() => refetch()}

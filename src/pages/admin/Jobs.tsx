@@ -5,7 +5,7 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import { AdminPageHeader, AdminTable, Paginator, DangerModal } from "@/components/admin/AdminUI";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/hooks/use-toast";
-import { formatBytes } from "@/lib/mock-data";
+import { formatBytes } from "@/lib/utils";
 import { Search, Filter, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 

@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { statusLabel, statusColor, type JobStatus } from "@/lib/mock-data";
+import { statusLabel, statusColor, type JobStatus } from "@/lib/utils";
 
 const dotColor: Record<string, string> = {
   submitted: "bg-muted-foreground",

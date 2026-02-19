@@ -6,7 +6,7 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import { DangerModal } from "@/components/admin/AdminUI";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/hooks/use-toast";
-import { formatBytes } from "@/lib/mock-data";
+import { formatBytes } from "@/lib/utils";
 import {
   ArrowLeft, ShieldCheck, ShieldOff, LogOut, User,
   Briefcase, ScrollText, HardDrive, XCircle, CheckCircle,

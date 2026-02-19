@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { formatBytes } from "@/lib/mock-data";
+import { formatBytes } from "@/lib/utils";
 import {
   Plus, Upload, Zap, Menu, X, Star,
   LogOut, User, HelpCircle, Settings, CloudLightning,

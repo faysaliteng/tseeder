@@ -1,22 +1,23 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { usage as usageApi, auth as authApi, apiKeys as apiKeysApi, type ApiKey, ApiError } from "@/lib/api";
+import { usage as usageApi, auth as authApi, authMe, apiKeys as apiKeysApi, type ApiKey, ApiError } from "@/lib/api";
 import {
   seedrAuth, seedr, isSeedrConnected,
   getDownloadProvider, setDownloadProvider, type DownloadProvider,
 } from "@/lib/seedr-api";
 import { TopHeader } from "@/components/TopHeader";
-import { formatBytes } from "@/lib/mock-data";
+import { formatBytes } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import {
-  TrendingUp, Languages, User, Lock, Bell, Trash2, Check, X, Loader2, Eye, EyeOff,
-  Key, Plus, Copy, AlertTriangle, Clock, Zap, CloudLightning, ExternalLink,
+  TrendingUp, User, Lock, Bell, Trash2, Check, X, Loader2, Eye, EyeOff,
+  Key, Plus, Copy, AlertTriangle, Clock, Zap, CloudLightning, ExternalLink, Languages,
 } from "lucide-react";
-import gravlLogo from "@/assets/gravl-logo.png";
+
+
 
 // ── Section header with gradient ───────────────────────────────────────────
 function SectionHeader({ title, icon: Icon, gradient = "from-primary/80 to-primary-glow/80" }: {
@@ -110,6 +111,17 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const qc = useQueryClient();
+
+  // Load real user data from /auth/me
+  const { data: meData } = useQuery({
+    queryKey: ["me"],
+    queryFn: () => authMe.me(),
+    retry: false,
+  });
+
+  const userEmail = (meData?.user as any)?.email ?? "—";
+  const userInitial = userEmail[0]?.toUpperCase() ?? "U";
+
 
   const [provider, setProviderState] = useState<DownloadProvider>(getDownloadProvider);
   const [seedrConnected, setSeedrConnected] = useState(isSeedrConnected);
@@ -215,9 +227,9 @@ export default function SettingsPage() {
             <SectionHeader title="Account" icon={User} gradient="from-primary/70 to-primary-glow/70" />
             <div className="flex items-center gap-4 px-4 py-5 border-b border-border/40">
               <div className="relative w-16 h-16 shrink-0">
-                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-primary/30 bg-secondary"
+                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-primary/30 bg-gradient-to-br from-primary/30 to-primary-glow/20 flex items-center justify-center"
                   style={{ boxShadow: "0 0 16px hsl(239 84% 67% / 0.2)" }}>
-                  <img src={gravlLogo} alt="Avatar" className="w-full h-full object-cover" />
+                  <span className="text-2xl font-black text-primary">{userInitial}</span>
                 </div>
                 <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full gradient-primary border-2 border-background flex items-center justify-center">
                   <Plus className="w-2.5 h-2.5 text-white" />
@@ -228,8 +240,7 @@ export default function SettingsPage() {
                 <button className="text-xs text-primary hover:text-primary/80 mt-0.5 font-medium transition-colors">Change photo</button>
               </div>
             </div>
-            <EditableField label="Email" value="user@example.com" />
-            <EditableField label="Username" value="user_1234" />
+            <EditableField label="Email" value={userEmail} />
             <EditableField label="Password" value="" type="password" />
           </SectionCard>
 

@@ -535,10 +535,10 @@ export default function LandingPage() {
             <span className="font-black text-gradient">tseeder.cc</span>
           </div>
           <div className="flex items-center gap-6 text-xs text-muted-foreground">
-            <a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a>
-            <a href="#" className="hover:text-foreground transition-colors">Terms of Service</a>
-            <a href="#" className="hover:text-foreground transition-colors">DMCA</a>
-            <a href="#" className="hover:text-foreground transition-colors">Status</a>
+            <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
+            <Link to="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link>
+            <Link to="/dmca" className="hover:text-foreground transition-colors">DMCA</Link>
+            <Link to="/status" className="hover:text-foreground transition-colors">Status</Link>
           </div>
           <p className="text-xs text-muted-foreground/50">© 2025 tseeder. All rights reserved.</p>
         </div>
