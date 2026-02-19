@@ -1,6 +1,7 @@
 // tseeder Extension — Background Service Worker
 // Deployers: update API_BASE to your Cloudflare Workers API URL.
 const API_BASE = 'https://api.tseeder.cc';
+const ICON = 'icon48.svg';
 
 // ── Context menus ──────────────────────────────────────────────────────────────
 
@@ -27,7 +28,7 @@ chrome.contextMenus.onClicked.addListener(async (info) => {
   if (!auth.tsdr_api_key) {
     chrome.notifications.create({
       type: 'basic',
-      iconUrl: 'icon48.png',
+      iconUrl: ICON,
       title: 'tseeder',
       message: 'Please sign in to tseeder first.',
     });
@@ -51,7 +52,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, _sendResponse) => {
       if (!auth.tsdr_api_key) {
         chrome.notifications.create({
           type: 'basic',
-          iconUrl: 'icon48.png',
+          iconUrl: ICON,
           title: 'tseeder',
           message: 'Please sign in to tseeder first.',
         });
@@ -101,7 +102,7 @@ async function sendJob(body, apiKey) {
     if (res.ok) {
       chrome.notifications.create({
         type: 'basic',
-        iconUrl: 'icon48.png',
+        iconUrl: ICON,
         title: 'tseeder ✅',
         message: 'Added to your cloud vault!',
       });
@@ -110,7 +111,7 @@ async function sendJob(body, apiKey) {
       await chrome.storage.local.remove(['tsdr_api_key', 'tsdr_email']);
       chrome.notifications.create({
         type: 'basic',
-        iconUrl: 'icon48.png',
+        iconUrl: ICON,
         title: 'tseeder — Session expired',
         message: 'Please sign in again at tseeder.cc.',
       });
@@ -121,7 +122,7 @@ async function sendJob(body, apiKey) {
   } catch (err) {
     chrome.notifications.create({
       type: 'basic',
-      iconUrl: 'icon48.png',
+      iconUrl: ICON,
       title: 'tseeder ❌',
       message: `Failed: ${err.message}`,
     });

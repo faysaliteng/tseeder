@@ -247,6 +247,32 @@ router.all("*", [], async () =>
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const correlationId = crypto.randomUUID();
+
+    // ── CORS ─────────────────────────────────────────────────────────────────
+    const origin = request.headers.get("Origin") ?? "";
+    const allowedOrigins = [
+      env.APP_DOMAIN,
+      "https://tseeder.cc",
+      "https://www.tseeder.cc",
+    ].filter(Boolean);
+    const corsOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0] ?? "";
+
+    const corsHeaders: Record<string, string> = {
+      "Access-Control-Allow-Origin": corsOrigin,
+      "Access-Control-Allow-Credentials": "true",
+      "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
+      "Access-Control-Allow-Headers":
+        "Authorization, Content-Type, X-CSRF-Token, X-Org-Slug, X-Correlation-ID",
+      "Access-Control-Expose-Headers": "X-CSRF-Token, X-Correlation-ID",
+      "Access-Control-Max-Age": "86400",
+      "Vary": "Origin",
+    };
+
+    // Handle OPTIONS preflight immediately — no auth needed
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: corsHeaders });
+    }
+
     const enriched = new Request(request, {
       headers: { ...Object.fromEntries(request.headers), "X-Correlation-ID": correlationId },
     });
@@ -254,18 +280,23 @@ export default {
     try {
       const response = await router.handle(enriched, env, ctx);
       const headers = new Headers(response.headers);
+      // Security headers
       headers.set("X-Correlation-ID", correlationId);
       headers.set("X-Content-Type-Options", "nosniff");
       headers.set("X-Frame-Options", "DENY");
       headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
       headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+      // CORS headers
+      for (const [k, v] of Object.entries(corsHeaders)) headers.set(k, v);
 
       return new Response(response.body, { status: response.status, headers });
     } catch (err) {
       console.error(JSON.stringify({ correlationId, error: String(err), stack: (err as Error).stack }));
-      return Response.json(
-        { error: "Internal Server Error", code: "INTERNAL_ERROR", requestId: correlationId },
-        { status: 500 },
+      const errHeaders = new Headers({ "Content-Type": "application/json" });
+      for (const [k, v] of Object.entries(corsHeaders)) errHeaders.set(k, v);
+      return new Response(
+        JSON.stringify({ error: "Internal Server Error", code: "INTERNAL_ERROR", requestId: correlationId }),
+        { status: 500, headers: errHeaders },
       );
     }
   },

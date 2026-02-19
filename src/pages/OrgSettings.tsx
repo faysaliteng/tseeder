@@ -69,7 +69,7 @@ export default function OrgSettingsPage() {
 
   const org = data?.org;
   const members = data?.members ?? [];
-  const myRole = data?.myRole ?? "member";
+  const myRole = data?.org?.role ?? "member";
   const canManage = myRole === "owner" || myRole === "admin";
 
   // Minimal usage placeholder for TopHeader while on this page
