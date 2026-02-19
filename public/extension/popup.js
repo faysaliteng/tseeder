@@ -1,6 +1,7 @@
 // tseeder Extension Popup Script
 // API_BASE is read from storage (set by web app) and falls back to production.
 const DEFAULT_API_BASE = 'https://api.tseeder.cc';
+const ICON = 'icon48.svg';
 
 const loginState   = document.getElementById('state-login');
 const loggedState  = document.getElementById('state-loggedin');
@@ -122,7 +123,7 @@ sendBtn.addEventListener('click', async () => {
     showStatus('✅ Sent to your cloud vault!', 'success');
     chrome.notifications.create({
       type:     'basic',
-      iconUrl:  'icon48.png',
+      iconUrl:  ICON,
       title:    'tseeder',
       message:  'Torrent added to your cloud queue!',
     });
