@@ -77,6 +77,21 @@ export async function handleRegister(req: Request, env: Env): Promise<Response> 
 
   await createUser(env.DB, { id: userId, email, passwordHash });
 
+  // Generate email verification token and send immediately
+  const verifyToken = generateToken();
+  const verifyTokenHash = await hashToken(verifyToken);
+  const verifyExpiresAt = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+
+  await env.DB.prepare(`
+    INSERT INTO email_verification_tokens (token, user_id, expires_at)
+    VALUES (?, ?, ?)
+  `).bind(verifyTokenHash, userId, verifyExpiresAt).run();
+
+  const verifyUrl = `${env.APP_DOMAIN}/auth/verify?token=${verifyToken}`;
+  await sendVerificationEmail(env, email, verifyUrl, correlationId).catch(err => {
+    console.error(JSON.stringify({ correlationId, msg: "Verification email send failed", error: String(err) }));
+  });
+
   await writeAuditLog(env.DB, {
     actorId: userId, action: "user.created",
     targetType: "user", targetId: userId,
@@ -86,10 +101,10 @@ export async function handleRegister(req: Request, env: Env): Promise<Response> 
   console.log(JSON.stringify({
     ts: new Date().toISOString(), level: "info", correlationId,
     service: "workers-api", handler: "POST /auth/register",
-    userId, msg: "User registered",
+    userId, msg: "User registered — verification email dispatched",
   }));
 
-  return Response.json({ message: "Registration successful. Please verify your email." }, { status: 201 });
+  return Response.json({ message: "Registration successful. Please check your email to verify your account." }, { status: 201 });
 }
 
 // ── POST /auth/login ──────────────────────────────────────────────────────────
@@ -377,6 +392,93 @@ async function sendPasswordResetEmail(
   if (!res.ok) {
     const text = await res.text().catch(() => `HTTP ${res.status}`);
     throw new Error(`MailChannels error: ${res.status} ${text}`);
+  }
+}
+
+// ── Email: Verification ───────────────────────────────────────────────────────
+
+async function sendVerificationEmail(
+  env: Env,
+  toEmail: string,
+  verifyUrl: string,
+  correlationId: string,
+): Promise<void> {
+  const appDomain = env.APP_DOMAIN ?? "https://tseeder.cc";
+  const fromEmail = (env as any).MAIL_FROM ?? `noreply@${new URL(appDomain).hostname}`;
+
+  const htmlBody = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Verify your tseeder email</title>
+</head>
+<body style="margin:0;padding:0;background:#0a0a0f;font-family:system-ui,-apple-system,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0f;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#12121a;border:1px solid rgba(255,255,255,0.08);border-radius:16px;overflow:hidden;">
+        <tr>
+          <td style="background:linear-gradient(135deg,#3b29cc,#6d28d9);padding:32px 40px;text-align:center;">
+            <h1 style="margin:0;color:#fff;font-size:24px;font-weight:800;letter-spacing:-0.5px;">tseeder</h1>
+            <p style="margin:8px 0 0;color:rgba(255,255,255,0.7);font-size:14px;">Remote Download Manager</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:40px;">
+            <h2 style="margin:0 0 16px;color:#fff;font-size:20px;font-weight:700;">Verify your email address</h2>
+            <p style="margin:0 0 24px;color:rgba(255,255,255,0.6);font-size:15px;line-height:1.6;">
+              Welcome to tseeder! Click the button below to verify
+              <strong style="color:rgba(255,255,255,0.85);">${toEmail}</strong>
+              and activate your account. This link expires in <strong style="color:#a78bfa;">24 hours</strong>.
+            </p>
+            <div style="text-align:center;margin:32px 0;">
+              <a href="${verifyUrl}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;text-decoration:none;padding:14px 36px;border-radius:12px;font-size:15px;font-weight:700;letter-spacing:0.3px;">
+                Verify Email
+              </a>
+            </div>
+            <p style="margin:24px 0 0;color:rgba(255,255,255,0.4);font-size:13px;line-height:1.5;">
+              If you didn't create a tseeder account, you can safely ignore this email.
+              <br><br>
+              Or copy and paste this URL into your browser:<br>
+              <span style="color:#818cf8;word-break:break-all;">${verifyUrl}</span>
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:20px 40px;border-top:1px solid rgba(255,255,255,0.06);text-align:center;">
+            <p style="margin:0;color:rgba(255,255,255,0.3);font-size:12px;">
+              &copy; ${new Date().getFullYear()} tseeder &mdash; Remote Download Manager
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
+  `.trim();
+
+  const payload = {
+    personalizations: [{ to: [{ email: toEmail }] }],
+    from: { email: fromEmail, name: "tseeder" },
+    subject: "Verify your tseeder email address",
+    content: [
+      { type: "text/plain", value: `Verify your tseeder account: ${verifyUrl}\n\nThis link expires in 24 hours.` },
+      { type: "text/html", value: htmlBody },
+    ],
+  };
+
+  const res = await fetch("https://api.mailchannels.net/tx/v1/send", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Correlation-ID": correlationId },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(10_000),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => `HTTP ${res.status}`);
+    throw new Error(`MailChannels verification email error: ${res.status} ${text}`);
   }
 }
 

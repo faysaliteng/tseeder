@@ -40,7 +40,7 @@ export type ResetRequest = z.infer<typeof ResetRequestSchema>;
 
 export const ResetConfirmSchema = z.object({
   token: z.string().min(1),
-  newPassword: PasswordSchema,
+  password: PasswordSchema,
 });
 export type ResetConfirm = z.infer<typeof ResetConfirmSchema>;
 

@@ -32,6 +32,12 @@ import {
   handleAdminListArticles, handleAdminGetArticle, handleAdminCreateArticle, handleAdminUpdateArticle,
   handleAdminDeleteArticle, handleAdminTogglePublish,
 } from "./handlers/articles";
+import {
+  handleBillingConfig, handleBillingCheckout, handleBillingPortal, handleBillingWebhook,
+} from "./handlers/stripe";
+import {
+  handleAdminDlqList, handleAdminDlqReplay, handleAdminGlobalSearch, handleAdminConfigHistory,
+} from "./handlers/admin";
 import { JobProgressDO, UserSessionDO } from "./durable-objects";
 
 export { JobProgressDO, UserSessionDO };
@@ -57,6 +63,11 @@ export interface Env {
   APP_DOMAIN: string;
   R2_BUCKET_NAME: string;
   MAX_UPLOAD_BYTES: string;
+  // Stripe (set via wrangler secret put)
+  STRIPE_SECRET_KEY?: string;
+  STRIPE_WEBHOOK_SECRET?: string;
+  STRIPE_PUBLISHABLE_KEY?: string;
+  STRIPE_PRICE_IDS?: string;  // JSON: {"pro":"price_xxx","business":"price_yyy"}
 }
 
 const router = new Router<Env>();
@@ -148,6 +159,13 @@ router.get("/admin/providers/history",        [authMiddleware, rbacMiddleware("a
 router.post("/admin/providers/switch",        [authMiddleware, rbacMiddleware("superadmin"), csrfMiddleware], handleSwitchProvider);
 router.post("/admin/providers/verify",        [authMiddleware, rbacMiddleware("admin"), csrfMiddleware], handleVerifyProvider);
 
+// ── Billing (Stripe) ───────────────────────────────────────────────────────────
+router.get("/billing/config",               [],                                           handleBillingConfig);
+router.post("/billing/checkout",            [authMiddleware, csrfMiddleware],             handleBillingCheckout);
+router.post("/billing/portal",              [authMiddleware, csrfMiddleware],             handleBillingPortal);
+// Webhook has no auth middleware — verified by Stripe signature
+router.post("/billing/webhook",             [],                                           handleBillingWebhook);
+
 // ── Public Blog ────────────────────────────────────────────────────────────────
 router.get("/blog/articles",                [],                                           handleListArticles);
 router.get("/blog/articles/:slug",          [],                                           handleGetArticle);
@@ -159,6 +177,12 @@ router.post("/admin/articles",              [authMiddleware, rbacMiddleware("adm
 router.patch("/admin/articles/:id",         [authMiddleware, rbacMiddleware("admin"), csrfMiddleware],        handleAdminUpdateArticle);
 router.delete("/admin/articles/:id",        [authMiddleware, rbacMiddleware("superadmin"), csrfMiddleware],   handleAdminDeleteArticle);
 router.post("/admin/articles/:id/publish",  [authMiddleware, rbacMiddleware("admin"), csrfMiddleware],        handleAdminTogglePublish);
+
+// ── Admin — DLQ / Search / Config History ─────────────────────────────────────
+router.get("/admin/dlq",                    [authMiddleware, rbacMiddleware("admin")],                       handleAdminDlqList);
+router.post("/admin/dlq/:id/replay",        [authMiddleware, rbacMiddleware("admin"), csrfMiddleware],        handleAdminDlqReplay);
+router.get("/admin/search",                 [authMiddleware, rbacMiddleware("support")],                     handleAdminGlobalSearch);
+router.get("/admin/config-history",         [authMiddleware, rbacMiddleware("admin")],                       handleAdminConfigHistory);
 
 // ── Durable Object SSE proxy ───────────────────────────────────────────────────
 router.get("/do/job/:id/sse", [authMiddleware], async (req, env, ctx) => {

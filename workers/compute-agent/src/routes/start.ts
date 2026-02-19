@@ -1,13 +1,13 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { jobRegistry } from "../job-registry";
-import { StubTorrentEngine } from "../engine";
+import { WebTorrentEngine } from "../engine";
 import { uploadToR2 } from "../r2-upload";
 import { postCallback } from "../callback";
 import { logger } from "../logger";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-const engine = new StubTorrentEngine();
+const engine = new WebTorrentEngine();
 
 interface StartPayload {
   jobId: string;
