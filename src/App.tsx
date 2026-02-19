@@ -16,6 +16,7 @@ import PrivacyPage from "./pages/Privacy";
 import TermsPage from "./pages/Terms";
 import DMCAPage from "./pages/DMCA";
 import StatusPage from "./pages/Status";
+import ExtensionPage from "./pages/Extension";
 
 // Admin pages
 import AdminOverview from "./pages/admin/Overview";
@@ -60,6 +61,7 @@ const App = () => (
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/dmca" element={<DMCAPage />} />
           <Route path="/status" element={<StatusPage />} />
+          <Route path="/extension" element={<ExtensionPage />} />
 
           {/* User app under /app/* */}
           <Route path="/app/dashboard" element={<DashboardPage />} />

@@ -1,8 +1,8 @@
 import { Link } from "react-router-dom";
 import {
-  Zap, Cloud, Shield, Globe, Download, Upload,
+  Zap, Cloud, Shield, Globe, Download,
   ArrowRight, CheckCircle2, Play, Star, ChevronDown,
-  HardDrive, Activity, Lock, Cpu,
+  HardDrive, Activity, Lock, Cpu, Puzzle, MousePointer, Bell,
 } from "lucide-react";
 import tseederLogo from "@/assets/tseeder-logo.png";
 
@@ -221,6 +221,9 @@ export default function LandingPage() {
             <a href="#how" className="hover:text-foreground transition-colors">How it works</a>
             <a href="#pricing" className="hover:text-foreground transition-colors">Pricing</a>
             <a href="#testimonials" className="hover:text-foreground transition-colors">Reviews</a>
+            <Link to="/extension" className="hover:text-foreground transition-colors flex items-center gap-1.5">
+              <Puzzle className="w-3.5 h-3.5 text-primary" /> Extension
+            </Link>
           </div>
 
           <div className="flex items-center gap-3">
@@ -486,6 +489,122 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── Browser Extension Promo ── */}
+      <section id="extension" className="relative z-10 py-24 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="glass-premium rounded-3xl border border-primary/15 overflow-hidden"
+            style={{ boxShadow: "0 16px 64px hsl(239 84% 67% / 0.10)" }}>
+            <div className="grid md:grid-cols-2 gap-0 items-center">
+
+              {/* Left — text */}
+              <div className="p-10 lg:p-14">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/30 bg-primary/5 text-xs font-bold text-primary uppercase tracking-widest mb-6">
+                  <Puzzle className="w-3.5 h-3.5" /> Browser Extension
+                </div>
+                <h2 className="text-3xl sm:text-4xl font-black tracking-tight mb-4">
+                  Add a torrent from<br />
+                  <span className="text-gradient">anywhere on the web.</span>
+                </h2>
+                <p className="text-muted-foreground text-sm leading-relaxed mb-6">
+                  Install the tseeder extension and get a ⚡ button next to every magnet link — or right-click any link and send it directly to your cloud vault. No copy-paste, no switching tabs.
+                </p>
+                <ul className="space-y-3 mb-8">
+                  {[
+                    { icon: MousePointer, text: "Right-click any magnet to send instantly" },
+                    { icon: Zap, text: "Auto-detects all magnets on any page" },
+                    { icon: Bell, text: "Desktop notification when queued" },
+                    { icon: Shield, text: "Open source · Manifest v3 · No analytics" },
+                  ].map(({ icon: Icon, text }) => (
+                    <li key={text} className="flex items-center gap-3 text-sm text-muted-foreground">
+                      <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                        <Icon className="w-3.5 h-3.5 text-primary" />
+                      </div>
+                      {text}
+                    </li>
+                  ))}
+                </ul>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <Link to="/extension"
+                    className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl gradient-primary text-white font-bold shadow-glow-primary hover:opacity-90 hover:scale-105 transition-all duration-200">
+                    <Download className="w-4 h-4" />
+                    Get Extension
+                  </Link>
+                  <Link to="/extension"
+                    className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl border border-border text-muted-foreground font-medium text-sm hover:text-foreground hover:border-border/80 transition-all">
+                    Learn more <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+                <p className="text-xs text-muted-foreground/60 mt-4">Chrome · Brave · Edge · Opera · Free forever</p>
+              </div>
+
+              {/* Right — popup mockup */}
+              <div className="hidden md:flex items-center justify-center p-10 lg:p-14 border-l border-border/20"
+                style={{ background: "radial-gradient(ellipse at center, hsl(239 84% 67% / 0.05), transparent 70%)" }}>
+                <div className="w-72 rounded-2xl overflow-hidden border border-border/40 shadow-[0_0_50px_hsl(239_84%_67%/0.2)]"
+                  style={{ background: "#0d0f1a" }}>
+                  {/* window chrome */}
+                  <div className="flex items-center gap-1.5 px-3 py-2.5 border-b border-white/5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-destructive/70" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-warning/70" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-success/70" />
+                    <span className="ml-2 text-[10px] text-white/20 font-mono">tseeder extension</span>
+                  </div>
+                  {/* ext header */}
+                  <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5"
+                    style={{ background: "linear-gradient(135deg,rgba(99,102,241,0.08),transparent)" }}>
+                    <div className="w-8 h-8 rounded-xl overflow-hidden border border-primary/30 shrink-0">
+                      <img src={tseederLogo} alt="" className="w-full h-full object-cover" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-black text-white">tseeder</p>
+                      <p className="text-[10px] text-white/30">Cloud Torrent Manager</p>
+                    </div>
+                  </div>
+                  {/* body */}
+                  <div className="p-4 space-y-3">
+                    <div className="flex items-center gap-2 p-2 rounded-lg bg-white/[0.03] border border-white/8">
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black text-white shrink-0"
+                        style={{ background: "linear-gradient(135deg,hsl(239 84% 67%),hsl(265 89% 70%))" }}>U</div>
+                      <span className="text-[11px] text-white/40 flex-1">user@example.com</span>
+                      <span className="text-[10px] font-bold text-success">● Online</span>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-white/30 font-semibold uppercase tracking-widest mb-1.5">Paste magnet link or URL</p>
+                      <div className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5 text-[11px] text-white/25 font-mono leading-relaxed">
+                        magnet:?xt=urn:btih:abc123...
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="flex-1 py-2 rounded-lg text-center text-[11px] font-bold text-white"
+                        style={{ background: "linear-gradient(135deg,hsl(239 84% 67%),hsl(265 89% 70%))" }}>
+                        ⚡ Send to Cloud
+                      </div>
+                      <div className="px-3 py-2 rounded-lg text-[11px] text-white/30 border border-white/8">
+                        Dashboard →
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-white/25 uppercase tracking-widest font-semibold">3 magnets detected</p>
+                      <div className="flex gap-1.5 flex-wrap">
+                        {["Ubuntu 22.04.iso", "Arch Linux 2025.iso"].map(t => (
+                          <span key={t} className="text-[10px] px-2 py-0.5 rounded-full font-bold"
+                            style={{ background: "rgba(99,102,241,0.12)", color: "hsl(239 84% 77%)", border: "1px solid rgba(99,102,241,0.2)" }}>
+                            ⚡ {t}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="h-px bg-white/5" />
+                    <p className="text-[10px] text-center text-white/15">Your IP stays hidden · Always encrypted</p>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── Final CTA ── */}
       <section className="relative z-10 py-32 px-6 text-center">
         <div className="max-w-3xl mx-auto">
@@ -539,6 +658,9 @@ export default function LandingPage() {
             <Link to="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link>
             <Link to="/dmca" className="hover:text-foreground transition-colors">DMCA</Link>
             <Link to="/status" className="hover:text-foreground transition-colors">Status</Link>
+            <Link to="/extension" className="hover:text-foreground transition-colors text-primary flex items-center gap-1">
+              <Puzzle className="w-3 h-3" /> Extension
+            </Link>
           </div>
           <p className="text-xs text-muted-foreground/50">© 2025 tseeder. All rights reserved.</p>
         </div>
