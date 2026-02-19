@@ -1,5 +1,5 @@
-// tseeder Content Script — auto-intercept magnet clicks (optional)
-// Adds a small "Send to tseeder" button next to magnet links on any page
+// fseeder Content Script — auto-intercept magnet clicks (optional)
+// Adds a small "Send to fseeder" button next to magnet links on any page
 
 (function () {
   'use strict';
@@ -13,7 +13,7 @@
 
     const btn = document.createElement('button');
     btn.textContent = '⚡';
-    btn.title = 'Send to tseeder Cloud';
+    btn.title = 'Send to fseeder Cloud';
     btn.style.cssText = [
       'display:inline-flex',
       'align-items:center',
@@ -33,7 +33,6 @@
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      // Send message to background to queue this magnet
       chrome.runtime.sendMessage({
         type: 'TSDR_QUEUE_MAGNET',
         magnetUri: anchor.href,
@@ -47,7 +46,6 @@
 
   document.querySelectorAll('a[href^="magnet:"]').forEach(addTseederButton);
 
-  // Observe dynamic pages (trackers that load results via JS)
   const observer = new MutationObserver(() => {
     document.querySelectorAll('a[href^="magnet:"]').forEach(addTseederButton);
   });

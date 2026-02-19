@@ -1,6 +1,6 @@
-// tseeder Extension Popup Script
+// fseeder Extension Popup Script
 // API_BASE is read from storage (set by web app) and falls back to production.
-const DEFAULT_API_BASE = 'https://api.tseeder.cc';
+const DEFAULT_API_BASE = 'https://api.fseeder.cc';
 const ICON = 'icon48.svg';
 
 const loginState   = document.getElementById('state-login');
@@ -86,7 +86,7 @@ sendBtn.addEventListener('click', async () => {
 
   const data = await getStorage('tsdr_api_key', 'tsdr_api_base');
   if (!data.tsdr_api_key) {
-    showStatus('Not signed in — please log in at tseeder.cc', 'error');
+    showStatus('Not signed in — please log in at fseeder.cc', 'error');
     return;
   }
 
@@ -124,7 +124,7 @@ sendBtn.addEventListener('click', async () => {
     chrome.notifications.create({
       type:     'basic',
       iconUrl:  ICON,
-      title:    'tseeder',
+      title:    'fseeder',
       message:  'Torrent added to your cloud queue!',
     });
   } catch (err) {
@@ -135,7 +135,7 @@ sendBtn.addEventListener('click', async () => {
   }
 });
 
-// Sign-out button (if present)
+// Sign-out button
 const signOutBtn = document.getElementById('sign-out-btn');
 if (signOutBtn) {
   signOutBtn.addEventListener('click', async () => {

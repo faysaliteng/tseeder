@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "tseeder — Cloud Torrent Downloader",
-  "short_name": "tseeder",
+  "name": "fseeder — Cloud Torrent Downloader",
+  "short_name": "fseeder",
   "version": "1.0.0",
-  "description": "Send any magnet link or torrent to tseeder.cc with one click. Download at datacenter speed, keep your IP private.",
+  "description": "Send any magnet link or torrent to fseeder.cc with one click. Download at datacenter speed, keep your IP private.",
   "icons": {
     "16": "icon16.svg",
     "48": "icon48.svg",
@@ -15,7 +15,7 @@
       "16": "icon16.svg",
       "48": "icon48.svg"
     },
-    "default_title": "tseeder — Send to cloud"
+    "default_title": "fseeder — Send to cloud"
   },
   "permissions": [
     "activeTab",
@@ -25,14 +25,13 @@
     "notifications"
   ],
   "host_permissions": [
-    "https://tseeder.cc/*",
-    "https://*.tseeder.cc/*"
+    "https://fseeder.cc/*",
+    "https://*.fseeder.cc/*"
   ],
   "externally_connectable": {
     "matches": [
-      "https://tseeder.cc/*",
-      "https://*.tseeder.cc/*",
-      "https://id-preview--*.lovable.app/*"
+      "https://fseeder.cc/*",
+      "https://*.fseeder.cc/*"
     ]
   },
   "background": {
