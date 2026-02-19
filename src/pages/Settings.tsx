@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usage as usageApi, auth as authApi, apiKeys as apiKeysApi, type ApiKey, ApiError } from "@/lib/api";
 import {
-  seedrAuth, seedr, isSeedrConnected, clearSeedrToken,
+  seedrAuth, seedr, isSeedrConnected,
   getDownloadProvider, setDownloadProvider, type DownloadProvider,
 } from "@/lib/seedr-api";
 import { TopHeader } from "@/components/TopHeader";
@@ -116,14 +116,12 @@ export default function SettingsPage() {
     if (!seedrEmail.trim() || !seedrPass.trim()) return;
     setSeedrLoginLoading(true);
     try {
-      await seedrAuth.loginPassword(seedrEmail.trim(), seedrPass.trim());
+      const info = await seedrAuth.login(seedrEmail.trim(), seedrPass.trim());
       setSeedrConnected(true);
       setSeedrEmail("");
       setSeedrPass("");
       toast({ title: "Seedr.cc connected!" });
-      // Fetch account info
-      const root = await seedr.getRoot();
-      setSeedrInfo({ username: root.username, space_max: root.space_max, space_used: root.space_used });
+      setSeedrInfo({ username: info.username, space_max: info.space_max, space_used: info.space_used });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Login failed";
       toast({ title: "Seedr.cc login failed", description: msg, variant: "destructive" });
