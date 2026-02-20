@@ -87,7 +87,7 @@ export default function LoginPage() {
   const [apiError, setApiError] = useState("");
 
   const loginMutation = useMutation({
-    mutationFn: () => auth.login(email, password, "dev-bypass"),
+    mutationFn: () => auth.login(email, password),
     onSuccess: async (data) => {
       setCsrfToken(data.csrfToken);
       try {

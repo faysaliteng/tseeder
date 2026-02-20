@@ -21,7 +21,6 @@ export const PasswordSchema = z
 export const RegisterRequestSchema = z.object({
   email: EmailSchema,
   password: PasswordSchema,
-  turnstileToken: z.string().min(1, "Turnstile token required"),
   acceptedAup: z.literal(true, { errorMap: () => ({ message: "You must accept the Acceptable Use Policy" }) }),
 });
 export type RegisterRequest = z.infer<typeof RegisterRequestSchema>;
@@ -29,7 +28,6 @@ export type RegisterRequest = z.infer<typeof RegisterRequestSchema>;
 export const LoginRequestSchema = z.object({
   email: EmailSchema,
   password: z.string().min(1),
-  turnstileToken: z.string().min(1),
 });
 export type LoginRequest = z.infer<typeof LoginRequestSchema>;
 

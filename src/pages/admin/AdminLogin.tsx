@@ -14,7 +14,7 @@ export default function AdminLoginPage() {
   const [apiError, setApiError] = useState("");
 
   const loginMutation = useMutation({
-    mutationFn: () => auth.login(email, password, "dev-bypass"),
+    mutationFn: () => auth.login(email, password),
     onSuccess: (data) => {
       setCsrfToken(data.csrfToken);
       navigate("/admin/overview");
