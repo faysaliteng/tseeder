@@ -296,7 +296,7 @@ export async function handleAdminSystemHealth(_req: Request, env: Env): Promise<
   const [statusCounts, recentErrors, agentHealth, queueDepth] = await Promise.all([
     env.DB.prepare("SELECT status, COUNT(*) as cnt FROM jobs GROUP BY status").all<{ status: string; cnt: number }>(),
     env.DB.prepare("SELECT COUNT(*) as cnt FROM jobs WHERE status = 'failed' AND updated_at >= datetime('now', '-24 hours')").first<{ cnt: number }>(),
-    fetch(`${env.WORKER_CLUSTER_URL}/agent/health`, {
+    fetch(`${env.WORKER_CLUSTER_URL}/health`, {
       headers: { "Authorization": `Bearer ${env.WORKER_CLUSTER_TOKEN}` },
       signal: AbortSignal.timeout(5000),
     }).then(r => r.ok ? r.json() : null).catch(() => null),

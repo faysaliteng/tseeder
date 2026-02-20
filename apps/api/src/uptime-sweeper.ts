@@ -30,7 +30,7 @@ export async function runUptimeSweeper(env: Env): Promise<void> {
   let agentOk = false;
   let agentNote: string | null = "Agent health unknown";
   try {
-    const agentRes = await fetch(`${env.WORKER_CLUSTER_URL}/agent/health`, {
+    const agentRes = await fetch(`${env.WORKER_CLUSTER_URL}/health`, {
       headers: { "Authorization": `Bearer ${env.WORKER_CLUSTER_TOKEN}` },
       signal: AbortSignal.timeout(8_000),
     });
