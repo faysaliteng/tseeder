@@ -244,5 +244,7 @@ function formatDate(d: Date): string {
 }
 
 function formatDateTime(d: Date): string {
-  return d.toISOString().replace(/[^0-9]/g, "").slice(0, 15) + "Z";
+  // AWS SigV4 requires format: 20260220T212356Z (with the T separator)
+  const iso = d.toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
+  return iso; // e.g. "20260220T212356Z"
 }
