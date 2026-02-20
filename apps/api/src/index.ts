@@ -311,8 +311,12 @@ router.get("/status/history",               [],                                 
 
 // ── Durable Object SSE proxy ───────────────────────────────────────────────────
 router.get("/do/job/:id/sse", [authMiddleware], async (req, env, ctx) => {
-  const id = env.JOB_PROGRESS_DO.idFromName(ctx.params.id);
-  return env.JOB_PROGRESS_DO.get(id).fetch(req);
+  const doId = env.JOB_PROGRESS_DO.idFromName(ctx.params.id);
+  // Rewrite path to /sse so the DO's internal router matches correctly
+  const doUrl = new URL(req.url);
+  doUrl.pathname = "/sse";
+  const doReq = new Request(doUrl.toString(), req);
+  return env.JOB_PROGRESS_DO.get(doId).fetch(doReq);
 });
 
 // ── Fallback ───────────────────────────────────────────────────────────────────

@@ -155,8 +155,19 @@ export async function handleListJobs(req: Request, env: Env, ctx: Ctx): Promise<
     sortBy: `j.${sortBy}`, sortDir,
   });
 
+  // Compute bytesTotal for completed jobs from files table
+  const completedIds = rows.filter(r => r.status === "completed").map(r => r.id);
+  const sizeMap = new Map<string, number>();
+  if (completedIds.length > 0) {
+    const placeholders = completedIds.map(() => "?").join(",");
+    const sizeRows = await env.DB.prepare(
+      `SELECT job_id, COALESCE(SUM(size_bytes), 0) as total FROM files WHERE job_id IN (${placeholders}) AND is_complete = 1 GROUP BY job_id`
+    ).bind(...completedIds).all<{ job_id: string; total: number }>();
+    for (const r of sizeRows.results) sizeMap.set(r.job_id, r.total);
+  }
+
   return Response.json({
-    data: rows.map(jobRowToApi),
+    data: rows.map(r => jobRowToApi(r, { bytesTotal: sizeMap.get(r.id) })),
     meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
   });
 }
@@ -171,7 +182,16 @@ export async function handleGetJob(req: Request, env: Env, ctx: Ctx): Promise<Re
   const job = await getJobByIdForUser(env.DB, id, userId);
   if (!job) return apiError("NOT_FOUND", "Job not found", 404, correlationId);
 
-  return Response.json(jobRowToApi(job));
+  // Compute total size from files for completed jobs
+  let bytesTotal = 0;
+  if (job.status === "completed") {
+    const sizeRow = await env.DB.prepare(
+      "SELECT COALESCE(SUM(size_bytes), 0) as total FROM files WHERE job_id = ? AND is_complete = 1"
+    ).bind(id).first<{ total: number }>();
+    bytesTotal = sizeRow?.total ?? 0;
+  }
+
+  return Response.json(jobRowToApi(job, { bytesTotal }));
 }
 
 // ── POST /jobs/:id/pause|resume|cancel ────────────────────────────────────────
@@ -338,7 +358,7 @@ export async function handleDeleteJob(req: Request, env: Env, ctx: Ctx): Promise
 
 // ── Row → API shape ───────────────────────────────────────────────────────────
 
-function jobRowToApi(row: import("../d1-helpers").JobRow) {
+function jobRowToApi(row: import("../d1-helpers").JobRow, overrides?: { bytesTotal?: number }) {
   return {
     id: row.id,
     userId: row.user_id,
@@ -359,6 +379,6 @@ function jobRowToApi(row: import("../d1-helpers").JobRow) {
     peers: 0,
     seeds: 0,
     bytesDownloaded: 0,
-    bytesTotal: 0,
+    bytesTotal: overrides?.bytesTotal ?? 0,
   };
 }
