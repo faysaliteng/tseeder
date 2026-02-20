@@ -102,7 +102,8 @@ export async function handleSignedUrl(req: Request, env: Env, ctx: Ctx): Promise
     return apiError("SERVER_ERROR", "Agent not configured", 500, correlationId);
   }
 
-  const downloadUrl = `${agentBase.replace(/\/$/, "")}/download/${file.job_id}/${encodeURIComponent(file.path)}`;
+  const encodedPath = file.path.split("/").map(s => encodeURIComponent(s)).join("/");
+  const downloadUrl = `${agentBase.replace(/\/$/, "")}/download/${file.job_id}/${encodedPath}`;
 
   await writeAuditLog(env.DB, {
     actorId: userId, action: "file.signed_url",
@@ -142,7 +143,9 @@ export async function handleProxyDownload(req: Request, env: Env, ctx: Ctx): Pro
     return apiError("SERVER_ERROR", "Download agent not configured", 500, correlationId);
   }
 
-  const agentUrl = `${agentBase.replace(/\/$/, "")}/download/${file.job_id}/${file.path}`;
+  // Encode each path segment to handle spaces, brackets, etc.
+  const encodedPath = file.path.split("/").map(s => encodeURIComponent(s)).join("/");
+  const agentUrl = `${agentBase.replace(/\/$/, "")}/download/${file.job_id}/${encodedPath}`;
   const agentRes = await fetch(agentUrl, {
     headers: {
       "Authorization": `Bearer ${env.WORKER_CLUSTER_TOKEN}`,
