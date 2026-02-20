@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { formatBytes } from "@/lib/utils";
@@ -75,21 +75,47 @@ function StorageRing({
   );
 }
 
-// Provider indicator chip
+// Provider indicator chip — checks real agent health
 function ProviderChip() {
   const provider = typeof window !== "undefined" ? (localStorage.getItem("download_provider") ?? "cloudflare") : "cloudflare";
   const isSeedr = provider === "seedr";
+  const [agentHealthy, setAgentHealthy] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || ""}/system-status`, {
+          signal: AbortSignal.timeout(5000),
+        });
+        if (!res.ok) { setAgentHealthy(false); return; }
+        const data = await res.json();
+        if (!cancelled) setAgentHealthy(data.agent?.status === "healthy");
+      } catch {
+        if (!cancelled) setAgentHealthy(false);
+      }
+    };
+    check();
+    const interval = setInterval(check, 30_000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, []);
+
+  const isHealthy = isSeedr || agentHealthy === true;
+  const isLoading = !isSeedr && agentHealthy === null;
+
   return (
     <div className={cn(
       "hidden sm:flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full border",
-      isSeedr
+      isHealthy
         ? "border-success/40 bg-success/10 text-success"
-        : "border-orange-500/40 bg-orange-500/10 text-orange-400"
+        : isLoading
+          ? "border-muted/40 bg-muted/10 text-muted-foreground"
+          : "border-destructive/40 bg-destructive/10 text-destructive"
     )}>
       <div className={cn(
-        "w-1.5 h-1.5 rounded-full animate-glow-pulse",
-        isSeedr ? "bg-success" : "bg-orange-400"
-      )} style={{ boxShadow: isSeedr ? "0 0 4px hsl(142 71% 45%)" : "0 0 4px rgb(251 146 60)" }} />
+        "w-1.5 h-1.5 rounded-full",
+        isHealthy ? "bg-success animate-glow-pulse" : isLoading ? "bg-muted-foreground animate-pulse" : "bg-destructive"
+      )} style={{ boxShadow: isHealthy ? "0 0 4px hsl(142 71% 45%)" : undefined }} />
       {isSeedr ? "🌱 Seedr" : <><CloudLightning className="w-2.5 h-2.5" />CF</>}
     </div>
   );
