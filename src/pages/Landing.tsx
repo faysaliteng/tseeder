@@ -78,10 +78,10 @@ function TrustLogos() {
     { name: "Jellyfin",  icon: "🟣", note: "Via rclone mount" },
   ];
   return (
-    <section className="bg-[#f4f6fb] py-10 px-6">
+    <section className="bg-[#f4f6fb] py-8 sm:py-10 px-4 sm:px-6">
       <div className="max-w-5xl mx-auto">
-        <p className="text-center text-xs font-bold text-gray-400 uppercase tracking-widest mb-6">Works seamlessly with your entire media stack</p>
-        <div className="flex flex-wrap items-center justify-center gap-4 md:gap-6">
+        <p className="text-center text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 sm:mb-6">Works seamlessly with your entire media stack</p>
+        <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 md:gap-6">
           {logos.map(l => (
             <div key={l.name} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-gray-100 shadow-sm hover:border-indigo-200 hover:shadow-md transition-all duration-200 group">
               <span className="text-lg grayscale group-hover:grayscale-0 transition-all">{l.icon}</span>
@@ -312,11 +312,11 @@ export default function LandingPage() {
       </nav>
 
       {/* ════ HERO ════ */}
-      <section className="relative pt-12 pb-16 px-6 bg-[#f4f6fb]">
+      <section className="relative pt-8 sm:pt-12 pb-12 sm:pb-16 px-4 sm:px-6 bg-[#f4f6fb]">
         <div className="max-w-7xl mx-auto">
-          <div className="grid lg:grid-cols-[1fr_400px] gap-12 items-start">
+          <div className="grid lg:grid-cols-[1fr_400px] gap-8 lg:gap-12 items-start">
             <div className="flex flex-col justify-center">
-              <div className="relative max-w-[520px] mb-10">
+              <div className="relative w-full max-w-[520px] mb-8 sm:mb-10">
                 <div className="rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-[0_8px_48px_rgba(224,82,82,0.12)]">
                   <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 bg-gray-50">
                     <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
@@ -371,7 +371,7 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              <h1 className="text-[42px] sm:text-5xl lg:text-[52px] font-extrabold leading-[1.1] tracking-tight mb-4 text-gray-900">
+              <h1 className="text-[28px] sm:text-[42px] lg:text-[52px] font-extrabold leading-[1.1] tracking-tight mb-4 text-gray-900">
                 Paste a link from<br />another website, then{" "}
                 <span style={{ color: "#e05252" }}>Play</span>{" "}
                 and{" "}
@@ -380,7 +380,7 @@ export default function LandingPage() {
                 <span className="text-gray-700">No software required!</span>
               </h1>
 
-              <p className="text-base text-gray-500 mb-3 font-medium">Trusted by 2M+ users worldwide · Your IP stays hidden, always</p>
+              <p className="text-sm sm:text-base text-gray-500 mb-3 font-medium">Trusted by 2M+ users worldwide · Your IP stays hidden, always</p>
 
               <Link to="/auth/register"
                 className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full text-white font-bold text-base hover:opacity-90 transition-all self-start"
@@ -399,8 +399,8 @@ export default function LandingPage() {
       <StatsStrip />
 
       {/* ════ UNLOCK PREMIUM STRIP ════ */}
-      <section className="relative z-10 py-14 px-6 bg-[#eef0f7]">
-        <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
+      <section className="relative z-10 py-10 sm:py-14 px-4 sm:px-6 bg-[#eef0f7]">
+        <div className="max-w-5xl mx-auto flex flex-col items-center text-center md:flex-row md:text-left md:justify-between gap-6 md:gap-8">
           <div className="flex items-center gap-4">
             {["💧", "🌱", "🌸", "✨"].map((emoji, i) => (
               <div key={i} className="w-14 h-14 rounded-full flex items-center justify-center text-2xl bg-white border border-gray-200 shadow-sm">
@@ -423,8 +423,8 @@ export default function LandingPage() {
       <TrustLogos />
 
       {/* ════ FEATURES ════ */}
-      <section id="features" className="relative z-10 py-20 px-6 bg-white">
-        <div className="max-w-6xl mx-auto space-y-24">
+      <section id="features" className="relative z-10 py-12 sm:py-20 px-4 sm:px-6 bg-white">
+        <div className="max-w-6xl mx-auto space-y-16 sm:space-y-24">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div className="order-2 md:order-1">
               <p className="text-xs font-bold text-indigo-500 uppercase tracking-widest mb-3">Streaming</p>
@@ -548,8 +548,8 @@ export default function LandingPage() {
       </section>
 
       {/* ════ EXTENSION PROMO ════ */}
-      <section className="relative z-10 py-16 px-6 bg-[#f4f6fb]">
-        <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-10 items-center">
+      <section className="relative z-10 py-12 sm:py-16 px-4 sm:px-6 bg-[#f4f6fb]">
+        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 sm:gap-10 items-center">
           <div>
             <p className="text-xs font-bold text-indigo-500 uppercase tracking-widest mb-3">Browser Extension</p>
             <h2 className="text-3xl font-extrabold tracking-tight mb-4 text-gray-900">
@@ -608,14 +608,14 @@ export default function LandingPage() {
       </section>
 
       {/* ════ TESTIMONIALS ════ */}
-      <section id="testimonials" className="relative z-10 py-20 px-6 bg-white">
+      <section id="testimonials" className="relative z-10 py-12 sm:py-20 px-4 sm:px-6 bg-white">
         <div className="max-w-5xl mx-auto">
-          <h2 className="text-3xl font-extrabold text-center mb-2 text-gray-900">What People Are Saying</h2>
-          <p className="text-center text-gray-400 text-sm mb-12">Real words from real subscribers — no marketing fluff</p>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-center mb-2 text-gray-900">What People Are Saying</h2>
+          <p className="text-center text-gray-400 text-sm mb-8 sm:mb-12">Real words from real subscribers — no marketing fluff</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {TESTIMONIALS.map((t, idx) => (
               <div key={t.name}
-                className={`rounded-2xl p-6 border border-gray-100 bg-gray-50 hover:border-indigo-200 transition-all hover:-translate-y-1 duration-200 ${idx === 0 ? "lg:col-span-2" : ""}`}>
+                className={`rounded-2xl p-6 border border-gray-100 bg-gray-50 hover:border-indigo-200 transition-all hover:-translate-y-1 duration-200 ${idx === 0 ? "sm:col-span-2 lg:col-span-2" : ""}`}>
                 <div className="flex gap-0.5 mb-4">
                   {Array.from({ length: 5 }).map((_, i) => (
                     <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
@@ -641,10 +641,10 @@ export default function LandingPage() {
       </section>
 
       {/* ════ PRICING ════ */}
-      <section id="pricing" className="relative z-10 py-24 px-6 bg-[#f4f6fb]">
+      <section id="pricing" className="relative z-10 py-16 sm:py-24 px-4 sm:px-6 bg-[#f4f6fb]">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-4">
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-gray-900">
               Get More with fseeder{" "}
               <span style={{ background: "linear-gradient(135deg, #f39c12, #9b59b6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>✦ Premium</span>
             </h2>
@@ -668,7 +668,7 @@ export default function LandingPage() {
             </button>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-5 items-start">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-start overflow-x-auto">
             {PLANS.map((plan) => {
               const price = billingYearly ? (plan.price * 10).toFixed(2) : plan.price.toFixed(2);
               const period = billingYearly ? "/year" : "/mo";
@@ -743,8 +743,8 @@ export default function LandingPage() {
             </button>
           </div>
           {showComparison && (
-            <div className="mt-6 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="mt-6 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-x-auto">
+              <table className="w-full text-sm min-w-[500px]">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50">
                     <th className="text-left px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-widest">Feature</th>
@@ -794,9 +794,9 @@ export default function LandingPage() {
       </section>
 
       {/* ════ BLOG ════ */}
-      <section className="relative z-10 py-20 px-6 bg-white">
+      <section className="relative z-10 py-12 sm:py-20 px-4 sm:px-6 bg-white">
         <div className="max-w-6xl mx-auto">
-          <div className="flex items-end justify-between mb-8">
+          <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-3 mb-8">
             <div>
               <p className="text-xs font-bold text-indigo-500 uppercase tracking-widest mb-2">Resources</p>
               <h2 className="text-2xl font-extrabold text-gray-900">From the Blog</h2>
@@ -805,7 +805,7 @@ export default function LandingPage() {
               All articles <ChevronRight className="w-4 h-4" />
             </Link>
           </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {ARTICLES.map((a) => (
               <Link key={a.id} to={`/blog/${a.slug}`} className="group rounded-2xl overflow-hidden border border-gray-100 bg-gray-50 hover:border-indigo-200 hover:shadow-md hover:-translate-y-1 transition-all duration-200 block">
                 <div className="aspect-video overflow-hidden bg-gray-200">
@@ -830,7 +830,7 @@ export default function LandingPage() {
       </section>
 
       {/* ════ RICH FOOTER ════ */}
-      <footer className="relative z-10 bg-gray-900 text-gray-400 pt-14 pb-8 px-6">
+      <footer className="relative z-10 bg-gray-900 text-gray-400 pt-10 sm:pt-14 pb-8 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
             <div className="col-span-2 md:col-span-1">
