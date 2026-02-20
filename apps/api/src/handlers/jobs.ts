@@ -60,7 +60,9 @@ export async function handleCreateJob(req: Request, env: Env, ctx: Ctx): Promise
       return apiError("VALIDATION_ERROR", `File exceeds maximum size of ${maxBytes} bytes`, 413, correlationId);
     }
     jobName = file.name.replace(/\.torrent$/, "");
-    // torrent file bytes are forwarded to the queue message for the agent
+    // Convert torrent file to base64 for queue dispatch to agent
+    const arrayBuf = await file.arrayBuffer();
+    var torrentBase64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuf)));
   } else {
     return apiError("VALIDATION_ERROR", "Content-Type must be application/json or multipart/form-data", 415, correlationId);
   }
@@ -109,6 +111,7 @@ export async function handleCreateJob(req: Request, env: Env, ctx: Ctx): Promise
   await env.JOB_QUEUE.send({
     jobId, userId, type: magnetUri ? "magnet" : "torrent",
     magnetUri: magnetUri ?? undefined,
+    torrentBase64: (typeof torrentBase64 !== "undefined") ? torrentBase64 : undefined,
     correlationId, attempt: 1,
   });
 

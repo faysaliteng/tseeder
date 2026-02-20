@@ -134,20 +134,7 @@ export async function handleProxyDownload(req: Request, env: Env, ctx: Ctx): Pro
     return apiError("VALIDATION_ERROR", "File is not ready for download yet", 409, correlationId);
   }
 
-  // If file has R2 key, redirect to R2 signed URL
-  if (file.r2_key) {
-    const signedUrl = await signS3Request({
-      method: "GET",
-      bucket: env.R2_BUCKET_NAME,
-      key: file.r2_key,
-      region: "auto",
-      accessKeyId: env.R2_ACCESS_KEY_ID,
-      secretAccessKey: env.R2_SECRET_ACCESS_KEY,
-      expiresIn: 3600,
-      endpoint: env.R2_ENDPOINT,
-    });
-    return Response.redirect(signedUrl, 302);
-  }
+  // Always proxy from agent — files are stored on agent's local disk, not R2
 
   // Proxy from agent
   const agentBase = env.WORKER_CLUSTER_URL;
