@@ -1,8 +1,8 @@
-# Threat Model — TorrentFlow
+# Threat Model — tseeder
 
 ## Scope
 
-This document covers threats to the TorrentFlow platform: the Cloudflare Workers API, Durable Objects, compute agent cluster, R2 storage, D1 database, and frontend.
+This document covers threats to the tseeder platform: the Cloudflare Workers API, Durable Objects, compute agent, R2 storage, D1 database, and frontend.
 
 ---
 

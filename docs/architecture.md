@@ -1,8 +1,8 @@
-# Architecture — TorrentFlow
+# Architecture — tseeder
 
 ## System Purpose
 
-TorrentFlow is a multi-tenant remote download manager. Users submit download jobs; the platform fetches content via an external compute cluster, stores results in Cloudflare R2, and delivers files via authenticated signed URLs.
+tseeder is a multi-tenant remote download manager. Users submit download jobs; the platform fetches content via an external compute agent, stores results on the agent's local disk, and delivers files via an authenticated API proxy.
 
 **Key architectural decisions:**
 - All user-facing traffic routes through Cloudflare Workers (sub-ms cold start, global PoP)
