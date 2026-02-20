@@ -126,6 +126,7 @@ export const jobs = {
   pause: (id: string) => request<{ id: string; status: string }>(`/jobs/${id}/pause`, { method: "POST" }),
   resume: (id: string) => request<{ id: string; status: string }>(`/jobs/${id}/resume`, { method: "POST" }),
   cancel: (id: string) => request<{ id: string; status: string }>(`/jobs/${id}/cancel`, { method: "POST" }),
+  delete: (id: string) => request<{ ok: boolean; id: string }>(`/jobs/${id}`, { method: "DELETE" }),
 
   getFiles: (id: string) => request<{ jobId: string; files: ApiFile[]; tree: unknown[] }>(`/jobs/${id}/files`),
 };

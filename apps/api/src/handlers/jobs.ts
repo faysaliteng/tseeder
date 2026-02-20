@@ -4,6 +4,7 @@ import {
   createJob, getJobById, getJobByIdForUser, listJobsForUser,
   updateJobStatus, getExistingCompletedJob, appendJobEvent,
   upsertFiles, checkQuota, isInfohashBlocked, writeAuditLog,
+  deleteJob,
 } from "../d1-helpers";
 import { apiError, formatZodError } from "./auth";
 import { verifyCallbackSignature } from "../crypto";
@@ -286,6 +287,41 @@ export async function handleJobCallback(req: Request, env: Env): Promise<Respons
   }));
 
   return Response.json({ ok: true });
+}
+
+// ── DELETE /jobs/:id ──────────────────────────────────────────────────────────
+
+export async function handleDeleteJob(req: Request, env: Env, ctx: Ctx): Promise<Response> {
+  const correlationId = req.headers.get("X-Correlation-ID") ?? crypto.randomUUID();
+  const { id } = ctx.params;
+  const userId = ctx.user!.id;
+
+  const job = await getJobByIdForUser(env.DB, id, userId);
+  if (!job) return apiError("NOT_FOUND", "Job not found", 404, correlationId);
+
+  // Only allow deleting terminal jobs
+  const terminalStates = ["completed", "failed", "cancelled"];
+  if (!terminalStates.includes(job.status)) {
+    return apiError("VALIDATION_ERROR", "Can only delete completed, failed, or cancelled jobs. Cancel it first.", 409, correlationId);
+  }
+
+  // Delete R2 files (best-effort)
+  try {
+    const files = await env.DB.prepare("SELECT r2_key FROM files WHERE job_id = ?").bind(id).all<{ r2_key: string | null }>();
+    for (const f of files.results) {
+      if (f.r2_key) await env.FILES_BUCKET.delete(f.r2_key).catch(() => {});
+    }
+  } catch { /* non-fatal */ }
+
+  const deleted = await deleteJob(env.DB, id, userId);
+  if (!deleted) return apiError("NOT_FOUND", "Job not found", 404, correlationId);
+
+  await writeAuditLog(env.DB, {
+    actorId: userId, action: "job.deleted", targetType: "job", targetId: id,
+    metadata: { name: job.name }, ipAddress: req.headers.get("CF-Connecting-IP") ?? undefined,
+  });
+
+  return Response.json({ ok: true, id, message: "Job deleted" });
 }
 
 // ── Row → API shape ───────────────────────────────────────────────────────────
