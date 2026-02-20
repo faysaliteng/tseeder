@@ -124,7 +124,13 @@ export async function handleLogin(req: Request, env: Env): Promise<Response> {
     return apiError("AUTH_INVALID", "Invalid email or password", 401, correlationId);
   }
 
-  if (!user.email_verified) {
+  // Check email verification — skip if feature flag is disabled
+  const emailVerifFlag = await env.DB.prepare(
+    "SELECT value FROM feature_flags WHERE key = 'email_verification' LIMIT 1"
+  ).first<{ value: number }>();
+  const requireVerification = emailVerifFlag ? emailVerifFlag.value === 1 : true;
+
+  if (requireVerification && !user.email_verified) {
     return apiError("AUTH_EMAIL_UNVERIFIED", "Please verify your email before logging in", 403, correlationId);
   }
 
