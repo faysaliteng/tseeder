@@ -41,6 +41,14 @@ export async function runRetentionSweeper(env: Env): Promise<void> {
     if (f.r2_key) {
       await env.FILES_BUCKET.delete(f.r2_key).catch(() => {});
     }
+    // Delete local files from compute agent (best-effort)
+    if (env.WORKER_CLUSTER_URL && env.WORKER_CLUSTER_TOKEN) {
+      fetch(`${env.WORKER_CLUSTER_URL.replace(/\/$/, "")}/cleanup/${f.job_id}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${env.WORKER_CLUSTER_TOKEN}` },
+        signal: AbortSignal.timeout(10_000),
+      }).catch(() => {});
+    }
     // Delete from D1
     await env.DB.prepare("DELETE FROM files WHERE id = ?").bind(f.id).run().catch(() => {});
     deletedFiles++;

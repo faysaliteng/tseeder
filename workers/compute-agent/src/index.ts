@@ -12,6 +12,7 @@ import { handleStop } from "./routes/stop";
 import { handleDownload } from "./routes/download";
 import { handleStatus, handleFiles } from "./routes/status";
 import { handleHealth } from "./routes/health";
+import { handleCleanup, autoPurgeOldFiles } from "./routes/cleanup";
 import { logger } from "./logger";
 
 const PORT = parseInt(process.env.PORT ?? "8787");
@@ -48,6 +49,11 @@ const server = createServer(async (req, res) => {
       return handleStop(req, res, stopMatch[1], correlationId);
     }
 
+    const cleanupMatch = url.pathname.match(/^\/cleanup\/(.+)$/);
+    if (method === "DELETE" && cleanupMatch) {
+      return handleCleanup(req, res, cleanupMatch[1], correlationId);
+    }
+
     const statusMatch = url.pathname.match(/^\/status\/(.+)$/);
     if (method === "GET" && statusMatch) {
       return handleStatus(req, res, statusMatch[1]);
@@ -79,4 +85,8 @@ const server = createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   logger.info({ port: PORT }, "Compute agent started");
+
+  // Auto-purge files older than 2 days on startup and every 6 hours
+  autoPurgeOldFiles(2);
+  setInterval(() => autoPurgeOldFiles(2), 6 * 60 * 60 * 1000);
 });

@@ -316,6 +316,15 @@ export async function handleDeleteJob(req: Request, env: Env, ctx: Ctx): Promise
     }
   } catch { /* non-fatal */ }
 
+  // Delete local files from compute agent (best-effort)
+  if (env.WORKER_CLUSTER_URL && env.WORKER_CLUSTER_TOKEN) {
+    fetch(`${env.WORKER_CLUSTER_URL.replace(/\/$/, "")}/cleanup/${id}`, {
+      method: "DELETE",
+      headers: { "Authorization": `Bearer ${env.WORKER_CLUSTER_TOKEN}` },
+      signal: AbortSignal.timeout(10_000),
+    }).catch(() => {});
+  }
+
   const deleted = await deleteJob(env.DB, id, userId);
   if (!deleted) return apiError("NOT_FOUND", "Job not found", 404, correlationId);
 
