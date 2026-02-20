@@ -29,9 +29,9 @@ export async function handleRegister(req: Request, env: Env): Promise<Response> 
   const correlationId = req.headers.get("X-Correlation-ID") ?? crypto.randomUUID();
   const ip = req.headers.get("CF-Connecting-IP") ?? "unknown";
 
-  // Rate limit: 5 registrations per IP per hour
+  // Rate limit: 50 registrations per IP per hour
   const rlKey = `rl:register:${ip}`;
-  const allowed = await rateLimitCheck(env.RATE_LIMIT_KV, rlKey, 5, 3600);
+  const allowed = await rateLimitCheck(env.RATE_LIMIT_KV, rlKey, 50, 3600);
   if (!allowed) {
     return apiError("RATE_LIMITED", "Too many registration attempts", 429, correlationId);
   }
@@ -92,15 +92,6 @@ export async function handleLogin(req: Request, env: Env): Promise<Response> {
   const correlationId = req.headers.get("X-Correlation-ID") ?? crypto.randomUUID();
   const ip = req.headers.get("CF-Connecting-IP") ?? "unknown";
 
-  // Rate limit: 10 per IP per minute
-  const rlKey = `rl:login:${ip}`;
-  const allowed = await rateLimitCheck(env.RATE_LIMIT_KV, rlKey, 10, 60);
-  if (!allowed) {
-    return apiError("RATE_LIMITED", "Too many login attempts", 429, correlationId, {
-      "Retry-After": "60",
-    });
-  }
-
   const body = await req.json().catch(() => null);
   const parsed = LoginRequestSchema.safeParse(body);
   if (!parsed.success) {
@@ -110,6 +101,18 @@ export async function handleLogin(req: Request, env: Env): Promise<Response> {
   const { email, password } = parsed.data;
 
   const user = await getUserByEmail(env.DB, email);
+
+  // Rate limit: 50 per IP per hour — skip for admin/superadmin
+  const isAdmin = user && (user.role === "admin" || user.role === "superadmin");
+  if (!isAdmin) {
+    const rlKey = `rl:login:${ip}`;
+    const allowed = await rateLimitCheck(env.RATE_LIMIT_KV, rlKey, 50, 3600);
+    if (!allowed) {
+      return apiError("RATE_LIMITED", "Too many login attempts", 429, correlationId, {
+        "Retry-After": "3600",
+      });
+    }
+  }
   if (!user) {
     // Prevent timing-based email enumeration: still hash password
     await hashPassword(password);
