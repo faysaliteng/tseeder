@@ -8,7 +8,7 @@ import { authMiddleware, rbacMiddleware, csrfMiddleware, rateLimitMiddleware } f
 import {
   handleRegister, handleLogin, handleLogout, handleReset, handleResetConfirm,
   handleVerifyEmail, handleListApiKeys, handleCreateApiKey, handleRevokeApiKey,
-  extractCookie,
+  handleExtensionLogin, extractCookie,
 } from "./handlers/auth";
 import { handleCreateJob, handleListJobs, handleGetJob, handleJobAction, handleJobCallback, handleDeleteJob } from "./handlers/jobs";
 import { handleGetFiles, handleSignedUrl, handleDeleteFile, handleProxyDownload } from "./handlers/files";
@@ -139,6 +139,7 @@ router.post("/auth/logout",         [authMiddleware],                           
 router.post("/auth/reset",          [rateLimitMiddleware("reset", 3, 3600)],     handleReset);
 router.post("/auth/reset/confirm",  [rateLimitMiddleware("reset-c", 5, 3600)],   handleResetConfirm);
 router.post("/auth/verify-email",   [],                                          handleVerifyEmail);
+router.post("/auth/login/extension",[rateLimitMiddleware("login-ext", 10, 60)],  handleExtensionLogin);
 
 // ── API Keys (authenticated) ───────────────────────────────────────────────────
 router.get("/auth/api-keys",           [authMiddleware],                           handleListApiKeys);

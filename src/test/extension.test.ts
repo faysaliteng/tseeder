@@ -14,7 +14,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // ── Minimal Chrome API mock ───────────────────────────────────────────────────
 
 interface StorageData {
-  tsdr_api_key?: string;
+  tsdr_token?: string;
   tsdr_email?: string;
   tsdr_api_base?: string;
 }
@@ -108,13 +108,13 @@ function handleExternalMessage(
 ) {
   if (msg.type === "TSDR_AUTH" && msg.token && msg.email) {
     chromeMock.storage.local.set(
-      { tsdr_api_key: msg.token, tsdr_email: msg.email },
+      { tsdr_token: msg.token, tsdr_email: msg.email },
       () => sendResponse({ ok: true }),
     );
     return true;
   }
   if (msg.type === "TSDR_SIGNOUT") {
-    chromeMock.storage.local.remove(["tsdr_api_key", "tsdr_email"], () =>
+    chromeMock.storage.local.remove(["tsdr_token", "tsdr_email"], () =>
       sendResponse({ ok: true }),
     );
     return true;
@@ -199,12 +199,12 @@ describe("background.js — sendJob()", () => {
 describe("background.js — TSDR_AUTH external message handler", () => {
   beforeEach(() => { store = {}; vi.clearAllMocks(); });
 
-  it("stores tsdr_api_key and tsdr_email in local storage", async () => {
+  it("stores tsdr_token and tsdr_email in local storage", async () => {
     const sendResponse = vi.fn();
     handleExternalMessage({ type: "TSDR_AUTH", token: "secret_key", email: "user@test.com" }, sendResponse);
 
-    await new Promise(r => setTimeout(r, 10)); // let storage.set cb fire
-    expect(store.tsdr_api_key).toBe("secret_key");
+    await new Promise(r => setTimeout(r, 10));
+    expect(store.tsdr_token).toBe("secret_key");
     expect(store.tsdr_email).toBe("user@test.com");
   });
 
@@ -216,11 +216,11 @@ describe("background.js — TSDR_AUTH external message handler", () => {
   });
 
   it("removes credentials on TSDR_SIGNOUT", async () => {
-    store = { tsdr_api_key: "old", tsdr_email: "old@old.com" };
+    store = { tsdr_token: "old", tsdr_email: "old@old.com" };
     const sendResponse = vi.fn();
     handleExternalMessage({ type: "TSDR_SIGNOUT" }, sendResponse);
     await new Promise(r => setTimeout(r, 10));
-    expect(store.tsdr_api_key).toBeUndefined();
+    expect(store.tsdr_token).toBeUndefined();
     expect(store.tsdr_email).toBeUndefined();
   });
 });
@@ -336,8 +336,8 @@ describe("popup.js — init state logic", () => {
 
   function getInitState(): Promise<"login" | "loggedin"> {
     return new Promise(resolve => {
-      chromeMock.storage.local.get(["tsdr_email", "tsdr_api_key"], (data) => {
-        resolve(data.tsdr_api_key && data.tsdr_email ? "loggedin" : "login");
+      chromeMock.storage.local.get(["tsdr_email", "tsdr_token"], (data) => {
+        resolve(data.tsdr_token && data.tsdr_email ? "loggedin" : "login");
       });
     });
   }
@@ -348,7 +348,7 @@ describe("popup.js — init state logic", () => {
   });
 
   it("shows loggedin state when token and email exist", async () => {
-    store = { tsdr_api_key: "tok", tsdr_email: "a@b.com" };
+    store = { tsdr_token: "tok", tsdr_email: "a@b.com" };
     const state = await getInitState();
     expect(state).toBe("loggedin");
   });

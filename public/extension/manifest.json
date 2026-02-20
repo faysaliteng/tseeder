@@ -26,7 +26,8 @@
   ],
   "host_permissions": [
     "https://fseeder.cc/*",
-    "https://*.fseeder.cc/*"
+    "https://*.fseeder.cc/*",
+    "https://api.fseeder.cc/*"
   ],
   "externally_connectable": {
     "matches": [

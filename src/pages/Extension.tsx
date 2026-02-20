@@ -64,30 +64,30 @@ const FEATURES = [
     bg: "#fefce8",
   },
   {
-    icon: Bell,
-    title: "Desktop notifications",
-    desc: "Get a system notification the moment your torrent is added to the cloud queue — no tab switching.",
+    icon: Lock,
+    title: "Sign in directly",
+    desc: "Log in with email & password right inside the popup — no web redirect needed. Your session stays active for 30 days.",
     color: "#10b981",
     bg: "#ecfdf5",
   },
   {
     icon: Shield,
-    title: "Token-based auth",
-    desc: "Your password never touches the extension. Auth uses a secure bearer token stored in chrome.storage.",
+    title: ".torrent file upload",
+    desc: "Upload .torrent files directly from the extension. No need to convert to magnet — just pick the file and send.",
     color: "#8b5cf6",
     bg: "#f5f3ff",
   },
   {
     icon: Code2,
-    title: "Open source",
-    desc: "All extension source code is auditable. Manifest v3, no analytics, no telemetry, no ads.",
+    title: "Browse jobs & download",
+    desc: "View your active and completed jobs, browse files, and download completed files — all without leaving the extension.",
     color: "#0ea5e9",
     bg: "#f0f9ff",
   },
   {
-    icon: RefreshCw,
-    title: "Real-time sync",
-    desc: "Once you're signed in, the extension stays in sync with your dashboard — same jobs, same status.",
+    icon: Bell,
+    title: "Desktop notifications",
+    desc: "Get a system notification the moment your torrent is added to the cloud queue — no tab switching.",
     color: "#ef4444",
     bg: "#fef2f2",
   },
@@ -166,12 +166,19 @@ export default function ExtensionPage() {
               </div>
             </div>
             <div className="p-4 space-y-3">
+              {/* Tabs mockup */}
+              <div className="flex gap-1 bg-white/[0.03] rounded-lg p-0.5">
+                <div className="flex-1 py-1.5 text-center text-[10px] font-bold text-indigo-400 bg-indigo-500/15 rounded-md">⚡ Add</div>
+                <div className="flex-1 py-1.5 text-center text-[10px] font-bold text-white/30 rounded-md">📦 Jobs</div>
+              </div>
+              {/* User row */}
               <div className="flex items-center gap-2 p-2 rounded-lg border border-white/10 bg-white/[0.03]">
                 <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0"
                   style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)" }}>U</div>
                 <span className="text-xs text-white/50 flex-1">user@example.com</span>
                 <span className="text-[10px] font-bold text-emerald-400">● Online</span>
               </div>
+              {/* Magnet input */}
               <div className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/30 font-mono">
                 magnet:?xt=urn:btih:...
               </div>
@@ -183,6 +190,10 @@ export default function ExtensionPage() {
                 <div className="px-3 py-2 rounded-lg text-xs text-white/40 border border-white/10">
                   Dashboard →
                 </div>
+              </div>
+              {/* Torrent upload */}
+              <div className="flex items-center gap-2 p-2 rounded-lg border border-dashed border-indigo-500/30">
+                <span className="text-xs text-indigo-400 font-semibold">📁 Choose .torrent file</span>
               </div>
               <div className="text-[10px] text-white/30 text-center">2 magnets detected on this page</div>
             </div>

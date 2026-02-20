@@ -551,6 +551,68 @@ export async function handleRevokeApiKey(req: Request, env: Env, ctx: { params: 
   return Response.json({ message: "API key revoked", id: keyId });
 }
 
+// ── POST /auth/login/extension ─────────────────────────────────────────────
+// Returns the session token in the response body (not HttpOnly cookie)
+// so browser extensions can store it in chrome.storage.
+
+export async function handleExtensionLogin(req: Request, env: Env): Promise<Response> {
+  const correlationId = req.headers.get("X-Correlation-ID") ?? crypto.randomUUID();
+  const ip = req.headers.get("CF-Connecting-IP") ?? "unknown";
+
+  const body = await req.json().catch(() => null);
+  const parsed = LoginRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return apiError("VALIDATION_ERROR", formatZodError(parsed.error), 400, correlationId);
+  }
+
+  const { email, password } = parsed.data;
+  const user = await getUserByEmail(env.DB, email);
+
+  const isAdmin = user && (user.role === "admin" || user.role === "superadmin");
+  if (!isAdmin) {
+    const rlKey = `rl:login-ext:${ip}`;
+    const allowed = await rateLimitCheck(env.RATE_LIMIT_KV, rlKey, 10, 3600);
+    if (!allowed) {
+      return apiError("RATE_LIMITED", "Too many login attempts", 429, correlationId);
+    }
+  }
+
+  if (!user) {
+    await hashPassword(password);
+    return apiError("AUTH_INVALID", "Invalid email or password", 401, correlationId);
+  }
+
+  const passwordOk = await verifyPassword(password, user.password_hash);
+  if (!passwordOk) {
+    return apiError("AUTH_INVALID", "Invalid email or password", 401, correlationId);
+  }
+
+  if (!user.email_verified) {
+    return apiError("AUTH_EMAIL_UNVERIFIED", "Please verify your email before logging in", 403, correlationId);
+  }
+
+  if (user.suspended) {
+    return apiError("AUTH_SUSPENDED", "Your account has been suspended", 403, correlationId);
+  }
+
+  const token = generateToken();
+  const tokenHash = await hashToken(token);
+  const sessionId = crypto.randomUUID();
+  const expiresAt = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString();
+
+  await createSession(env.DB, {
+    id: sessionId, userId: user.id, tokenHash,
+    expiresAt, deviceInfo: "fseeder Browser Extension", ipAddress: ip,
+  });
+
+  await writeAuditLog(env.DB, {
+    actorId: user.id, action: "user.login.extension",
+    metadata: { ip }, ipAddress: ip,
+  });
+
+  return Response.json({ token, user: { id: user.id, email: user.email, role: user.role }, expiresAt });
+}
+
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
 export function apiError(
