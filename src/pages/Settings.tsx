@@ -2,9 +2,6 @@ import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usage as usageApi, auth as authApi, authMe, apiKeys as apiKeysApi, providers as providersApi, billing as billingApi, type ApiKey, ApiError } from "@/lib/api";
-import {
-  seedrAuth, seedr, isSeedrConnected,
-} from "@/lib/seedr-api";
 import { TopHeader } from "@/components/TopHeader";
 import { formatBytes } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -453,37 +450,6 @@ export default function SettingsPage() {
   });
   const activeProvider = providerData?.provider ?? "cloudflare";
 
-  const [seedrConnected, setSeedrConnected] = useState(isSeedrConnected);
-  const [seedrEmail, setSeedrEmail] = useState("");
-  const [seedrPass, setSeedrPass] = useState("");
-  const [seedrShowPass, setSeedrShowPass] = useState(false);
-  const [seedrLoginLoading, setSeedrLoginLoading] = useState(false);
-  const [seedrInfo, setSeedrInfo] = useState<{ username: string; space_max: number; space_used: number } | null>(null);
-
-  const handleSeedrLogin = async () => {
-    if (!seedrEmail.trim() || !seedrPass.trim()) return;
-    setSeedrLoginLoading(true);
-    try {
-      const info = await seedrAuth.login(seedrEmail.trim(), seedrPass.trim());
-      setSeedrConnected(true);
-      setSeedrEmail("");
-      setSeedrPass("");
-      toast({ title: "Seedr.cc connected! 🌱" });
-      setSeedrInfo({ username: info.username, space_max: info.space_max, space_used: info.space_used });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Login failed";
-      toast({ title: "Seedr.cc login failed", description: msg, variant: "destructive" });
-    } finally {
-      setSeedrLoginLoading(false);
-    }
-  };
-
-  const handleSeedrDisconnect = () => {
-    seedrAuth.logout();
-    setSeedrConnected(false);
-    setSeedrInfo(null);
-    toast({ title: "Seedr.cc disconnected" });
-  };
 
 
   const { data: usageData, isLoading: usageLoading } = useQuery({ queryKey: ["usage"], queryFn: () => usageApi.get() });
@@ -701,83 +667,6 @@ export default function SettingsPage() {
             </div>
           </SectionCard>
 
-
-          {/* ── Seedr.cc Integration ──────────────────────────────────── */}
-          <SectionCard>
-            <div className="flex items-center justify-between px-4 py-3.5 rounded-t-xl" style={{ background: "linear-gradient(135deg, hsl(142 71% 15%), hsl(142 71% 10%))" }}>
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-success/20 border border-success/30 flex items-center justify-center">
-                  <Zap className="w-3.5 h-3.5 text-success" />
-                </div>
-                <span className="text-sm font-bold text-white uppercase tracking-widest">Seedr.cc Integration</span>
-              </div>
-              <a href="https://www.seedr.cc" target="_blank" rel="noopener noreferrer" className="text-success hover:text-success/80 transition-colors">
-                <ExternalLink className="w-4 h-4" />
-              </a>
-            </div>
-            <div className="h-0.5" style={{ background: "hsl(142 71% 45%)" }} />
-
-            {seedrConnected ? (
-              <div className="px-4 py-4 space-y-4">
-                <div className="flex items-center gap-3 p-3 rounded-xl neon-border-success" style={{ background: "hsl(142 71% 45% / 0.06)" }}>
-                  <div className="w-2.5 h-2.5 rounded-full bg-success animate-glow-pulse shrink-0" style={{ boxShadow: "0 0 8px hsl(142 71% 45%)" }} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-foreground">{seedrInfo?.username ?? "Connected"}</p>
-                    {seedrInfo && <p className="text-xs text-muted-foreground">{formatBytes(seedrInfo.space_used)} / {formatBytes(seedrInfo.space_max)} used</p>}
-                  </div>
-                  <span className="text-xs font-bold text-success">CONNECTED</span>
-                </div>
-                {seedrInfo && (
-                  <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, (seedrInfo.space_used / seedrInfo.space_max) * 100)}%`, background: "hsl(142 71% 45%)", boxShadow: "0 0 8px hsl(142 71% 45% / 0.5)" }} />
-                  </div>
-                )}
-                <div className="flex gap-3">
-                  <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border" onClick={() => {
-                    setSeedrLoginLoading(true);
-                    seedr.getRoot()
-                      .then(root => setSeedrInfo({ username: root.username, space_max: root.space_max, space_used: root.space_used }))
-                      .catch(() => toast({ title: "Failed to refresh", variant: "destructive" }))
-                      .finally(() => setSeedrLoginLoading(false));
-                  }} disabled={seedrLoginLoading}>
-                    {seedrLoginLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} Refresh
-                  </Button>
-                  <Button variant="outline" size="sm" className="gap-1.5 text-xs border-destructive/40 text-destructive hover:bg-destructive/10" onClick={handleSeedrDisconnect}>
-                    <X className="w-3.5 h-3.5" /> Disconnect
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="px-4 py-4 space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Connect your <strong className="text-foreground">Seedr.cc</strong> account for{" "}
-                  <span className="text-success font-semibold">10–100× faster</span> cloud torrent speeds.
-                </p>
-                <div className="space-y-2.5">
-                  <Input type="email" placeholder="Seedr.cc Email" value={seedrEmail} onChange={e => setSeedrEmail(e.target.value)}
-                    className="bg-input border-border/60 rounded-xl h-10" autoComplete="email" />
-                  <div className="relative">
-                    <Input type={seedrShowPass ? "text" : "password"} placeholder="Password" value={seedrPass}
-                      onChange={e => setSeedrPass(e.target.value)}
-                      className="bg-input border-border/60 rounded-xl h-10 pr-9" autoComplete="current-password"
-                      onKeyDown={e => { if (e.key === "Enter") handleSeedrLogin(); }} />
-                    <button type="button" onClick={() => setSeedrShowPass(s => !s)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                      {seedrShowPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                    </button>
-                  </div>
-                  <Button className="w-full h-10 gap-2 rounded-xl font-bold relative overflow-hidden group"
-                    style={{ background: "linear-gradient(135deg, hsl(142 71% 35%), hsl(142 71% 25%))" }}
-                    onClick={handleSeedrLogin} disabled={seedrLoginLoading || !seedrEmail.trim() || !seedrPass.trim()}>
-                    <span className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                    <span className="relative flex items-center gap-2 text-white">
-                      {seedrLoginLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                      Connect Seedr.cc
-                    </span>
-                  </Button>
-                </div>
-              </div>
-            )}
-          </SectionCard>
 
           {/* ── Integrations ─────────────────────────────────────────── */}
           <IntegrationsSection apiKeys={keysData?.keys ?? []} userEmail={userEmail} />
