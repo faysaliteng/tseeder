@@ -1,5 +1,4 @@
 // fseeder Extension — Background Service Worker
-// Deployers: update API_BASE to your Cloudflare Workers API URL.
 const API_BASE = 'https://api.fseeder.cc';
 const ICON = 'icon48.svg';
 
@@ -24,15 +23,14 @@ chrome.contextMenus.onClicked.addListener(async (info) => {
   const url = info.linkUrl;
   if (!url) return;
 
-  const auth = await chrome.storage.local.get(['tsdr_api_key', 'tsdr_email']);
-  if (!auth.tsdr_api_key) {
+  const auth = await chrome.storage.local.get(['tsdr_token', 'tsdr_email']);
+  if (!auth.tsdr_token) {
     chrome.notifications.create({
       type: 'basic',
       iconUrl: ICON,
       title: 'fseeder',
-      message: 'Please sign in to fseeder first.',
+      message: 'Please sign in to fseeder first — click the extension icon.',
     });
-    chrome.tabs.create({ url: 'https://fseeder.cc/auth/login?ext=1' });
     return;
   }
 
@@ -41,15 +39,15 @@ chrome.contextMenus.onClicked.addListener(async (info) => {
     ? { type: 'magnet', magnetUri: url }
     : { type: 'url', url };
 
-  await sendJob(body, auth.tsdr_api_key);
+  await sendJob(body, auth.tsdr_token);
 });
 
 // ── Internal message from content script ───────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((msg, _sender, _sendResponse) => {
   if (msg.type === 'TSDR_QUEUE_MAGNET' && msg.magnetUri) {
-    chrome.storage.local.get(['tsdr_api_key'], async (auth) => {
-      if (!auth.tsdr_api_key) {
+    chrome.storage.local.get(['tsdr_token'], async (auth) => {
+      if (!auth.tsdr_token) {
         chrome.notifications.create({
           type: 'basic',
           iconUrl: ICON,
@@ -58,18 +56,18 @@ chrome.runtime.onMessage.addListener((msg, _sender, _sendResponse) => {
         });
         return;
       }
-      await sendJob({ type: 'magnet', magnetUri: msg.magnetUri }, auth.tsdr_api_key);
+      await sendJob({ type: 'magnet', magnetUri: msg.magnetUri }, auth.tsdr_token);
     });
   }
   return false;
 });
 
-// ── External message from web app (auth bridge) ───────────────────────────────
+// ── External message from web app (auth bridge — still supported) ─────────────
 
 chrome.runtime.onMessageExternal.addListener((msg, _sender, sendResponse) => {
   if (msg.type === 'TSDR_AUTH') {
     chrome.storage.local.set({
-      tsdr_api_key: msg.token,
+      tsdr_token: msg.token,
       tsdr_email: msg.email,
     }, () => {
       sendResponse({ ok: true });
@@ -78,7 +76,7 @@ chrome.runtime.onMessageExternal.addListener((msg, _sender, sendResponse) => {
   }
 
   if (msg.type === 'TSDR_SIGNOUT') {
-    chrome.storage.local.remove(['tsdr_api_key', 'tsdr_email'], () => {
+    chrome.storage.local.remove(['tsdr_token', 'tsdr_email'], () => {
       sendResponse({ ok: true });
     });
     return true;
@@ -87,13 +85,13 @@ chrome.runtime.onMessageExternal.addListener((msg, _sender, sendResponse) => {
 
 // ── Core job POST ──────────────────────────────────────────────────────────────
 
-async function sendJob(body, apiKey) {
+async function sendJob(body, token) {
   try {
     const res = await fetch(`${API_BASE}/jobs`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
+        'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify(body),
     });
@@ -106,14 +104,13 @@ async function sendJob(body, apiKey) {
         message: 'Added to your cloud vault!',
       });
     } else if (res.status === 401) {
-      await chrome.storage.local.remove(['tsdr_api_key', 'tsdr_email']);
+      await chrome.storage.local.remove(['tsdr_token', 'tsdr_email']);
       chrome.notifications.create({
         type: 'basic',
         iconUrl: ICON,
         title: 'fseeder — Session expired',
-        message: 'Please sign in again at fseeder.cc.',
+        message: 'Please sign in again via the extension.',
       });
-      chrome.tabs.create({ url: 'https://fseeder.cc/auth/login?ext=1&reason=expired' });
     } else {
       throw new Error(`API error ${res.status}`);
     }
