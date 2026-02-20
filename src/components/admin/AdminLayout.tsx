@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import fseederLogo from "@/assets/fseeder-logo.png";
 import { useQuery } from "@tanstack/react-query";
-import { admin as adminApi } from "@/lib/api";
+import { admin as adminApi, authMe } from "@/lib/api";
 import {
   LayoutDashboard, Users, Briefcase, Server, HardDrive,
   ShieldAlert, ScrollText, Settings, ChevronLeft, ChevronRight,
@@ -64,12 +64,35 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // ── Auth guard: redirect to /admin/login if not authenticated or not admin ──
+  const { data: meData, isLoading: meLoading, isError: meError } = useQuery({
+    queryKey: ["admin-auth-me"],
+    queryFn: () => authMe.me(),
+    retry: false,
+    staleTime: 60_000,
+  });
+
+  useEffect(() => {
+    if (meLoading) return;
+    if (meError || !meData?.user) {
+      navigate("/admin/login", { replace: true });
+      return;
+    }
+    const role = meData.user.role;
+    if (!["admin", "superadmin"].includes(role)) {
+      navigate("/admin/login", { replace: true });
+    }
+  }, [meData, meLoading, meError, navigate]);
+
   // Real system health for notification bell
+  const isAuthed = !meLoading && !meError && meData?.user && ["admin", "superadmin"].includes(meData.user.role);
+
   const { data: healthData } = useQuery({
     queryKey: ["admin-system-health-alerts"],
     queryFn: () => adminApi.systemHealth() as Promise<any>,
     refetchInterval: 60_000,
     retry: false,
+    enabled: !!isAuthed,
   });
 
   const realAlerts: Array<{ id: number; msg: string; level: string }> = [];
@@ -97,6 +120,19 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
     document.addEventListener("keydown", down);
     return () => document.removeEventListener("keydown", down);
   }, []);
+
+  // Show nothing while checking auth
+  if (meLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (!isAuthed) {
+    return null; // will redirect via useEffect
+  }
 
   const SidebarContent = ({ mobile = false }: { mobile?: boolean }) => (
     <>
