@@ -439,7 +439,7 @@ export default function SettingsPage() {
     retry: false,
   });
 
-  const userEmail = (meData?.user as any)?.email ?? "—";
+  const userEmail = meData?.user?.email ?? "—";
   const userInitial = userEmail[0]?.toUpperCase() ?? "U";
 
   // Active provider from real API (read-only for users — admin-controlled)
@@ -450,6 +450,25 @@ export default function SettingsPage() {
   });
   const activeProvider = providerData?.provider ?? "cloudflare";
 
+  // Password change state
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [currentPwd, setCurrentPwd] = useState("");
+  const [newPwd, setNewPwd] = useState("");
+  const [showCurrentPwd, setShowCurrentPwd] = useState(false);
+  const [showNewPwd, setShowNewPwd] = useState(false);
+
+  const changePasswordMutation = useMutation({
+    mutationFn: () => authMe.changePassword(currentPwd, newPwd),
+    onSuccess: () => {
+      toast({ title: "Password changed successfully" });
+      setChangingPassword(false);
+      setCurrentPwd("");
+      setNewPwd("");
+    },
+    onError: (err) => {
+      toast({ title: "Error", description: err instanceof ApiError ? err.message : "Failed to change password", variant: "destructive" });
+    },
+  });
 
 
   const { data: usageData, isLoading: usageLoading } = useQuery({ queryKey: ["usage"], queryFn: () => usageApi.get() });
@@ -530,7 +549,58 @@ export default function SettingsPage() {
               </div>
             </div>
             <EditableField label="Email" value={userEmail} />
-            <EditableField label="Password" value="" type="password" />
+            {/* Password change */}
+            <div className="px-4 py-3.5 border-b border-border/40 last:border-0 hover:bg-muted/5 transition-colors">
+              <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1">Password</div>
+              {changingPassword ? (
+                <div className="space-y-2 mt-1">
+                  <div className="relative">
+                    <Input
+                      type={showCurrentPwd ? "text" : "password"}
+                      placeholder="Current password"
+                      value={currentPwd}
+                      onChange={e => setCurrentPwd(e.target.value)}
+                      className="bg-input border-border/60 focus:border-primary/60 text-sm h-9 pr-8 rounded-lg"
+                    />
+                    <button type="button" onClick={() => setShowCurrentPwd(s => !s)} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                      {showCurrentPwd ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      type={showNewPwd ? "text" : "password"}
+                      placeholder="New password (min 8 chars)"
+                      value={newPwd}
+                      onChange={e => setNewPwd(e.target.value)}
+                      className="bg-input border-border/60 focus:border-primary/60 text-sm h-9 pr-8 rounded-lg"
+                      onKeyDown={e => { if (e.key === "Enter" && currentPwd && newPwd.length >= 8) changePasswordMutation.mutate(); }}
+                    />
+                    <button type="button" onClick={() => setShowNewPwd(s => !s)} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                      {showNewPwd ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      className="gradient-primary text-white border-0 rounded-lg gap-1.5"
+                      disabled={!currentPwd || newPwd.length < 8 || changePasswordMutation.isPending}
+                      onClick={() => changePasswordMutation.mutate()}
+                    >
+                      {changePasswordMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                      Save
+                    </Button>
+                    <button onClick={() => { setChangingPassword(false); setCurrentPwd(""); setNewPwd(""); }} className="text-muted-foreground hover:text-foreground">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between mt-0.5">
+                  <span className="text-sm text-foreground">••••••••</span>
+                  <button onClick={() => setChangingPassword(true)} className="text-xs text-primary hover:text-primary/80 font-semibold transition-colors ml-4">Change</button>
+                </div>
+              )}
+            </div>
           </SectionCard>
 
           {/* ── Storage ──────────────────────────────────────────────── */}

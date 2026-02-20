@@ -3,7 +3,7 @@ import { hashToken, verifyCsrfToken } from "./crypto";
 import { getSessionByTokenHash } from "./d1-helpers";
 import { extractCookie } from "./handlers/auth";
 
-type Ctx = { params: Record<string, string>; query: Record<string, string>; user?: { id: string; role: string } };
+type Ctx = { params: Record<string, string>; query: Record<string, string>; user?: { id: string; role: string; email?: string } };
 type Middleware = (req: Request, env: Env, ctx: Ctx) => Promise<Response | null>;
 
 const ROLE_ORDER = ["user", "support", "admin", "superadmin"];
@@ -21,7 +21,7 @@ export const authMiddleware: Middleware = async (req, env, ctx) => {
   if (!session) return json401("AUTH_INVALID", "Invalid or expired session");
   if (session.suspended) return json401("AUTH_SUSPENDED", "Account suspended");
 
-  ctx.user = { id: session.uid, role: session.role };
+  ctx.user = { id: session.uid, role: session.role, email: session.email };
   return null;
 };
 

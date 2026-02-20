@@ -8,7 +8,7 @@ import { authMiddleware, rbacMiddleware, csrfMiddleware, rateLimitMiddleware } f
 import {
   handleRegister, handleLogin, handleLogout, handleReset, handleResetConfirm,
   handleVerifyEmail, handleListApiKeys, handleCreateApiKey, handleRevokeApiKey,
-  handleExtensionLogin, extractCookie,
+  handleExtensionLogin, extractCookie, apiError,
 } from "./handlers/auth";
 import { handleCreateJob, handleListJobs, handleGetJob, handleJobAction, handleJobCallback, handleDeleteJob } from "./handlers/jobs";
 import { handleGetFiles, handleSignedUrl, handleDeleteFile, handleProxyDownload } from "./handlers/files";
@@ -145,6 +145,39 @@ router.post("/auth/login/extension",[rateLimitMiddleware("login-ext", 10, 60)], 
 router.get("/auth/api-keys",           [authMiddleware],                           handleListApiKeys);
 router.post("/auth/api-keys",          [authMiddleware, csrfMiddleware],           handleCreateApiKey);
 router.delete("/auth/api-keys/:id",    [authMiddleware, csrfMiddleware],           handleRevokeApiKey);
+
+// ── Change password (authenticated) ───────────────────────────────────────────
+router.post("/auth/change-password", [authMiddleware, csrfMiddleware], async (req, env, ctx) => {
+  const correlationId = req.headers.get("X-Correlation-ID") ?? crypto.randomUUID();
+  const body = await req.json().catch(() => null) as { currentPassword?: string; newPassword?: string } | null;
+  if (!body?.currentPassword || !body?.newPassword) {
+    return apiError("VALIDATION_ERROR", "currentPassword and newPassword are required", 400, correlationId);
+  }
+  if (body.newPassword.length < 8) {
+    return apiError("VALIDATION_ERROR", "New password must be at least 8 characters", 400, correlationId);
+  }
+
+  const user = await env.DB.prepare("SELECT id, password_hash FROM users WHERE id = ? LIMIT 1")
+    .bind(ctx.user!.id).first<{ id: string; password_hash: string }>();
+  if (!user) return apiError("NOT_FOUND", "User not found", 404, correlationId);
+
+  const { verifyPassword, hashPassword } = await import("./crypto");
+  const ok = await verifyPassword(body.currentPassword, user.password_hash);
+  if (!ok) return apiError("AUTH_INVALID", "Current password is incorrect", 401, correlationId);
+
+  const newHash = await hashPassword(body.newPassword);
+  await env.DB.prepare("UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?")
+    .bind(newHash, user.id).run();
+
+  const { writeAuditLog } = await import("./d1-helpers");
+  await writeAuditLog(env.DB, {
+    actorId: user.id, action: "user.password_changed",
+    targetType: "user", targetId: user.id,
+    ipAddress: req.headers.get("CF-Connecting-IP") ?? undefined,
+  });
+
+  return Response.json({ message: "Password changed successfully" });
+});
 
 // ── Session info ──────────────────────────────────────────────────────────────
 router.get("/auth/me", [authMiddleware], async (req, env, ctx) => {
