@@ -9,6 +9,7 @@
 import { createServer } from "node:http";
 import { handleStart } from "./routes/start";
 import { handleStop } from "./routes/stop";
+import { handleDownload } from "./routes/download";
 import { handleStatus, handleFiles } from "./routes/status";
 import { handleHealth } from "./routes/health";
 import { logger } from "./logger";
@@ -55,6 +56,12 @@ const server = createServer(async (req, res) => {
     const filesMatch = url.pathname.match(/^\/files\/(.+)$/);
     if (method === "GET" && filesMatch) {
       return handleFiles(req, res, filesMatch[1]);
+    }
+
+    // /download/:jobId/path/to/file — serve completed files from local disk
+    const dlMatch = url.pathname.match(/^\/download\/([^/]+)\/(.+)$/);
+    if (method === "GET" && dlMatch) {
+      return handleDownload(req, res, dlMatch[1], dlMatch[2]);
     }
 
     if (method === "GET" && url.pathname === "/health") {
