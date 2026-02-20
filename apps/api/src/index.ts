@@ -10,7 +10,7 @@ import {
   handleVerifyEmail, handleListApiKeys, handleCreateApiKey, handleRevokeApiKey,
   extractCookie,
 } from "./handlers/auth";
-import { handleCreateJob, handleListJobs, handleGetJob, handleJobAction, handleJobCallback } from "./handlers/jobs";
+import { handleCreateJob, handleListJobs, handleGetJob, handleJobAction, handleJobCallback, handleDeleteJob } from "./handlers/jobs";
 import { handleGetFiles, handleSignedUrl, handleDeleteFile } from "./handlers/files";
 import { handleGetUsage, handleGetPlans } from "./handlers/admin";
 import {
@@ -149,6 +149,7 @@ router.get("/jobs/:id",           [authMiddleware],                             
 router.post("/jobs/:id/pause",    [authMiddleware, csrfMiddleware],             handleJobAction("pause"));
 router.post("/jobs/:id/resume",   [authMiddleware, csrfMiddleware],             handleJobAction("resume"));
 router.post("/jobs/:id/cancel",   [authMiddleware, csrfMiddleware],             handleJobAction("cancel"));
+router.delete("/jobs/:id",        [authMiddleware, csrfMiddleware],             handleDeleteJob);
 
 // Internal callback (signed, no user auth)
 router.post("/jobs/callback",     [rateLimitMiddleware("callback", 200, 1)],   handleJobCallback);

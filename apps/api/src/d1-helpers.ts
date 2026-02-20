@@ -157,6 +157,14 @@ export async function getExistingCompletedJob(db: D1Database, infohash: string, 
   `).bind(infohash, userId).first<JobRow>();
 }
 
+export async function deleteJob(db: D1Database, id: string, userId: string): Promise<boolean> {
+  // Delete files first (cascade), then events, then job
+  await db.prepare("DELETE FROM files WHERE job_id = ?").bind(id).run();
+  await db.prepare("DELETE FROM job_events WHERE job_id = ?").bind(id).run();
+  const result = await db.prepare("DELETE FROM jobs WHERE id = ? AND user_id = ?").bind(id, userId).run();
+  return (result.meta?.changes ?? 0) > 0;
+}
+
 // ── Files ─────────────────────────────────────────────────────────────────────
 
 export async function getFileById(db: D1Database, id: string) {

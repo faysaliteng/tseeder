@@ -13,7 +13,7 @@ import {
   Folder, FileVideo, FileText, FileImage, File, Download,
   Pause, Play, X, Search, ChevronUp, ChevronDown,
   CheckSquare, Square, Loader2, AlertCircle,
-  CheckCircle2, Clock, Minus, Plus, RefreshCw, Zap,
+  CheckCircle2, Clock, Minus, Plus, RefreshCw, Zap, Trash2,
 } from "lucide-react";
 
 // ── Status config ─────────────────────────────────────────────────────────────
@@ -97,12 +97,13 @@ type SortCol = "name" | "size" | "date";
 
 // ── Single job row ────────────────────────────────────────────────────────────
 function JobRow({
-  job, selected, onToggle, onAction, onClick,
+  job, selected, onToggle, onAction, onDelete, onClick,
 }: {
   job: ApiJob;
   selected: boolean;
   onToggle: () => void;
   onAction: (action: "pause" | "resume" | "cancel") => void;
+  onDelete: () => void;
   onClick: () => void;
 }) {
   const { progress } = useJobSSE(
@@ -214,6 +215,11 @@ function JobRow({
             className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
             onClick={() => onAction("cancel")} />
         )}
+        {["completed","failed","cancelled"].includes(liveJob.status) && (
+          <ActionBtn icon={Trash2} label="Delete"
+            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+            onClick={onDelete} />
+        )}
       </div>
     </div>
   );
@@ -257,6 +263,19 @@ export default function DashboardPage() {
     },
     onError: (err) => {
       const msg = err instanceof ApiError ? err.message : "Action failed";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => jobsApi.delete(id),
+    onSuccess: () => {
+      toast({ title: "Job deleted" });
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["usage"] });
+    },
+    onError: (err) => {
+      const msg = err instanceof ApiError ? err.message : "Delete failed";
       toast({ title: "Error", description: msg, variant: "destructive" });
     },
   });
@@ -428,6 +447,7 @@ export default function DashboardPage() {
                   selected={selected.has(job.id)}
                   onToggle={() => toggleOne(job.id)}
                   onAction={(action) => actionMutation.mutate({ id: job.id, action })}
+                  onDelete={() => deleteMutation.mutate(job.id)}
                   onClick={() => navigate(`/app/dashboard/${job.id}`)}
                 />
               ))
@@ -454,6 +474,20 @@ export default function DashboardPage() {
                 className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-destructive/40 text-destructive hover:bg-destructive/15 transition-all font-semibold hover:shadow-[0_0_12px_hsl(0_72%_51%/0.3)]"
               >
                 <X className="w-3.5 h-3.5" /> Cancel All
+              </button>
+              <button
+                onClick={() => {
+                  selected.forEach(id => {
+                    const job = allJobs.find(j => j.id === id);
+                    if (job && ["completed","failed","cancelled"].includes(job.status)) {
+                      deleteMutation.mutate(id);
+                    }
+                  });
+                  setSelected(new Set());
+                }}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-destructive/40 text-destructive hover:bg-destructive/15 transition-all font-semibold hover:shadow-[0_0_12px_hsl(0_72%_51%/0.3)]"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> Delete
               </button>
               <button
                 onClick={() => setSelected(new Set())}
