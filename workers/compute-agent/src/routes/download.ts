@@ -15,7 +15,9 @@ export async function handleDownload(
   jobId: string,
   filePath: string,
 ): Promise<void> {
-  const absPath = path.join(DOWNLOAD_DIR, jobId, filePath);
+  // Decode URL-encoded path segments (spaces, brackets, etc.)
+  const decodedPath = decodeURIComponent(filePath);
+  const absPath = path.join(DOWNLOAD_DIR, jobId, decodedPath);
 
   // Prevent path traversal
   if (!absPath.startsWith(path.join(DOWNLOAD_DIR, jobId))) {
