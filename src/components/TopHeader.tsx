@@ -290,7 +290,13 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
             </div>
             <div className="mx-3 dashed-separator" />
             <div className="py-1.5">
-              <DropdownLink icon={null} label="Logout" lucideIcon={LogOut} onClick={() => { navigate("/auth/login"); setMenuOpen(false); }} />
+              <DropdownLink icon={null} label="Logout" lucideIcon={LogOut} onClick={async () => { 
+                setMenuOpen(false);
+                try { const { auth, setCsrfToken } = await import("@/lib/api"); await auth.logout(); setCsrfToken(""); } catch {}
+                const { QueryClient } = await import("@tanstack/react-query");
+                // Clear all cached queries so back-button doesn't show stale auth
+                window.location.href = "/auth/login";
+              }} />
             </div>
           </div>
         </>

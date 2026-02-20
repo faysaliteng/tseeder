@@ -69,7 +69,9 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
     queryKey: ["admin-auth-me"],
     queryFn: () => authMe.me(),
     retry: false,
-    staleTime: 60_000,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: "always",
   });
 
   useEffect(() => {

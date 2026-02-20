@@ -506,9 +506,13 @@ export default function SettingsPage() {
   });
 
   const logoutMutation = useMutation({
-    mutationFn: () => authApi.logout(),
-    onSuccess: () => navigate("/auth/login"),
-    onError: () => navigate("/auth/login"),
+    mutationFn: async () => {
+      await authApi.logout();
+      const { setCsrfToken } = await import("@/lib/api");
+      setCsrfToken("");
+    },
+    onSuccess: () => { qc.clear(); window.location.href = "/auth/login"; },
+    onError: () => { qc.clear(); window.location.href = "/auth/login"; },
   });
 
   const storageUsedPct = usageData ? Math.min(100, (usageData.storageUsedBytes / (usageData.plan.maxStorageGb * 1e9)) * 100) : 0;
