@@ -80,7 +80,7 @@ export const CallbackProgressSchema = z.object({
   progressPct: z.number().min(0).max(100),
   downloadSpeed: z.number().min(0),   // bytes/s
   uploadSpeed: z.number().min(0),
-  eta: z.number().min(0),             // seconds
+  eta: z.number().min(-1),            // seconds (-1 = unknown)
   peers: z.number().int().min(0),
   seeds: z.number().int().min(0),
   bytesDownloaded: z.number().min(0),
