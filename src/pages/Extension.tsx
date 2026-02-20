@@ -145,7 +145,7 @@ export default function ExtensionPage() {
     <div className="min-h-screen bg-[#f4f6fb] text-gray-900 font-sans flex flex-col">
       <PublicNav active="extension" />
       {/* ── Hero ── */}
-      <section className="py-24 px-6">
+      <section className="py-12 sm:py-24 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto text-center">
 
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-indigo-200 bg-indigo-50 text-xs font-bold text-indigo-600 uppercase tracking-widest mb-8">
@@ -200,11 +200,11 @@ export default function ExtensionPage() {
             </div>
           </div>
 
-          <h1 className="text-5xl sm:text-6xl font-black leading-tight tracking-tight text-gray-900 mb-5">
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black leading-tight tracking-tight text-gray-900 mb-5">
             Send magnets to the cloud.<br />
             <span className="text-indigo-600">Right from your browser.</span>
           </h1>
-          <p className="text-lg text-gray-500 max-w-2xl mx-auto mb-10 leading-relaxed">
+          <p className="text-base sm:text-lg text-gray-500 max-w-2xl mx-auto mb-8 sm:mb-10 leading-relaxed">
             The fseeder browser extension adds a ⚡ button next to every magnet link on the web. One click — your torrent is queued in our datacenter. Your IP never touches a peer.
           </p>
 
@@ -251,16 +251,16 @@ export default function ExtensionPage() {
       </div>
 
       {/* ── Install steps ── */}
-      <section className="py-24 px-6">
+      <section className="py-12 sm:py-24 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16">
+          <div className="text-center mb-10 sm:mb-16">
             <p className="text-xs font-bold text-indigo-500 uppercase tracking-widest mb-3">Manual install</p>
-            <h2 className="text-4xl font-black tracking-tight text-gray-900">
+            <h2 className="text-2xl sm:text-4xl font-black tracking-tight text-gray-900">
               Up and running in <span className="text-indigo-600">60 seconds</span>
             </h2>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {STEPS.map((step, i) => (
               <div key={step.n} className="relative">
                 {i < STEPS.length - 1 && (
@@ -294,11 +294,11 @@ export default function ExtensionPage() {
       </section>
 
       {/* ── Features ── */}
-      <section className="py-24 px-6 bg-white border-y border-gray-100">
+      <section className="py-12 sm:py-24 px-4 sm:px-6 bg-white border-y border-gray-100">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
+          <div className="text-center mb-10 sm:mb-16">
             <p className="text-xs font-bold text-indigo-500 uppercase tracking-widest mb-3">What it does</p>
-            <h2 className="text-4xl font-black tracking-tight text-gray-900">
+            <h2 className="text-2xl sm:text-4xl font-black tracking-tight text-gray-900">
               Supercharge your browser.<br />
               <span className="text-indigo-600">No bloat, just speed.</span>
             </h2>
@@ -320,11 +320,11 @@ export default function ExtensionPage() {
       </section>
 
       {/* ── Permissions transparency ── */}
-      <section className="py-20 px-6">
+      <section className="py-12 sm:py-20 px-4 sm:px-6">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-10">
             <p className="text-xs font-bold text-indigo-500 uppercase tracking-widest mb-3">Full transparency</p>
-            <h2 className="text-3xl font-black tracking-tight text-gray-900">
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-gray-900">
               What permissions we request — and why
             </h2>
           </div>
@@ -354,12 +354,12 @@ export default function ExtensionPage() {
       </section>
 
       {/* ── Final CTA ── */}
-      <section className="py-24 px-6 bg-indigo-600">
+      <section className="py-12 sm:py-24 px-4 sm:px-6 bg-indigo-600">
         <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-4xl font-black text-white mb-4">
+          <h2 className="text-2xl sm:text-4xl font-black text-white mb-4">
             Ready to send your first torrent?
           </h2>
-          <p className="text-indigo-200 text-lg mb-10 leading-relaxed">
+          <p className="text-indigo-200 text-base sm:text-lg mb-8 sm:mb-10 leading-relaxed">
             Download the extension, sign in, and your next torrent is one click away from your cloud vault.
           </p>
           <div className="flex items-center justify-center gap-4 flex-wrap">

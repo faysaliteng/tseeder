@@ -75,16 +75,16 @@ export default function BlogPage() {
     <div className="min-h-screen bg-[#f4f6fb] text-gray-900 font-sans flex flex-col">
       <PublicNav active="blog" />
 
-      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-16 space-y-12">
+      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-10 sm:py-16 space-y-8 sm:space-y-12">
         {/* Hero */}
-        <div className="text-center space-y-4">
+        <div className="text-center space-y-3 sm:space-y-4">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-indigo-200 bg-indigo-50 text-indigo-600 text-xs font-bold uppercase tracking-widest">
             fseeder Blog
           </div>
-          <h1 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-gray-900 tracking-tight">
             Guides, Tutorials &amp; Updates
           </h1>
-          <p className="text-gray-500 max-w-2xl mx-auto text-lg">
+          <p className="text-gray-500 max-w-2xl mx-auto text-base sm:text-lg">
             Everything you need to get the most out of fseeder — from first-time setup to advanced API automation.
           </p>
         </div>
