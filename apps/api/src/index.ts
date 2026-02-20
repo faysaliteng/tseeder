@@ -8,6 +8,7 @@ import { authMiddleware, rbacMiddleware, csrfMiddleware, rateLimitMiddleware } f
 import {
   handleRegister, handleLogin, handleLogout, handleReset, handleResetConfirm,
   handleVerifyEmail, handleListApiKeys, handleCreateApiKey, handleRevokeApiKey,
+  extractCookie,
 } from "./handlers/auth";
 import { handleCreateJob, handleListJobs, handleGetJob, handleJobAction, handleJobCallback } from "./handlers/jobs";
 import { handleGetFiles, handleSignedUrl, handleDeleteFile } from "./handlers/files";
@@ -123,9 +124,23 @@ router.post("/auth/api-keys",          [authMiddleware, csrfMiddleware],        
 router.delete("/auth/api-keys/:id",    [authMiddleware, csrfMiddleware],           handleRevokeApiKey);
 
 // ── Session info ──────────────────────────────────────────────────────────────
-router.get("/auth/me", [authMiddleware], async (_req, _env, ctx) =>
-  Response.json({ user: ctx.user }),
-);
+router.get("/auth/me", [authMiddleware], async (req, env, ctx) => {
+  // Generate a fresh CSRF token so the frontend can restore it after page refresh
+  const cookie = req.headers.get("Cookie") ?? "";
+  const sessionToken = extractCookie(cookie, "session") ?? "";
+  let csrfToken: string | null = null;
+  if (sessionToken) {
+    const { hashToken } = await import("./crypto");
+    const { getSessionByTokenHash } = await import("./d1-helpers");
+    const tokenHash = await hashToken(sessionToken);
+    const session = await getSessionByTokenHash(env.DB, tokenHash);
+    if (session) {
+      const { generateCsrfToken } = await import("./crypto");
+      csrfToken = await generateCsrfToken(session.id, env.CSRF_SECRET);
+    }
+  }
+  return Response.json({ user: ctx.user, csrfToken });
+});
 
 // ── Jobs (authenticated) ───────────────────────────────────────────────────────
 router.post("/jobs",              [authMiddleware, csrfMiddleware],             handleCreateJob);

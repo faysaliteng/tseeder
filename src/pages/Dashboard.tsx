@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { jobs as jobsApi, usage as usageApi, type ApiJob, ApiError } from "@/lib/api";
+import { useSessionRestore } from "@/hooks/useSessionRestore";
 import { formatBytes, formatSpeed, formatEta } from "@/lib/utils";
 import { TopHeader } from "@/components/TopHeader";
 import { AddDownloadModal } from "@/components/AddDownloadModal";
@@ -222,6 +223,7 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  useSessionRestore();
 
   const [addOpen, setAddOpen] = useState(false);
   const [initialMagnet, setInitialMagnet] = useState("");

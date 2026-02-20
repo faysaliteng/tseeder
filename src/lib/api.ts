@@ -177,7 +177,11 @@ export const systemStatus = {
 // ── Auth (me) ─────────────────────────────────────────────────────────────────
 
 export const authMe = {
-  me: () => request<{ user: { id: string; role: string } }>("/auth/me"),
+  me: () => request<{ user: { id: string; role: string }; csrfToken?: string }>("/auth/me")
+    .then(data => {
+      if (data.csrfToken) setCsrfToken(data.csrfToken);
+      return data;
+    }),
 };
 
 // ── API Keys ──────────────────────────────────────────────────────────────────
