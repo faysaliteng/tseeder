@@ -68,14 +68,14 @@ function StatsStrip() {
 
 function TrustLogos() {
   const logos = [
-    { name: "Stremio",   icon: "🎬" },
-    { name: "Sonarr",    icon: "📺" },
-    { name: "Radarr",    icon: "🎥" },
-    { name: "Kodi",      icon: "🖥️" },
-    { name: "VLC",       icon: "🔵" },
-    { name: "Plex",      icon: "🟡" },
-    { name: "rclone",    icon: "☁️" },
-    { name: "Jellyfin",  icon: "🟣" },
+    { name: "Stremio",   icon: "🎬", note: "Native addon" },
+    { name: "Sonarr",    icon: "📺", note: "Download client" },
+    { name: "Radarr",    icon: "🎥", note: "Download client" },
+    { name: "Kodi",      icon: "🖥️", note: "Via signed URL" },
+    { name: "VLC",       icon: "🔵", note: "Via signed URL" },
+    { name: "Plex",      icon: "🟡", note: "Via rclone mount" },
+    { name: "rclone",    icon: "☁️", note: "WebDAV / SFTP" },
+    { name: "Jellyfin",  icon: "🟣", note: "Via rclone mount" },
   ];
   return (
     <section className="bg-[#f4f6fb] py-10 px-6">
@@ -85,7 +85,10 @@ function TrustLogos() {
           {logos.map(l => (
             <div key={l.name} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-gray-100 shadow-sm hover:border-indigo-200 hover:shadow-md transition-all duration-200 group">
               <span className="text-lg grayscale group-hover:grayscale-0 transition-all">{l.icon}</span>
-              <span className="text-xs font-bold text-gray-500 group-hover:text-gray-900 transition-colors">{l.name}</span>
+              <div className="flex flex-col">
+                <span className="text-xs font-bold text-gray-500 group-hover:text-gray-900 transition-colors">{l.name}</span>
+                <span className="text-[9px] text-gray-400 leading-tight">{l.note}</span>
+              </div>
             </div>
           ))}
         </div>
@@ -363,7 +366,7 @@ export default function LandingPage() {
                         <Icon className="w-3.5 h-3.5 text-gray-400" />
                       </div>
                     ))}
-                    <span className="text-[10px] text-gray-400 ml-auto">Chromecast ✓</span>
+                    <span className="text-[10px] text-gray-400 ml-auto">Chromecast via compatible players</span>
                   </div>
                 </div>
               </div>
@@ -429,7 +432,7 @@ export default function LandingPage() {
                 Play on any device,<br /><span style={{ color: "#e05252" }}>anytime, anywhere!</span>
               </h2>
               <p className="text-gray-500 leading-relaxed mb-6">
-                Watch, listen, read — anything is accessible. Stream in 4K directly from your vault to Desktop, Mobile, Smart TV, or Chromecast. No download required.
+                Watch, listen, read — anything is accessible. Stream in 4K directly from your vault to Desktop, Mobile, Smart TV, or Chromecast (via VLC, Kodi, or Plex). No download required.
               </p>
               <div className="flex flex-wrap gap-3 mb-6">
                 {[{ icon: MonitorPlay, label: "Desktop" }, { icon: Smartphone, label: "Mobile" }, { icon: Tv2, label: "Smart TV" }, { icon: FileVideo, label: "4K Stream" }].map(({ icon: Icon, label }) => (
@@ -455,7 +458,7 @@ export default function LandingPage() {
                 </div>
               </div>
               <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
-                <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" /> Chromecast supported
+                <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" /> Chromecast via compatible players
               </div>
             </div>
           </div>
