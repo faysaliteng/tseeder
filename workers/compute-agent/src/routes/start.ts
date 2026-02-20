@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { jobRegistry } from "../job-registry";
 import { WebTorrentEngine } from "../engine";
-import { uploadToR2 } from "../r2-upload";
+// R2 upload disabled — files stay on local disk
 import { postCallback } from "../callback";
 import { logger } from "../logger";
 import * as fs from "node:fs";
@@ -90,8 +90,8 @@ async function runDownloadPipeline(opts: {
       });
 
       if (progress.status === "done") {
-        // Upload all files to R2
-        await uploadAllFiles(jobId, downloadDir, callbackUrl, callbackSecret, correlationId);
+        // Files stay on local disk — no R2 upload
+        logger.info({ jobId, files: buildFileList(downloadDir, jobId) }, "Download complete, files available locally");
         jobRegistry.set(jobId, { status: "completed", startedAt: Date.now() });
         return;
       }
@@ -114,20 +114,7 @@ async function runDownloadPipeline(opts: {
   }
 }
 
-async function uploadAllFiles(
-  jobId: string,
-  dir: string,
-  callbackUrl: string,
-  callbackSecret: string,
-  correlationId: string,
-): Promise<void> {
-  const files = walkDir(dir);
-  for (const filePath of files) {
-    const r2Key = `jobs/${jobId}/${path.relative(dir, filePath)}`;
-    await uploadToR2(filePath, r2Key);
-    logger.info({ jobId, r2Key }, "File uploaded to R2");
-  }
-}
+// R2 upload removed — files served directly from local disk
 
 function walkDir(dir: string): string[] {
   const result: string[] = [];
