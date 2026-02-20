@@ -2,13 +2,13 @@ import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import fseederLogo from "@/assets/fseeder-logo.png";
-import { useQuery } from "@tanstack/react-query";
-import { admin as adminApi, authMe } from "@/lib/api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { admin as adminApi, authMe, auth, setCsrfToken } from "@/lib/api";
 import {
   LayoutDashboard, Users, Briefcase, Server, HardDrive,
   ShieldAlert, ScrollText, Settings, ChevronLeft, ChevronRight,
   LogOut, Search, Bell, Menu, X, Layers,
-  Command, FileText, AlertOctagon, History, Activity,
+  Command, FileText, AlertOctagon, History, Activity, Power,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -61,8 +61,10 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [search, setSearch] = useState("");
   const [notifOpen, setNotifOpen] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   // ── Auth guard: redirect to /admin/login if not authenticated or not admin ──
   const { data: meData, isLoading: meLoading, isError: meError } = useQuery({
@@ -206,6 +208,29 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           <LogOut className="w-4 h-4 shrink-0 rotate-180" />
           {(mobile || !collapsed) && <span>Back to App</span>}
         </Link>
+
+        {/* Logout button */}
+        <button
+          onClick={async () => {
+            setLoggingOut(true);
+            try {
+              await auth.logout();
+            } catch {}
+            setCsrfToken("");
+            queryClient.clear();
+            window.location.href = "/admin/login";
+          }}
+          disabled={loggingOut}
+          title={!mobile && collapsed ? "Logout" : undefined}
+          className={cn(
+            "w-full flex items-center gap-3 px-2 py-2 rounded-xl text-xs text-destructive hover:bg-destructive/10 transition-all font-semibold",
+            !mobile && collapsed && "justify-center px-0",
+            loggingOut && "opacity-50 cursor-not-allowed",
+          )}
+        >
+          <Power className="w-4 h-4 shrink-0" />
+          {(mobile || !collapsed) && <span>{loggingOut ? "Logging out…" : "Logout"}</span>}
+        </button>
 
         {!mobile && (
           <button
