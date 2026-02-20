@@ -1,4 +1,4 @@
-# Observability — Enterprise Remote Download Manager
+# Observability — tseeder
 
 ## Structured Log Format
 

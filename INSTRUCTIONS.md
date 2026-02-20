@@ -1,6 +1,6 @@
-# Operations Guide — TorrentFlow
+# Operations Guide — tseeder
 
-Step-by-step guide for operators deploying and running TorrentFlow in production.
+Step-by-step guide for operators deploying and running tseeder in production.
 
 ---
 

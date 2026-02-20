@@ -511,7 +511,7 @@ If you want to re-enable Turnstile later, add your domain to the Turnstile widge
 
 ```powershell
 cd apps/api
-npx wrangler deploy --env production
+npx wrangler deploy src/index.ts --config ..\..\infra\wrangler.toml --env production
 ```
 
 ### Redeploy Frontend
@@ -531,7 +531,7 @@ npx wrangler pages deploy dist --project-name fseeder
 cd apps/api
 wrangler secret put SECRET_NAME --env production
 # Then REDEPLOY:
-npx wrangler deploy --env production
+npx wrangler deploy src/index.ts --config ..\..\infra\wrangler.toml --env production
 ```
 
 ### Check the Database
@@ -568,21 +568,15 @@ sudo journalctl -u tseeder-agent -n 100      # Last 100 lines
 sudo journalctl -u tseeder-agent --since "1 hour ago"
 ```
 
-### Update Agent Code
-
-```powershell
-# From your local machine
-scp -r workers/compute-agent/src root@YOUR_VM_IP:/opt/tseeder-agent/
-scp workers/compute-agent/package.json root@YOUR_VM_IP:/opt/tseeder-agent/
-```
+### Update Agent Code (from GitHub)
 
 ```bash
-# On the VM
-cd /opt/tseeder-agent
-npm install
-chown -R tseeder-agent:tseeder-agent /opt/tseeder-agent
-systemctl restart tseeder-agent
-journalctl -u tseeder-agent -f
+cd /tmp && rm -rf tseeder-repo && git clone https://github.com/faysaliteng/tseeder.git tseeder-repo
+sudo cp /tmp/tseeder-repo/workers/compute-agent/src/index.ts /opt/tseeder-agent/src/index.ts
+sudo cp -r /tmp/tseeder-repo/workers/compute-agent/src/routes/ /opt/tseeder-agent/src/routes/
+sudo chown -R tseeder-agent:tseeder-agent /opt/tseeder-agent
+sudo systemctl restart tseeder-agent
+sudo systemctl status tseeder-agent
 ```
 
 ### Change Agent Environment Variables
@@ -600,6 +594,99 @@ sudo systemctl restart tseeder-agent
 ## 8. Troubleshooting
 
 These are real issues encountered during deployment, with their solutions.
+
+### ❌ Agent shows "Unreachable" in Admin > Infrastructure
+
+**Quick diagnostic (run on VM):**
+
+```bash
+# 1. Check if agent is running
+sudo systemctl status tseeder-agent
+
+# 2. Check recent logs
+sudo journalctl -u tseeder-agent -n 50 --no-pager
+
+# 3. Test health endpoint locally
+curl -H "Authorization: Bearer $(grep WORKER_CLUSTER_TOKEN /etc/tseeder-agent.env | cut -d= -f2)" http://localhost:8787/health
+```
+
+**Causes & Fixes (check in order):**
+
+1. **Agent crashed** — Check logs with `sudo journalctl -u tseeder-agent -n 50 --no-pager`. Fix the error, then:
+   ```bash
+   sudo systemctl reset-failed tseeder-agent
+   sudo systemctl restart tseeder-agent
+   ```
+
+2. **Missing module after code update** — If logs show `Cannot find module './routes/cleanup'` or similar:
+   ```bash
+   ls -la /opt/tseeder-agent/src/routes/   # Check if the file exists
+   # If missing, re-copy from GitHub:
+   cd /tmp && rm -rf tseeder-repo && git clone https://github.com/faysaliteng/tseeder.git tseeder-repo
+   sudo cp -r /tmp/tseeder-repo/workers/compute-agent/src/routes/ /opt/tseeder-agent/src/routes/
+   sudo systemctl restart tseeder-agent
+   ```
+
+3. **WORKER_CLUSTER_TOKEN mismatch** — The token in `/etc/tseeder-agent.env` must be identical to the one set via `wrangler secret put`. Even a trailing newline will cause 403.
+
+4. **WORKER_CLUSTER_URL has trailing slash** — Set it as `https://agent-tunnel.fseeder.cc` not `https://agent-tunnel.fseeder.cc/`.
+
+5. **CALLBACK_SIGNING_SECRET not set on API** — If this secret is missing from the Worker, progress callbacks from the agent will fail with 500 errors.
+
+6. **Firewall blocking port 8787** — Run `ufw allow 8787/tcp`.
+
+7. **Didn't redeploy after setting secrets** — Secrets only take effect after redeploying the Worker.
+
+---
+
+### ❌ Agent crashed — full recovery procedure
+
+```bash
+# Step 1: Check what happened
+sudo journalctl -u tseeder-agent -n 100 --no-pager
+
+# Step 2: Reset the failed state
+sudo systemctl reset-failed tseeder-agent
+
+# Step 3: Restart
+sudo systemctl restart tseeder-agent
+
+# Step 4: Verify it's running
+sudo systemctl status tseeder-agent
+
+# Step 5: Watch live logs
+sudo journalctl -u tseeder-agent -f
+```
+
+If the agent keeps crash-looping (restarts too quickly), systemd will refuse to restart it. Fix:
+
+```bash
+sudo systemctl reset-failed tseeder-agent
+# Fix the underlying issue in the code, then:
+sudo systemctl start tseeder-agent
+```
+
+---
+
+### ❌ `Cannot find module` after code update
+
+**Symptom:** Agent crashes immediately with `Error: Cannot find module './routes/cleanup'` or similar.
+
+**Cause:** New source files weren't copied to the VM. The `cp -r` command may not have included new files.
+
+**Fix:**
+
+```bash
+# Re-clone and copy ALL agent files
+cd /tmp && rm -rf tseeder-repo && git clone https://github.com/faysaliteng/tseeder.git tseeder-repo
+sudo cp /tmp/tseeder-repo/workers/compute-agent/src/index.ts /opt/tseeder-agent/src/index.ts
+sudo cp -r /tmp/tseeder-repo/workers/compute-agent/src/routes/ /opt/tseeder-agent/src/routes/
+sudo chown -R tseeder-agent:tseeder-agent /opt/tseeder-agent
+sudo systemctl restart tseeder-agent
+sudo systemctl status tseeder-agent
+```
+
+---
 
 ### ❌ Bun crashes with `uv_timer_init` panic
 
@@ -644,19 +731,60 @@ npm install node-datachannel --build-from-source
 
 ---
 
+### ❌ SSE shows "Reconnecting…" instead of "Live"
+
+**Symptom:** The job detail page shows a yellow "Reconnecting…" indicator. Download speed shows 0 B/s.
+
+**Cause:** The SSE proxy in the API Worker was forwarding the full URL path (`/do/job/:id/sse`) to the Durable Object, but the DO only matches `/sse`.
+
+**Fix:** The SSE proxy in `apps/api/src/index.ts` must rewrite the path:
+
+```typescript
+router.get("/do/job/:id/sse", [authMiddleware], async (req, env, ctx) => {
+  const doId = env.JOB_PROGRESS_DO.idFromName(ctx.params.id);
+  const doUrl = new URL(req.url);
+  doUrl.pathname = "/sse";
+  const doReq = new Request(doUrl.toString(), req);
+  return env.JOB_PROGRESS_DO.get(doId).fetch(doReq);
+});
+```
+
+Redeploy the Worker after fixing.
+
+---
+
+### ❌ Total Size shows "—" for completed jobs
+
+**Symptom:** Completed jobs show "—" for Total Size instead of the actual file size.
+
+**Cause:** The `jobRowToApi()` function hardcodes `bytesTotal: 0` because this field normally comes from SSE (Durable Objects), not D1.
+
+**Fix:** The `handleGetJob` and `handleListJobs` handlers in `apps/api/src/handlers/jobs.ts` must query the `files` table to compute total size for completed jobs:
+
+```sql
+SELECT COALESCE(SUM(size_bytes), 0) as total FROM files WHERE job_id = ? AND is_complete = 1
+```
+
+---
+
+### ❌ Downloads stuck at 0 B/s (no progress)
+
+**Possible causes:**
+
+1. **SSE not connected** — Check if "Live" indicator is green. If "Reconnecting", see SSE fix above.
+2. **Agent not receiving job** — Check agent logs: `sudo journalctl -u tseeder-agent -f`
+3. **Torrent has no seeds** — Check peers/seeds count. If 0 peers and 0 seeds, the torrent may be dead.
+4. **Cloudflare Tunnel down** — If using a tunnel, check: `sudo systemctl status cloudflared`
+
+---
+
 ### ❌ `.env` file has UTF-16 encoding (Windows)
 
 **Symptom:** Secrets don't load correctly, agent gets 403 errors despite correct values.
 
-**Cause:** If you created the env file on Windows (e.g. with PowerShell's `Set-Content`), it may be saved as UTF-16-LE with a BOM. Linux reads the BOM bytes as part of the first variable name.
+**Cause:** If you created the env file on Windows (e.g. with PowerShell's `Set-Content`), it may be saved as UTF-16-LE with a BOM.
 
-**Fix:** On Windows, use `WriteAllText` to force UTF-8:
-
-```powershell
-[System.IO.File]::WriteAllText("path\to\.env", $content, [System.Text.UTF8Encoding]::new($false))
-```
-
-Or just create the file directly on the VM with `cat >` or `nano`.
+**Fix:** Create the file directly on the VM with `cat >` or `nano`. Never transfer env files from Windows.
 
 ---
 
@@ -676,22 +804,6 @@ Then redeploy.
 
 ---
 
-### ❌ Agent shows "Unreachable" in Admin > Infrastructure
-
-**Causes & Fixes (check in order):**
-
-1. **WORKER_CLUSTER_TOKEN mismatch** — The token in `/etc/tseeder-agent.env` must be identical to the one set via `wrangler secret put`. Even a trailing newline will cause 403.
-
-2. **WORKER_CLUSTER_URL has trailing slash** — Set it as `http://IP:8787` not `http://IP:8787/`.
-
-3. **CALLBACK_SIGNING_SECRET not set on API** — If this secret is missing from the Worker, progress callbacks from the agent will fail with 500 errors.
-
-4. **Firewall blocking port 8787** — Run `ufw allow 8787/tcp`.
-
-5. **Didn't redeploy after setting secrets** — Secrets only take effect after `npx wrangler deploy --env production`.
-
----
-
 ### ❌ Secrets don't take effect after `wrangler secret put`
 
 **Cause:** Cloudflare Workers cache the previous deployment. Setting a secret does NOT automatically deploy.
@@ -701,7 +813,110 @@ Then redeploy.
 ```powershell
 cd apps/api
 wrangler secret put YOUR_SECRET --env production
-npx wrangler deploy --env production
+npx wrangler deploy src/index.ts --config ..\..\infra\wrangler.toml --env production
+```
+
+---
+
+### ❌ Bash `event not found` when pasting code with `!`
+
+**Symptom:** Pasting TypeScript code containing `!` into bash fails with `-bash: !variable: event not found`.
+
+**Cause:** Bash interprets `!` as history expansion in interactive mode.
+
+**Fix:** Use base64 encoding to create files on the VM:
+
+```bash
+# On your local machine, encode the file:
+base64 -w0 < path/to/file.ts
+
+# On the VM, decode and write:
+echo 'BASE64_STRING_HERE' | base64 -d | sudo tee /opt/tseeder-agent/src/routes/file.ts > /dev/null
+```
+
+Or use the GitHub clone method instead (recommended).
+
+---
+
+### ❌ Cloudflare Tunnel not connecting
+
+**Symptom:** Agent shows unreachable even though it's running locally.
+
+**Fix:**
+
+```bash
+# Check tunnel status
+sudo systemctl status cloudflared
+
+# Restart tunnel
+sudo systemctl restart cloudflared
+
+# Check tunnel logs
+sudo journalctl -u cloudflared -f
+
+# Verify tunnel works locally
+curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:8787/health
+```
+
+---
+
+### ❌ Files not deleted from VM when user deletes job
+
+**Symptom:** VM disk fills up over time. Files remain after job deletion.
+
+**Cause:** The API's `DELETE /jobs/:id` handler wasn't calling the agent's cleanup endpoint.
+
+**Fix:** The API now calls `DELETE /cleanup/:jobId` on the agent during job deletion and retention sweeps. Additionally, the agent auto-purges files older than 2 days on startup and every 6 hours.
+
+If disk is already full, manually clean:
+
+```bash
+# Check disk usage
+df -h
+
+# See download directory size
+du -sh /var/lib/tseeder-agent/downloads/*
+
+# Manually delete old job folders
+find /var/lib/tseeder-agent/downloads -maxdepth 1 -type d -mtime +2 -exec rm -rf {} +
+```
+
+---
+
+### ❌ `webtorrent` import fails at runtime
+
+**Symptom:** Agent crashes with `Cannot find module 'webtorrent'` or resolution error.
+
+**Fix:** WebTorrent must be loaded asynchronously in `engine.ts`:
+
+```typescript
+const WebTorrent = (await import("webtorrent")).default;
+```
+
+Not as a top-level `import WebTorrent from "webtorrent"`.
+
+---
+
+## 9. File Cleanup & Retention
+
+### Automatic Cleanup
+
+- **Agent auto-purge:** On startup and every 6 hours, deletes job directories older than 2 days from `DOWNLOAD_DIR`
+- **Retention sweeper:** Daily cron at 03:00 UTC deletes files exceeding plan retention window from both R2 and the agent VM
+- **User deletion:** When a user deletes a job, the API calls `DELETE /cleanup/:jobId` on the agent
+
+### Manual Disk Cleanup
+
+```bash
+# Check disk usage
+df -h
+du -sh /var/lib/tseeder-agent/downloads
+
+# Delete all job files older than 2 days
+find /var/lib/tseeder-agent/downloads -maxdepth 1 -type d -mtime +2 -exec rm -rf {} +
+
+# Nuclear option — delete everything (caution: active downloads will break)
+rm -rf /var/lib/tseeder-agent/downloads/*
 ```
 
 ---
@@ -710,15 +925,22 @@ npx wrangler deploy --env production
 
 | Action | Command |
 |---|---|
-| Deploy backend | `cd apps/api && npx wrangler deploy --env production` |
+| Deploy backend | `cd apps/api && npx wrangler deploy src/index.ts --config ..\..\infra\wrangler.toml --env production` |
 | Deploy frontend | Push to GitHub (auto) or `npx wrangler pages deploy dist` |
 | Set a secret | `wrangler secret put NAME --env production` + redeploy |
 | Run D1 migration | `npx wrangler d1 migrations apply rdm-database --env production --remote` |
 | Query database | `npx wrangler d1 execute rdm-database --env production --remote --command "SQL"` |
 | Live Worker logs | `npx wrangler tail --env production` |
-| Restart agent | `ssh root@VM && systemctl restart tseeder-agent` |
-| Agent logs | `journalctl -u tseeder-agent -f` |
-| Agent health | `curl -H "Authorization: Bearer $TOKEN" http://VM_IP:8787/health` |
+| Restart agent | `ssh root@VM && sudo systemctl restart tseeder-agent` |
+| Agent logs (live) | `sudo journalctl -u tseeder-agent -f` |
+| Agent logs (last 100) | `sudo journalctl -u tseeder-agent -n 100 --no-pager` |
+| Agent health | `curl -H "Authorization: Bearer $TOKEN" http://localhost:8787/health` |
+| Reset crashed agent | `sudo systemctl reset-failed tseeder-agent && sudo systemctl restart tseeder-agent` |
+| Update agent code | See "Update Agent Code (from GitHub)" section above |
+| Check disk usage | `df -h && du -sh /var/lib/tseeder-agent/downloads` |
+| Manual file cleanup | `find /var/lib/tseeder-agent/downloads -maxdepth 1 -type d -mtime +2 -exec rm -rf {} +` |
+| Restart tunnel | `sudo systemctl restart cloudflared` |
+| Tunnel logs | `sudo journalctl -u cloudflared -f` |
 
 ---
 
@@ -741,7 +963,7 @@ All secrets must be synchronized between Cloudflare Worker and the VM agent:
 | `CSRF_SECRET` | Cloudflare only | 64-char hex |
 | `CALLBACK_SIGNING_SECRET` | **Both** Cloudflare + VM | Must match exactly |
 | `WORKER_CLUSTER_TOKEN` | **Both** Cloudflare + VM | Must match exactly |
-| `WORKER_CLUSTER_URL` | Cloudflare only | `http://VM_IP:8787` (no trailing slash) |
+| `WORKER_CLUSTER_URL` | Cloudflare only | `https://agent-tunnel.fseeder.cc` (no trailing slash) |
 | `R2_ACCESS_KEY_ID` | **Both** Cloudflare + VM | From R2 API Tokens |
 | `R2_SECRET_ACCESS_KEY` | **Both** Cloudflare + VM | From R2 API Tokens |
 | `R2_ENDPOINT` | **Both** Cloudflare + VM | `https://ACCT_ID.r2.cloudflarestorage.com` |
