@@ -124,9 +124,7 @@ export async function handleLogin(req: Request, env: Env): Promise<Response> {
     return apiError("AUTH_INVALID", "Invalid email or password", 401, correlationId);
   }
 
-  if (!user.email_verified) {
-    return apiError("AUTH_EMAIL_UNVERIFIED", "Please verify your email before logging in", 403, correlationId);
-  }
+  // Email verification disabled — all users can login without verifying
 
   if (user.suspended) {
     return apiError("AUTH_SUSPENDED", "Your account has been suspended. Contact support.", 403, correlationId);
