@@ -140,8 +140,9 @@ export class WebTorrentEngine implements TorrentEngine {
       let resolved = false;
       const opts: Parameters<WTClient["add"]>[1] = {
         path: downloadDir,
+        // Always cap upload to 1 B/s (effectively zero seeding)
+        uploadLimit: 1,
         ...(maxDownloadSpeed > 0 ? { downloadLimit: maxDownloadSpeed } : {}),
-        ...(maxUploadSpeed > 0 ? { uploadLimit: maxUploadSpeed } : {}),
       };
 
       const torrent = client.add(source, opts);
@@ -195,10 +196,13 @@ export class WebTorrentEngine implements TorrentEngine {
           ...entry.progress,
           progressPct: 100,
           downloadSpeed: 0,
+          uploadSpeed: 0,
           eta: 0,
           bytesDownloaded: torrent.length,
           status: "done",
         };
+        // Immediately destroy torrent — no seeding
+        torrent.destroy(() => {});
         for (const resolve of entry.doneResolvers) resolve(true);
         entry.doneResolvers = [];
       });
