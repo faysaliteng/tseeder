@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { ApiJob } from "@/lib/api";
 
-const BASE = import.meta.env.VITE_API_BASE_URL ?? "";
+const BASE = import.meta.env.VITE_API_BASE_URL ?? "https://api.fseeder.cc";
 
 export interface SSEProgress {
   jobId: string;

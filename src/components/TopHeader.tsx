@@ -85,7 +85,7 @@ function ProviderChip() {
     let cancelled = false;
     const check = async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || ""}/system-status`, {
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "https://api.fseeder.cc"}/system-status`, {
           signal: AbortSignal.timeout(5000),
         });
         if (!res.ok) { setAgentHealthy(false); return; }
