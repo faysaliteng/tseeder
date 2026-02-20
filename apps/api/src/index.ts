@@ -174,7 +174,7 @@ router.post("/jobs/:id/cancel",   [authMiddleware, csrfMiddleware],             
 router.delete("/jobs/:id",        [authMiddleware, csrfMiddleware],             handleDeleteJob);
 
 // Internal callback (signed, no user auth)
-router.post("/jobs/callback",     [rateLimitMiddleware("callback", 200, 1)],   handleJobCallback);
+router.post("/jobs/callback",     [rateLimitMiddleware("callback", 200, 60)],  handleJobCallback);
 
 // ── Files ──────────────────────────────────────────────────────────────────────
 router.get("/jobs/:id/files",              [authMiddleware],                   handleGetFiles);
