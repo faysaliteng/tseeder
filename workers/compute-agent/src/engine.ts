@@ -111,11 +111,10 @@ export class WebTorrentEngine implements TorrentEngine {
   private client: WTClient | null = null;
   private jobs = new Map<string, JobEntry>();
 
-  private getClient(): WTClient {
+  private async getClient(): Promise<WTClient> {
     if (!this.client) {
-      // Dynamic require so this file can be type-checked without the dep installed
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const WebTorrent = require("webtorrent");
+      // Dynamic import — Bun does not support require() for async modules
+      const WebTorrent = (await import("webtorrent")).default;
       this.client = new WebTorrent() as WTClient;
     }
     return this.client;
@@ -128,7 +127,7 @@ export class WebTorrentEngine implements TorrentEngine {
       throw new Error("Either magnetUri or torrentBuffer must be provided");
     }
 
-    const client = this.getClient();
+    const client = await this.getClient();
     const source: string | Buffer = magnetUri ?? (torrentBuffer as Buffer);
 
     const initialProgress: TorrentProgress = {
