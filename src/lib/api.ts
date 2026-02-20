@@ -6,7 +6,7 @@
  * log a fatal warning and all API calls will fail.
  */
 
-const BASE = import.meta.env.VITE_API_BASE_URL ?? "";
+const BASE = import.meta.env.VITE_API_BASE_URL ?? "https://api.fseeder.cc";
 
 if (!BASE && import.meta.env.PROD) {
   console.error(
