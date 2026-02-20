@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { jobs as jobsApi, ApiError } from "@/lib/api";
-import { seedr, SeedrError, getDownloadProvider } from "@/lib/seedr-api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Magnet, Upload, X, FileIcon, Loader2, AlertCircle, Zap, CheckCircle2 } from "lucide-react";
@@ -27,7 +26,7 @@ export function AddDownloadModal({ open, onOpenChange, onJobAdded, initialMagnet
   const [torrentFile, setTorrentFile] = useState<File | null>(null);
   const [apiError, setApiError] = useState("");
 
-  const isSeedr = getDownloadProvider() === "seedr";
+  
 
   useEffect(() => {
     if (open && initialMagnetUri) {
@@ -59,18 +58,10 @@ export function AddDownloadModal({ open, onOpenChange, onJobAdded, initialMagnet
   };
 
   const magnetMutation = useMutation({
-    mutationFn: () => {
-      if (isSeedr) {
-        return seedr.addMagnet(magnetUri).then(r => {
-          if (!r.result) throw new SeedrError(400, r.code ?? "FAILED", "Seedr rejected the magnet link.");
-          return { id: "seedr-" + Date.now(), name: "Seedr Download", status: "queued" } as never;
-        });
-      }
-      return jobsApi.createMagnet(magnetUri);
-    },
+    mutationFn: () => jobsApi.createMagnet(magnetUri),
     onSuccess: (job) => {
       const name = (job as { name?: string }).name ?? "Download";
-      toast({ title: isSeedr ? "Sent to Seedr.cc ⚡" : "Download queued", description: `"${name}" has been added.` });
+      toast({ title: "Download queued", description: `"${name}" has been added.` });
       queryClient.invalidateQueries({ queryKey: ["jobs"] });
       queryClient.invalidateQueries({ queryKey: ["usage"] });
       onJobAdded();
@@ -79,24 +70,16 @@ export function AddDownloadModal({ open, onOpenChange, onJobAdded, initialMagnet
       onOpenChange(false);
     },
     onError: (err) => {
-      const msg = err instanceof ApiError || err instanceof SeedrError ? err.message : "Failed to add download";
+      const msg = err instanceof ApiError ? err.message : "Failed to add download";
       setApiError(msg);
     },
   });
 
   const torrentMutation = useMutation({
-    mutationFn: () => {
-      if (isSeedr) {
-        return seedr.addTorrentFile(torrentFile!).then(r => {
-          if (!r.result) throw new SeedrError(400, r.code ?? "FAILED", r.error ?? "Seedr rejected the file.");
-          return { id: "seedr-" + Date.now(), name: torrentFile!.name, status: "queued" } as never;
-        });
-      }
-      return jobsApi.createTorrent(torrentFile!);
-    },
+    mutationFn: () => jobsApi.createTorrent(torrentFile!),
     onSuccess: (job) => {
       const name = (job as { name?: string }).name ?? torrentFile?.name ?? "Download";
-      toast({ title: isSeedr ? "Sent to Seedr.cc ⚡" : "Download queued", description: `"${name}" has been added.` });
+      toast({ title: "Download queued", description: `"${name}" has been added.` });
       queryClient.invalidateQueries({ queryKey: ["jobs"] });
       queryClient.invalidateQueries({ queryKey: ["usage"] });
       onJobAdded();
@@ -105,7 +88,7 @@ export function AddDownloadModal({ open, onOpenChange, onJobAdded, initialMagnet
       onOpenChange(false);
     },
     onError: (err) => {
-      const msg = err instanceof ApiError || err instanceof SeedrError ? err.message : "Failed to add download";
+      const msg = err instanceof ApiError ? err.message : "Failed to add download";
       setApiError(msg);
     },
   });
@@ -140,11 +123,6 @@ export function AddDownloadModal({ open, onOpenChange, onJobAdded, initialMagnet
               <Zap className="w-4 h-4 text-white" />
             </div>
             Add Download
-            {isSeedr && (
-              <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-success border border-success/40 rounded-full px-2 py-0.5 bg-success/10">
-                <Zap className="w-2.5 h-2.5" /> Seedr.cc
-              </span>
-            )}
           </DialogTitle>
         </DialogHeader>
 
