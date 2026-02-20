@@ -165,7 +165,11 @@ async function multipartUpload(
   const initUrl = new URL(`${baseUrl}?uploads`);
   const initHeaders = await buildSigV4Headers("POST", initUrl, Buffer.alloc(0), creds, "application/octet-stream");
   const initRes = await fetch(initUrl.toString(), { method: "POST", headers: initHeaders });
-  if (!initRes.ok) throw new Error(`Initiate multipart failed: ${initRes.status}`);
+  if (!initRes.ok) {
+    const errBody = await initRes.text().catch(() => `HTTP ${initRes.status}`);
+    logger.error({ status: initRes.status, body: errBody, endpoint, bucket, key }, "Initiate multipart failed");
+    throw new Error(`Initiate multipart failed: ${initRes.status} — ${errBody}`);
+  }
 
   const initXml = await initRes.text();
   const uploadId = initXml.match(/<UploadId>(.+?)<\/UploadId>/)?.[1];

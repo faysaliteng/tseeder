@@ -97,7 +97,9 @@ async function runDownloadPipeline(opts: {
       }
     }
   } catch (err) {
-    logger.error({ jobId, err }, "Download pipeline failed");
+    const errMsg = err instanceof Error ? err.message : String(err);
+    const errStack = err instanceof Error ? err.stack : undefined;
+    logger.error({ jobId, error: errMsg, stack: errStack }, "Download pipeline failed");
     await postCallback(callbackUrl, callbackSecret, correlationId, {
       jobId,
       workerId: process.env.WORKER_ID ?? "agent-1",
