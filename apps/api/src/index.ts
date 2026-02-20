@@ -90,22 +90,44 @@ router.get("/health", [], async () =>
 // ── Public system status (unauthenticated, coarse-grained) ────────────────────
 // Returns just enough info for the /status page without exposing admin data.
 router.get("/system-status", [], async (_req, env) => {
-  const [stuckJobs, agentHealth] = await Promise.all([
-    env.DB.prepare(
-      "SELECT COUNT(*) as cnt FROM jobs WHERE status = 'submitted' AND created_at < datetime('now', '-10 minutes')"
-    ).first<{ cnt: number }>().catch(() => ({ cnt: 0 })),
-    fetch(`${env.WORKER_CLUSTER_URL}/health`, {
-      headers: { "Authorization": `Bearer ${env.WORKER_CLUSTER_TOKEN}` },
-      signal: AbortSignal.timeout(5000),
-    }).then(r => r.ok ? r.json() : null).catch(() => null),
-  ]);
+  const clusterUrl = env.WORKER_CLUSTER_URL;
+  const hasToken = !!env.WORKER_CLUSTER_TOKEN;
+  let agentHealth: any = null;
+  let agentDebug: any = { clusterUrl: clusterUrl ? `${clusterUrl.substring(0, 30)}...` : "NOT_SET", hasToken };
+
+  const stuckJobs = await env.DB.prepare(
+    "SELECT COUNT(*) as cnt FROM jobs WHERE status = 'submitted' AND created_at < datetime('now', '-10 minutes')"
+  ).first<{ cnt: number }>().catch(() => ({ cnt: 0 }));
+
+  if (clusterUrl && hasToken) {
+    try {
+      const healthUrl = `${clusterUrl}/health`;
+      agentDebug.healthUrl = healthUrl;
+      const resp = await fetch(healthUrl, {
+        headers: { "Authorization": `Bearer ${env.WORKER_CLUSTER_TOKEN}` },
+        signal: AbortSignal.timeout(5000),
+      });
+      agentDebug.httpStatus = resp.status;
+      agentDebug.httpStatusText = resp.statusText;
+      if (resp.ok) {
+        agentHealth = await resp.json();
+      } else {
+        const body = await resp.text().catch(() => "");
+        agentDebug.responseBody = body.substring(0, 200);
+      }
+    } catch (err: any) {
+      agentDebug.error = err?.message ?? String(err);
+    }
+  }
+
   const queueDegraded = (stuckJobs?.cnt ?? 0) > 10;
   return Response.json({
     status: agentHealth && !queueDegraded ? "healthy" : "degraded",
-    failedLast24h: 0, // not exposed publicly
+    failedLast24h: 0,
     queueDepth: queueDegraded ? stuckJobs?.cnt ?? 0 : 0,
     dlqDepth: 0,
     agent: agentHealth ? { status: "healthy" } : null,
+    agentDebug,
     ts: new Date().toISOString(),
   });
 });
