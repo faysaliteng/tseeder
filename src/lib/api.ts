@@ -26,7 +26,11 @@ async function request<T>(
   options: RequestInit = {},
 ): Promise<T> {
   const headers = new Headers(options.headers ?? {});
-  headers.set("Content-Type", headers.get("Content-Type") ?? "application/json");
+  // Don't set Content-Type for FormData — browser must set multipart boundary automatically
+  const isFormData = options.body instanceof FormData;
+  if (!isFormData) {
+    headers.set("Content-Type", headers.get("Content-Type") ?? "application/json");
+  }
   if (csrfToken) headers.set("X-CSRF-Token", csrfToken);
 
   // Inject active org context (set by OrgSwitcher)
