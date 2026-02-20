@@ -201,7 +201,7 @@ export function handleJobAction(action: "pause" | "resume" | "cancel") {
     // Notify compute agent (best-effort)
     if (action === "cancel" && job.worker_id) {
       try {
-        await fetch(`${env.WORKER_CLUSTER_URL}/agent/jobs/${id}/stop`, {
+        await fetch(`${env.WORKER_CLUSTER_URL}/stop/${id}`, {
           method: "POST",
           headers: { "Authorization": `Bearer ${env.WORKER_CLUSTER_TOKEN}` },
           signal: AbortSignal.timeout(5000),

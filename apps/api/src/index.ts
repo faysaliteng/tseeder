@@ -93,7 +93,7 @@ router.get("/system-status", [], async (_req, env) => {
     env.DB.prepare(
       "SELECT COUNT(*) as cnt FROM jobs WHERE status = 'submitted' AND created_at < datetime('now', '-10 minutes')"
     ).first<{ cnt: number }>().catch(() => ({ cnt: 0 })),
-    fetch(`${env.WORKER_CLUSTER_URL}/agent/health`, {
+    fetch(`${env.WORKER_CLUSTER_URL}/health`, {
       headers: { "Authorization": `Bearer ${env.WORKER_CLUSTER_TOKEN}` },
       signal: AbortSignal.timeout(5000),
     }).then(r => r.ok ? r.json() : null).catch(() => null),
