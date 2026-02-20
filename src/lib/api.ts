@@ -6,6 +6,7 @@
  * log a fatal warning and all API calls will fail.
  */
 
+// Hardcoded fallback ensures Cloudflare Pages auto-deploy always reaches the API
 const BASE = import.meta.env.VITE_API_BASE_URL ?? "https://api.fseeder.cc";
 
 if (!BASE && import.meta.env.PROD) {
