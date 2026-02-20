@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { jobs as jobsApi, files as filesApi, usage as usageApi, type ApiJob, type ApiFile, ApiError } from "@/lib/api";
+import { useSessionRestore } from "@/hooks/useSessionRestore";
 import { formatBytes, formatSpeed, formatEta } from "@/lib/utils";
 import { useJobSSE, mergeSSEIntoJob } from "@/hooks/useSSE";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -229,6 +230,7 @@ export default function JobDetailPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  useSessionRestore();
 
   const { data: job, isLoading, isError } = useQuery({
     queryKey: ["job", jobId],
