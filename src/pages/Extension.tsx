@@ -102,6 +102,7 @@ const EXTENSION_FILES = [
   "popup.html",
   "popup.js",
   "popup.css",
+  "logo.png",
   "icon16.svg",
   "icon48.svg",
   "icon128.svg",
