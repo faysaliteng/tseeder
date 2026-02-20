@@ -61,15 +61,15 @@ export class ApiError extends Error {
 // ── Auth ────────────────────────────────────────────────────────────────────
 
 export const auth = {
-  login: (email: string, password: string, turnstileToken: string) =>
+  login: (email: string, password: string) =>
     request<{ user: { id: string; email: string; role: string }; csrfToken: string }>(
-      "/auth/login", { method: "POST", body: JSON.stringify({ email, password, turnstileToken }) },
+      "/auth/login", { method: "POST", body: JSON.stringify({ email, password }) },
     ).then(data => { setCsrfToken(data.csrfToken); return data; }),
 
-  register: (email: string, password: string, turnstileToken: string) =>
+  register: (email: string, password: string) =>
     request<{ message: string }>("/auth/register", {
       method: "POST",
-      body: JSON.stringify({ email, password, turnstileToken, acceptedAup: true }),
+      body: JSON.stringify({ email, password, acceptedAup: true }),
     }),
 
   logout: () => request<{ message: string }>("/auth/logout", { method: "POST" }),

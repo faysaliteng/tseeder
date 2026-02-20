@@ -62,7 +62,7 @@ export default function RegisterPage() {
   const confirmMatch = password === confirm;
 
   const registerMutation = useMutation({
-    mutationFn: () => auth.register(email, password, "dev-bypass"),
+    mutationFn: () => auth.register(email, password),
     onSuccess: () => {
       setSuccess(true);
       toast({ title: "Account created!", description: "Check your email to verify your account." });

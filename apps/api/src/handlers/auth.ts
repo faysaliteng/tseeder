@@ -21,23 +21,7 @@ async function rateLimitCheck(kv: KVNamespace, key: string, max: number, ttl: nu
   return true;
 }
 
-// ── Turnstile verification ────────────────────────────────────────────────────
-
-async function verifyTurnstile(token: string, secretKey: string, ip: string | null): Promise<boolean> {
-  // Skip verification when frontend sends bypass token (Turnstile disabled)
-  if (token === "dev-bypass") return true;
-  const form = new FormData();
-  form.append("secret", secretKey);
-  form.append("response", token);
-  if (ip) form.append("remoteip", ip);
-
-  const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-    method: "POST",
-    body: form,
-  });
-  const data = await res.json<{ success: boolean }>();
-  return data.success === true;
-}
+// Turnstile verification removed — bot protection disabled for now
 
 // ── POST /auth/register ───────────────────────────────────────────────────────
 
@@ -58,13 +42,7 @@ export async function handleRegister(req: Request, env: Env): Promise<Response> 
     return apiError("VALIDATION_ERROR", formatZodError(parsed.error), 400, correlationId);
   }
 
-  const { email, password, turnstileToken } = parsed.data;
-
-  // Verify Turnstile
-  const turnstileOk = await verifyTurnstile(turnstileToken, env.TURNSTILE_SECRET_KEY, ip);
-  if (!turnstileOk) {
-    return apiError("AUTH_TURNSTILE_FAILED", "Bot verification failed", 400, correlationId);
-  }
+  const { email, password } = parsed.data;
 
   // Check email uniqueness
   const existing = await getUserByEmail(env.DB, email);
@@ -129,12 +107,7 @@ export async function handleLogin(req: Request, env: Env): Promise<Response> {
     return apiError("VALIDATION_ERROR", formatZodError(parsed.error), 400, correlationId);
   }
 
-  const { email, password, turnstileToken } = parsed.data;
-
-  const turnstileOk = await verifyTurnstile(turnstileToken, env.TURNSTILE_SECRET_KEY, ip);
-  if (!turnstileOk) {
-    return apiError("AUTH_TURNSTILE_FAILED", "Bot verification failed", 400, correlationId);
-  }
+  const { email, password } = parsed.data;
 
   const user = await getUserByEmail(env.DB, email);
   if (!user) {
