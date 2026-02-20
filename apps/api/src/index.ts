@@ -11,7 +11,7 @@ import {
   extractCookie,
 } from "./handlers/auth";
 import { handleCreateJob, handleListJobs, handleGetJob, handleJobAction, handleJobCallback, handleDeleteJob } from "./handlers/jobs";
-import { handleGetFiles, handleSignedUrl, handleDeleteFile } from "./handlers/files";
+import { handleGetFiles, handleSignedUrl, handleDeleteFile, handleProxyDownload } from "./handlers/files";
 import { handleGetUsage, handleGetPlans } from "./handlers/admin";
 import {
   handleAdminListUsers, handleAdminGetUser, handleAdminUpdateUser, handleAdminForceLogout,
@@ -179,6 +179,7 @@ router.post("/jobs/callback",     [rateLimitMiddleware("callback", 200, 60)],  h
 // ── Files ──────────────────────────────────────────────────────────────────────
 router.get("/jobs/:id/files",              [authMiddleware],                   handleGetFiles);
 router.post("/files/:fileId/signed-url",   [authMiddleware, csrfMiddleware],   handleSignedUrl);
+router.get("/files/:fileId/download",      [authMiddleware],                   handleProxyDownload);
 router.delete("/files/:fileId",            [authMiddleware, csrfMiddleware],   handleDeleteFile);
 
 // ── Usage ──────────────────────────────────────────────────────────────────────

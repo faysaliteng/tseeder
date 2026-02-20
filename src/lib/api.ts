@@ -146,6 +146,9 @@ export const files = {
       { method: "POST", body: JSON.stringify({ expiresIn }) },
     ),
 
+  /** Proxy download URL (no R2 needed — streams from agent) */
+  downloadUrl: (fileId: string) => `${BASE}/files/${fileId}/download`,
+
   delete: (fileId: string) =>
     request<{ message: string; fileId: string }>(`/files/${fileId}`, { method: "DELETE" }),
 };

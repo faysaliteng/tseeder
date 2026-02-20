@@ -65,7 +65,6 @@ function MetricCard({
 // ── File row ────────────────────────────────────────────────────────────────
 function FileRow({ file }: { file: ApiFile }) {
   const { toast } = useToast();
-  const [downloading, setDownloading] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [streamCopied, setStreamCopied] = useState(false);
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
@@ -80,17 +79,10 @@ function FileRow({ file }: { file: ApiFile }) {
     file.mimeType?.startsWith("image/")
   );
 
-  const handleDownload = async () => {
-    setDownloading(true);
-    try {
-      const { url } = await filesApi.getSignedUrl(file.id, 3600);
-      window.open(url, "_blank", "noopener");
-    } catch (err) {
-      const msg = err instanceof ApiError ? err.message : "Failed to get download link";
-      toast({ title: "Download error", description: msg, variant: "destructive" });
-    } finally {
-      setDownloading(false);
-    }
+  const handleDownload = () => {
+    // Direct proxy download through API → agent tunnel
+    const url = filesApi.downloadUrl(file.id);
+    window.open(url, "_blank", "noopener");
   };
 
   const handleStream = async () => {
@@ -125,11 +117,11 @@ function FileRow({ file }: { file: ApiFile }) {
       <span className="flex-1 min-w-0 text-sm text-foreground truncate" title={file.path}>
         {filename}
       </span>
-      {!file.isComplete && (
+      {!file.isComplete && file.sizeBytes > 0 && (
         <span className="text-xs text-warning font-semibold shrink-0">Incomplete</span>
       )}
       <span className="text-xs text-muted-foreground w-20 text-right shrink-0 tabular-nums">
-        {formatBytes(file.sizeBytes)}
+        {file.sizeBytes > 0 ? formatBytes(file.sizeBytes) : "—"}
       </span>
       <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 flex items-center gap-1.5">
         {/* Stream button — video/audio/image only */}
@@ -157,9 +149,9 @@ function FileRow({ file }: { file: ApiFile }) {
         <button
           className="flex items-center gap-1.5 text-xs px-3 py-1 rounded-lg border border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/50 transition-all font-medium disabled:opacity-40"
           onClick={handleDownload}
-          disabled={downloading || !file.isComplete}
+          disabled={!file.isComplete}
         >
-          {downloading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+          <Download className="w-3 h-3" />
           Download
         </button>
       </div>
