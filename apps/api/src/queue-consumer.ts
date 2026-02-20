@@ -245,7 +245,7 @@ async function dispatchToComputeAgent(
     magnetUri: msg.magnetUri,
     torrentBase64: msg.torrentBase64,
     callbackUrl,
-    callbackSecret: await generateCallbackHmac(msg.jobId, env.CALLBACK_SIGNING_SECRET),
+    callbackSecret: env.CALLBACK_SIGNING_SECRET,
     correlationId: msg.correlationId,
   };
 
