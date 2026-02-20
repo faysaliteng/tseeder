@@ -79,7 +79,7 @@ async function runDownloadPipeline(opts: {
         idempotencyKey: `${jobId}:${++idempotencySeq}`,
         progressPct: progress.progressPct,
         downloadSpeed: progress.downloadSpeed,
-        uploadSpeed: progress.uploadSpeed,
+        uploadSpeed: 0,  // No seeding — always report 0
         peers: progress.peers,
         seeds: progress.seeds,
         bytesDownloaded: progress.bytesDownloaded,
