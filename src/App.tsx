@@ -43,6 +43,9 @@ import OrgSettingsPage from "./pages/OrgSettings";
 import CreateOrgPage from "./pages/CreateOrg";
 import CryptoCheckoutPage from "./pages/CryptoCheckout";
 import AdminCryptoWallets from "./pages/admin/CryptoWallets";
+import IntegrationsPage from "./pages/Integrations";
+import AutomationPage from "./pages/Automation";
+import MountPage from "./pages/Mount";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -81,6 +84,9 @@ const App = () => (
           <Route path="/app/dashboard" element={<DashboardPage />} />
           <Route path="/app/dashboard/:jobId" element={<JobDetailPage />} />
           <Route path="/app/settings" element={<SettingsPage />} />
+          <Route path="/app/integrations" element={<IntegrationsPage />} />
+          <Route path="/app/automation" element={<AutomationPage />} />
+          <Route path="/app/mount" element={<MountPage />} />
 
           {/* Legacy /dashboard routes for backwards compat */}
           <Route path="/dashboard" element={<Navigate to="/app/dashboard" replace />} />
