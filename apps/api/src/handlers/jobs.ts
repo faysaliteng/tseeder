@@ -1,5 +1,5 @@
 import type { Env } from "../index";
-import { CreateJobMagnetSchema, JobFilterSchema, CallbackProgressSchema } from "@rdm/shared";
+import { CreateJobMagnetSchema, CreateJobUrlSchema, JobFilterSchema, CallbackProgressSchema } from "@rdm/shared";
 import {
   createJob, getJobById, getJobByIdForUser, listJobsForUser,
   updateJobStatus, getExistingCompletedJob, appendJobEvent,
@@ -43,11 +43,51 @@ export async function handleCreateJob(req: Request, env: Env, ctx: Ctx): Promise
 
   if (contentType.includes("application/json")) {
     const body = await req.json().catch(() => null);
-    const parsed = CreateJobMagnetSchema.safeParse(body);
-    if (!parsed.success) return apiError("VALIDATION_ERROR", formatZodError(parsed.error), 400, correlationId);
-    magnetUri = parsed.data.magnetUri;
-    jobName = parsed.data.name ?? extractMagnetName(magnetUri);
-    infohash = extractInfohash(magnetUri);
+
+    // Try magnet schema first, then URL schema
+    const magnetParsed = CreateJobMagnetSchema.safeParse(body);
+    if (magnetParsed.success) {
+      magnetUri = magnetParsed.data.magnetUri;
+      jobName = magnetParsed.data.name ?? extractMagnetName(magnetUri);
+      infohash = extractInfohash(magnetUri);
+    } else {
+      const urlParsed = CreateJobUrlSchema.safeParse(body);
+      if (urlParsed.success) {
+        const submittedUrl = urlParsed.data.url;
+
+        // If the URL points to a .torrent file, fetch it and convert to base64
+        if (submittedUrl.match(/\.torrent(\?|$)/i)) {
+          try {
+            const torrentRes = await fetch(submittedUrl, { signal: AbortSignal.timeout(15_000) });
+            if (!torrentRes.ok) return apiError("FETCH_ERROR", `Failed to download .torrent file (HTTP ${torrentRes.status})`, 400, correlationId);
+            const ct = torrentRes.headers.get("content-type") ?? "";
+            const arrayBuf = await torrentRes.arrayBuffer();
+            const maxBytes = parseInt(env.MAX_UPLOAD_BYTES ?? "5368709120");
+            if (arrayBuf.byteLength > maxBytes) return apiError("VALIDATION_ERROR", `File exceeds maximum size`, 413, correlationId);
+            torrentBase64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuf)));
+            jobName = urlParsed.data.name ?? decodeURIComponent(submittedUrl.split("/").pop()?.replace(/\.torrent.*$/, "") ?? "Unnamed torrent");
+          } catch (e) {
+            return apiError("FETCH_ERROR", `Could not fetch .torrent from URL: ${(e as Error).message}`, 400, correlationId);
+          }
+        } else {
+          // Treat as a magnet-compatible URL or direct download link
+          // Try to extract magnet info if it's a magnet link disguised as URL
+          if (submittedUrl.startsWith("magnet:")) {
+            magnetUri = submittedUrl;
+            jobName = urlParsed.data.name ?? extractMagnetName(submittedUrl);
+            infohash = extractInfohash(submittedUrl);
+          } else {
+            // Generic HTTP URL — pass it to the compute agent as a direct download
+            magnetUri = null;
+            jobName = urlParsed.data.name ?? decodeURIComponent(submittedUrl.split("/").pop()?.split("?")[0] ?? "Direct download");
+            var directUrl = submittedUrl;
+          }
+        }
+      } else {
+        // Neither schema matched — return the magnet validation error (more common)
+        return apiError("VALIDATION_ERROR", formatZodError(magnetParsed.error), 400, correlationId);
+      }
+    }
   } else if (contentType.includes("multipart/form-data")) {
     const formData = await req.formData().catch(() => null);
     if (!formData) return apiError("VALIDATION_ERROR", "Invalid form data", 400, correlationId);
@@ -60,7 +100,6 @@ export async function handleCreateJob(req: Request, env: Env, ctx: Ctx): Promise
       return apiError("VALIDATION_ERROR", `File exceeds maximum size of ${maxBytes} bytes`, 413, correlationId);
     }
     jobName = file.name.replace(/\.torrent$/, "");
-    // Convert torrent file to base64 for queue dispatch to agent
     const arrayBuf = await file.arrayBuffer();
     var torrentBase64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuf)));
   } else {
@@ -108,10 +147,12 @@ export async function handleCreateJob(req: Request, env: Env, ctx: Ctx): Promise
   }));
 
   // Dispatch to Queue
+  const jobType = magnetUri ? "magnet" : (typeof torrentBase64 !== "undefined") ? "torrent" : "url";
   await env.JOB_QUEUE.send({
-    jobId, userId, type: magnetUri ? "magnet" : "torrent",
+    jobId, userId, type: jobType,
     magnetUri: magnetUri ?? undefined,
     torrentBase64: (typeof torrentBase64 !== "undefined") ? torrentBase64 : undefined,
+    directUrl: (typeof directUrl !== "undefined") ? directUrl : undefined,
     correlationId, attempt: 1,
   });
 

@@ -13,9 +13,10 @@ import { appendJobEvent, updateJobStatus } from "./d1-helpers";
 interface JobQueueMessage {
   jobId: string;
   userId: string;
-  type: "magnet" | "torrent";
+  type: "magnet" | "torrent" | "url";
   magnetUri?: string;
   torrentBase64?: string;
+  directUrl?: string;
   correlationId: string;
   attempt: number;
 }
@@ -188,8 +189,22 @@ async function dispatchToSeedr(
     }
     seedrTransferId = data.id ?? null;
     log("info", "Seedr torrent dispatched", { seedrTransferId });
+  } else if (msg.type === "url" && msg.magnetUri) {
+    // URL that was converted to magnet — treat as magnet
+    const body = new URLSearchParams({ magnet: msg.magnetUri }).toString();
+    const res = await fetch("https://www.seedr.cc/rest/transfer/magnet", {
+      method: "POST",
+      headers: { "Authorization": auth, "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) throw new Error(`Seedr rejected URL: ${res.status}`);
+    const data = await res.json<{ result?: boolean | string; id?: number; error?: string }>();
+    if (data.result === false || data.error) throw new Error(`Seedr error: ${data.error ?? "Unknown"}`);
+    seedrTransferId = data.id ?? null;
+    log("info", "Seedr URL dispatched", { seedrTransferId });
   } else {
-    throw new Error("No magnetUri or torrentBase64 in queue message");
+    throw new Error("No magnetUri, torrentBase64, or directUrl in queue message");
   }
 
   // Store provider job id in worker_id field for polling
@@ -244,6 +259,7 @@ async function dispatchToComputeAgent(
     type: msg.type,
     magnetUri: msg.magnetUri,
     torrentBase64: msg.torrentBase64,
+    directUrl: msg.directUrl,
     callbackUrl,
     callbackSecret: env.CALLBACK_SIGNING_SECRET,
     correlationId: msg.correlationId,
