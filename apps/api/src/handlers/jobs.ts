@@ -314,6 +314,19 @@ export function handleJobAction(action: "pause" | "resume" | "cancel") {
       } catch { /* non-fatal */ }
     }
 
+    // On resume: re-dispatch job to queue so compute agent picks it up again
+    if (action === "resume") {
+      const correlationId2 = crypto.randomUUID();
+      await env.JOB_QUEUE.send({
+        jobId: id,
+        userId,
+        type: job.magnet_uri ? "magnet" : "torrent",
+        magnetUri: job.magnet_uri ?? undefined,
+        correlationId: correlationId2,
+        attempt: 1,
+      });
+    }
+
     await appendJobEvent(env.DB, {
       jobId: id, eventType: `job_${action}d`, payload: { previousStatus: job.status }, correlationId,
     });
