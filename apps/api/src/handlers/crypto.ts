@@ -42,16 +42,37 @@ async function fetchCryptoPrice(coin: string): Promise<number> {
   // Stablecoins — hardcode to $1
   if (ticker === "USDT") return 1;
 
-  // Primary: FreeCryptoAPI (has API key, CF Worker friendly)
+  // Primary: FreeCryptoAPI (Bearer auth, CF Worker friendly)
   const resp = await fetch(
-    `https://api.freecryptoapi.com/v1/getData?symbol=${ticker}&apikey=${FREECRYPTO_API_KEY}`,
-    { signal: AbortSignal.timeout(10_000) },
+    `https://api.freecryptoapi.com/v1/getData?symbol=${ticker}`,
+    {
+      headers: {
+        "Authorization": `Bearer ${FREECRYPTO_API_KEY}`,
+        "Accept": "application/json",
+      },
+      signal: AbortSignal.timeout(10_000),
+    },
   );
 
   if (!resp.ok) throw new Error(`FreeCryptoAPI error: ${resp.status}`);
-  const data = await resp.json<{ symbol?: string; price?: number }>();
-  const price = data.price;
-  if (!price || price <= 0) throw new Error(`Invalid price for ${coin}`);
+  const raw = await resp.text();
+  console.log(`FreeCryptoAPI response for ${ticker}:`, raw);
+  const data = JSON.parse(raw);
+
+  // Response could be { BTC: { price: 12345 } } or { price: 12345 } or { data: { price: 12345 } }
+  let price: number | undefined;
+  if (typeof data === "object") {
+    // Try direct .price
+    if (data.price && data.price > 0) price = data.price;
+    // Try nested under ticker key: { BTC: { price: ... } }
+    else if (data[ticker]?.price > 0) price = data[ticker].price;
+    // Try .data.price
+    else if (data.data?.price > 0) price = data.data.price;
+    // Try .data[ticker].price
+    else if (data.data?.[ticker]?.price > 0) price = data.data[ticker].price;
+  }
+
+  if (!price || price <= 0) throw new Error(`Invalid price response for ${coin}: ${raw.slice(0, 200)}`);
   return price;
 }
 
