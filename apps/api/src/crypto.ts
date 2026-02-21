@@ -147,23 +147,32 @@ export async function signS3Request(params: {
   const scope = `${dateStamp}/${region}/s3/aws4_request`;
   const credentialParam = `${accessKeyId}/${scope}`;
 
-  // Encode each path segment individually (preserving / separators)
-  const encodedKey = key.split("/").map(s => encodeURIComponent(s)).join("/");
+  // AWS SigV4 requires encoding all chars except A-Z a-z 0-9 - _ . ~
+  // encodeURIComponent leaves ! ' ( ) * unencoded — we must encode those too
+  const s3Encode = (s: string) =>
+    encodeURIComponent(s).replace(/[!'()*]/g, c => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
 
-  const url = new URL(`${endpoint}/${bucket}/${encodedKey}`);
-  url.searchParams.set("X-Amz-Algorithm", "AWS4-HMAC-SHA256");
-  url.searchParams.set("X-Amz-Credential", credentialParam);
-  url.searchParams.set("X-Amz-Date", amzDateTime);
-  url.searchParams.set("X-Amz-Expires", String(expiresIn));
-  url.searchParams.set("X-Amz-SignedHeaders", "host");
+  const encodedKey = key.split("/").map(s3Encode).join("/");
+
+  // Build URL manually to prevent URL constructor from decoding percent-encoded chars
+  const baseUrl = `${endpoint}/${bucket}/${encodedKey}`;
+  const host = new URL(endpoint).hostname;
+
+  const queryParams: Record<string, string> = {
+    "X-Amz-Algorithm": "AWS4-HMAC-SHA256",
+    "X-Amz-Credential": credentialParam,
+    "X-Amz-Date": amzDateTime,
+    "X-Amz-Expires": String(expiresIn),
+    "X-Amz-SignedHeaders": "host",
+  };
 
   const canonicalUri = `/${bucket}/${encodedKey}`;
-  const canonicalQueryString = [...url.searchParams.entries()]
+  const canonicalQueryString = Object.entries(queryParams)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
     .join("&");
 
-  const canonicalHeaders = `host:${url.hostname}\n`;
+  const canonicalHeaders = `host:${host}\n`;
   const signedHeaders = "host";
   const payloadHash = "UNSIGNED-PAYLOAD";
 
@@ -188,9 +197,9 @@ export async function signS3Request(params: {
   const signature = await hmacSha256Bytes(signingKey, stringToSign);
   const signatureHex = uint8ToHex(signature);
 
-  url.searchParams.set("X-Amz-Signature", signatureHex);
-
-  return url.toString();
+  // Build final URL with query string
+  const qs = canonicalQueryString + `&X-Amz-Signature=${signatureHex}`;
+  return `${baseUrl}?${qs}`;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
