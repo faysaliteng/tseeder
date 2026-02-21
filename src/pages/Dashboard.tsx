@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { jobs as jobsApi, usage as usageApi, type ApiJob, ApiError } from "@/lib/api";
@@ -14,7 +14,7 @@ import {
   Pause, Play, X, Search, ChevronUp, ChevronDown,
   CheckSquare, Square, Loader2, AlertCircle,
   CheckCircle2, Clock, Minus, Plus, RefreshCw, Zap, Trash2,
-  ShieldCheck, ShieldAlert,
+  ShieldCheck, ShieldAlert, Link2, Scissors, Clipboard, Edit3,
 } from "lucide-react";
 
 // ── Status config ─────────────────────────────────────────────────────────────
@@ -96,9 +96,85 @@ function StatusDot({ status }: { status: string }) {
 
 type SortCol = "name" | "size" | "date";
 
+// ── Context menu ─────────────────────────────────────────────────────────────
+function ContextMenu({
+  x, y, job, onClose, onAction, onDelete,
+}: {
+  x: number; y: number; job: ApiJob;
+  onClose: () => void;
+  onAction: (action: "pause" | "resume" | "cancel") => void;
+  onDelete: () => void;
+}) {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [onClose]);
+
+  const isCompleted = job.status === "completed";
+  const isActive = ["downloading","uploading","metadata_fetch","submitted","queued"].includes(job.status);
+  const isTerminal = ["completed","failed","cancelled"].includes(job.status);
+
+  const items = [
+    ...(isCompleted ? [
+      { icon: Download, label: "Download", onClick: () => { navigate(`/app/dashboard/${job.id}`); onClose(); } },
+      { icon: Link2, label: "Copy Download Link", onClick: () => {
+        navigator.clipboard.writeText(`${window.location.origin}/app/dashboard/${job.id}`);
+        toast({ title: "Link copied!" });
+        onClose();
+      }},
+    ] : []),
+    ...(job.status === "downloading" ? [
+      { icon: Pause, label: "Pause", onClick: () => { onAction("pause"); onClose(); } },
+    ] : []),
+    ...(job.status === "paused" ? [
+      { icon: Play, label: "Resume", onClick: () => { onAction("resume"); onClose(); } },
+    ] : []),
+    ...(isActive ? [
+      { icon: X, label: "Cancel", onClick: () => { onAction("cancel"); onClose(); }, danger: true },
+    ] : []),
+    ...(isTerminal ? [
+      { icon: Trash2, label: "Delete", onClick: () => { onDelete(); onClose(); }, danger: true },
+    ] : []),
+  ];
+
+  return (
+    <>
+      <div className="fixed inset-0 z-[70]" onClick={onClose} onContextMenu={e => { e.preventDefault(); onClose(); }} />
+      <div
+        ref={menuRef}
+        className="fixed z-[71] min-w-[200px] py-1.5 rounded-xl border border-border/60 shadow-[0_12px_40px_hsl(220_26%_0%/0.7)] animate-scale-in overflow-hidden"
+        style={{ top: y, left: x, background: "hsl(220 24% 12%)" }}
+      >
+        {items.map((item, i) => (
+          <button
+            key={i}
+            onClick={item.onClick}
+            className={cn(
+              "w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors",
+              (item as any).danger
+                ? "text-destructive hover:bg-destructive/10"
+                : "text-foreground hover:bg-muted/30"
+            )}
+          >
+            <item.icon className="w-4 h-4 shrink-0" />
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
 // ── Single job row ────────────────────────────────────────────────────────────
 function JobRow({
-  job, selected, onToggle, onAction, onDelete, onClick,
+  job, selected, onToggle, onAction, onDelete, onClick, onContextMenu,
 }: {
   job: ApiJob;
   selected: boolean;
@@ -106,6 +182,7 @@ function JobRow({
   onAction: (action: "pause" | "resume" | "cancel") => void;
   onDelete: () => void;
   onClick: () => void;
+  onContextMenu: (e: React.MouseEvent) => void;
 }) {
   const { progress } = useJobSSE(
     ["downloading","uploading","metadata_fetch","submitted","queued"].includes(job.status) ? job.id : null,
@@ -119,6 +196,14 @@ function JobRow({
 
   const formatDate = (iso: string) => {
     const d = new Date(iso);
+    const now = new Date();
+    const diff = now.getTime() - d.getTime();
+    if (diff < 86400000) {
+      return `Today at ${d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+    }
+    if (diff < 172800000) {
+      return `Yesterday at ${d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+    }
     return `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`;
   };
 
@@ -130,6 +215,7 @@ function JobRow({
         selected && "bg-accent/10 hover:bg-accent/15",
       )}
       onClick={onClick}
+      onContextMenu={onContextMenu}
     >
       {/* Status accent strip */}
       <div
@@ -173,7 +259,6 @@ function JobRow({
 
         {isActive && !["queued","submitted"].includes(liveJob.status) && liveJob.bytesTotal > 0 && (
           <div className="mt-1.5 space-y-1">
-            {/* Glowing progress bar */}
             <div className="relative h-1.5 bg-muted rounded-full overflow-hidden">
               <div
                 className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
@@ -196,10 +281,12 @@ function JobRow({
         )}
       </div>
 
-      <span className="hidden sm:block text-sm text-muted-foreground w-24 text-right shrink-0 tabular-nums">
+      {/* SIZE column — fixed width to align with header */}
+      <span className="hidden sm:block text-sm text-muted-foreground w-28 text-right shrink-0 tabular-nums">
         {liveJob.bytesTotal > 0 ? formatBytes(liveJob.bytesTotal) : "—"}
       </span>
-      <span className="hidden md:block text-xs text-muted-foreground w-28 text-right shrink-0">
+      {/* LAST CHANGED column — fixed width to align with header */}
+      <span className="hidden md:block text-xs text-muted-foreground w-40 text-right shrink-0">
         {formatDate(liveJob.updatedAt)}
       </span>
 
@@ -244,6 +331,7 @@ export default function DashboardPage() {
   const [search, setSearch] = useState("");
   const [sortCol, setSortCol] = useState<SortCol>("date");
   const [sortDir, setSortDir] = useState<"asc"|"desc">("desc");
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; job: ApiJob } | null>(null);
 
   const { data: jobsData, isLoading: jobsLoading, isError: jobsError, refetch } = useQuery({
     queryKey: ["jobs"],
@@ -395,9 +483,15 @@ export default function DashboardPage() {
               <RefreshCw className={cn("w-3.5 h-3.5", jobsLoading && "animate-spin")} />
             </button>
 
-            <div className="hidden sm:flex items-center gap-5">
-              <SortBtn col="size" label="SIZE" active={sortCol === "size"} dir={sortDir} onClick={() => toggleSort("size")} />
-              <SortBtn col="date" label="LAST CHANGED" active={sortCol === "date"} dir={sortDir} onClick={() => toggleSort("date")} />
+            <div className="hidden sm:flex items-center gap-0 ml-auto">
+              <div className="w-28 text-right">
+                <SortBtn col="size" label="SIZE" active={sortCol === "size"} dir={sortDir} onClick={() => toggleSort("size")} />
+              </div>
+              <div className="w-40 text-right">
+                <SortBtn col="date" label="LAST CHANGED" active={sortCol === "date"} dir={sortDir} onClick={() => toggleSort("date")} />
+              </div>
+              {/* Spacer for action buttons column */}
+              <div className="w-10" />
             </div>
           </div>
 
@@ -464,6 +558,10 @@ export default function DashboardPage() {
                   onAction={(action) => actionMutation.mutate({ id: job.id, action })}
                   onDelete={() => deleteMutation.mutate(job.id)}
                   onClick={() => navigate(`/app/dashboard/${job.id}`)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setCtxMenu({ x: e.clientX, y: e.clientY, job });
+                  }}
                 />
               ))
             )}
@@ -520,6 +618,18 @@ export default function DashboardPage() {
           onJobAdded={handleJobAdded}
           initialMagnetUri={initialMagnet}
         />
+
+        {/* Context menu */}
+        {ctxMenu && (
+          <ContextMenu
+            x={ctxMenu.x}
+            y={ctxMenu.y}
+            job={ctxMenu.job}
+            onClose={() => setCtxMenu(null)}
+            onAction={(action) => actionMutation.mutate({ id: ctxMenu.job.id, action })}
+            onDelete={() => deleteMutation.mutate(ctxMenu.job.id)}
+          />
+        )}
       </div>
     </div>
   );

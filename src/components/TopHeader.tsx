@@ -5,6 +5,7 @@ import { formatBytes } from "@/lib/utils";
 import {
   Plus, Upload, Zap, Menu, X, Star,
   LogOut, User, HelpCircle, Settings, CloudLightning,
+  BookOpen, Users, Copy, Check, ServerCog,
 } from "lucide-react";
 import fseederLogo from "@/assets/fseeder-logo.png";
 import { OrgSwitcher } from "@/components/OrgSwitcher";
@@ -128,6 +129,11 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
   const [pasteValue, setPasteValue] = useState("");
   const [addRipple, setAddRipple] = useState(false);
   const [pricingOpen, setPricingOpen] = useState(false);
+  const [wishlistOpen, setWishlistOpen] = useState(false);
+  const [serverOpen, setServerOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteCopied, setInviteCopied] = useState(false);
   const pasteRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -208,15 +214,34 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
 
         <div className="flex-1" />
 
-        {/* Nav tabs */}
-        <nav className="hidden sm:flex items-center gap-1 mr-2 h-full">
-          <NavTab to="/app/dashboard" active={isDashboard}>
-            <Star className="w-4 h-4" />
-          </NavTab>
-          <NavTab to="/app/settings" active={isSettings}>
-            <Settings className="w-4 h-4" />
-          </NavTab>
-        </nav>
+        {/* Wishlist star button */}
+        <div className="relative hidden sm:block">
+          <button
+            onClick={() => { setWishlistOpen(o => !o); setServerOpen(false); }}
+            title="Wishlist"
+            className={cn(
+              "flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-150",
+              wishlistOpen ? "text-warning bg-warning/10" : "text-muted-foreground hover:text-warning hover:bg-muted/40"
+            )}
+          >
+            <Star className="w-5 h-5" />
+          </button>
+          {wishlistOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setWishlistOpen(false)} />
+              <div className="absolute right-0 top-12 z-50 w-72 glass-premium rounded-xl shadow-[0_12px_40px_hsl(220_26%_0%/0.6)] border border-border/60 animate-scale-in overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
+                  <span className="text-sm font-bold text-foreground">Wishlist</span>
+                  <Star className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <div className="px-4 py-6 text-center">
+                  <p className="text-sm text-muted-foreground">Wishlist Empty</p>
+                  <p className="text-xs text-muted-foreground/60 mt-1">Star items from your files to save them here</p>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
 
         {/* Paste bar or action buttons */}
         {pasteOpen ? (
@@ -249,12 +274,6 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
             >
               <Upload className="w-4 h-4" />
             </button>
-            <button
-              className="w-8 h-8 hidden sm:flex items-center justify-center rounded-lg border border-primary/40 text-primary hover:bg-primary/10 transition-colors shrink-0"
-              title="Speed"
-            >
-              <Zap className="w-4 h-4" />
-            </button>
           </div>
         ) : (
           <div className="flex items-center gap-0.5">
@@ -274,17 +293,53 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
               <Upload className="w-4.5 h-4.5" />
             </IconBtn>
 
-            <IconBtn className="hidden sm:flex" title="Transfer speed">
-              <Zap className="w-4.5 h-4.5" />
-            </IconBtn>
+            {/* Streaming server selector (lightning) */}
+            <div className="relative hidden sm:block">
+              <IconBtn
+                onClick={() => { setServerOpen(o => !o); setWishlistOpen(false); }}
+                title="Select Download + Streaming Server"
+                className={cn(serverOpen && "text-primary bg-primary/10")}
+              >
+                <Zap className="w-4.5 h-4.5" />
+              </IconBtn>
+              {serverOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setServerOpen(false)} />
+                  <div className="absolute right-0 top-12 z-50 w-72 glass-premium rounded-xl shadow-[0_12px_40px_hsl(220_26%_0%/0.6)] border border-border/60 animate-scale-in overflow-hidden">
+                    <div className="px-4 py-3 text-sm font-bold text-foreground flex items-center gap-2 border-b border-border/40"
+                      style={{ background: "linear-gradient(90deg, hsl(239 84% 67% / 0.15), transparent)" }}>
+                      <ServerCog className="w-4 h-4 text-primary" />
+                      Select Download + Streaming Server
+                      <Zap className="w-3.5 h-3.5 text-primary ml-auto" />
+                    </div>
+                    <div className="py-1">
+                      <ServerOption label="Check Fastest" emoji="✅" active={false} onClick={() => setServerOpen(false)} />
+                      <ServerOption label="Cloudflare Edge" emoji="⚡" active={true} onClick={() => setServerOpen(false)} />
+                    </div>
+                    <div className="mx-3 dashed-separator" />
+                    <button
+                      onClick={() => { setServerOpen(false); setPricingOpen(true); }}
+                      className="w-full px-4 py-2.5 text-sm text-primary font-semibold hover:bg-primary/5 transition-colors flex items-center gap-2"
+                    >
+                      💎 Upgrade to Unlock All Locations
+                    </button>
+                    <div className="mx-3 dashed-separator" />
+                    <div className="py-1 opacity-50 pointer-events-none">
+                      <ServerOption label="Germany" emoji="🇩🇪" active={false} locked onClick={() => {}} />
+                      <ServerOption label="US North" emoji="🇺🇸" active={false} locked onClick={() => {}} />
+                      <ServerOption label="Singapore" emoji="🇸🇬" active={false} locked onClick={() => {}} />
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
 
             <IconBtn
-              onClick={() => setMenuOpen(o => !o)}
+              onClick={() => { setMenuOpen(o => !o); setWishlistOpen(false); setServerOpen(false); }}
               title="Menu"
               className="relative"
             >
               <Menu className="w-5 h-5" />
-              {/* Notification dot */}
               <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-destructive border border-background shadow-glow-danger" />
             </IconBtn>
           </div>
@@ -317,11 +372,12 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
               </button>
             )}
             <div className="py-1.5">
-              <DropdownLink icon="👥" label="Invite For Space" onClick={() => setMenuOpen(false)} />
+              <DropdownLink icon="👥" label="Invite For Space" onClick={() => { setMenuOpen(false); setInviteOpen(true); }} />
               <div className="mx-3 my-1 dashed-separator" />
               <DropdownLink icon={null} label="Files" lucideIcon={Star} onClick={() => { navigate("/app/dashboard"); setMenuOpen(false); }} />
               <DropdownLink icon={null} label="Account" lucideIcon={User} onClick={() => { navigate("/app/settings"); setMenuOpen(false); }} />
-              <DropdownLink icon={null} label="Help" lucideIcon={HelpCircle} onClick={() => setMenuOpen(false)} />
+              <DropdownLink icon={null} label="Help" lucideIcon={HelpCircle} onClick={() => { window.open("https://fseeder.cc/help", "_blank"); setMenuOpen(false); }} />
+              <DropdownLink icon={null} label="Tutorial" lucideIcon={BookOpen} onClick={() => { window.open("https://fseeder.cc/blog", "_blank"); setMenuOpen(false); }} />
             </div>
             <div className="mx-3 dashed-separator" />
             <div className="py-1.5">
@@ -329,7 +385,6 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
                 setMenuOpen(false);
                 try { const { auth, setCsrfToken } = await import("@/lib/api"); await auth.logout(); setCsrfToken(""); } catch {}
                 const { QueryClient } = await import("@tanstack/react-query");
-                // Clear all cached queries so back-button doesn't show stale auth
                 window.location.href = "/auth/login";
               }} />
             </div>
@@ -339,23 +394,79 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
     </header>
 
     <PricingModal open={pricingOpen} onClose={() => setPricingOpen(false)} />
-    </>
-  );
-}
 
-function NavTab({ to, active, children }: { to: string; active: boolean; children: React.ReactNode }) {
-  return (
-    <Link
-      to={to}
-      className={cn(
-        "flex flex-col items-center justify-center px-3 pb-1 pt-1 transition-all duration-200",
-        active
-          ? "text-primary border-b-2 border-primary drop-shadow-[0_0_6px_hsl(239_84%_67%/0.6)]"
-          : "text-muted-foreground hover:text-foreground border-b-2 border-transparent hover:border-border",
-      )}
-    >
-      {children}
-    </Link>
+    {/* Invite For Space Modal */}
+    {inviteOpen && (
+      <>
+        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm" onClick={() => setInviteOpen(false)} />
+        <div className="fixed inset-0 z-[61] flex items-center justify-center p-4 pointer-events-none">
+          <div className="relative w-full max-w-md pointer-events-auto glass-premium rounded-2xl shadow-[0_20px_60px_hsl(220_26%_0%/0.7)] border border-primary/10 animate-scale-in overflow-hidden p-6">
+            <button onClick={() => setInviteOpen(false)} className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                <Users className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-foreground">Invite For Space</h3>
+                <p className="text-xs text-muted-foreground">Get 2 GB when your friend upgrades to Pro</p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1 block">Your Referral Link</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    readOnly
+                    value={`${window.location.origin}/auth/register?ref=${btoa(Date.now().toString()).slice(0,8)}`}
+                    className="flex-1 bg-input/60 border border-border/60 rounded-lg px-3 py-2 text-sm text-foreground"
+                  />
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/auth/register?ref=${btoa(Date.now().toString()).slice(0,8)}`);
+                      setInviteCopied(true);
+                      setTimeout(() => setInviteCopied(false), 2000);
+                    }}
+                    className="w-9 h-9 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary/40 transition-colors shrink-0"
+                  >
+                    {inviteCopied ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              <div className="dashed-separator" />
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1 block">Or invite by email</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="email"
+                    placeholder="friend@example.com"
+                    value={inviteEmail}
+                    onChange={e => setInviteEmail(e.target.value)}
+                    className="flex-1 bg-input/60 border border-border/60 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"
+                  />
+                  <button
+                    onClick={() => {
+                      if (inviteEmail.trim()) {
+                        window.open(`mailto:${inviteEmail}?subject=Join%20fseeder%20Cloud&body=Try%20fseeder%20-%20the%20fastest%20cloud%20torrent%20manager!%20${encodeURIComponent(window.location.origin)}/auth/register`);
+                        setInviteEmail("");
+                      }
+                    }}
+                    className="px-4 py-2 rounded-lg gradient-primary text-white text-sm font-bold shadow-glow-primary hover:opacity-90 transition-opacity shrink-0"
+                  >
+                    Send
+                  </button>
+                </div>
+              </div>
+              <div className="bg-success/5 border border-success/20 rounded-lg p-3 mt-2">
+                <p className="text-xs text-success font-semibold">🎁 When your friend upgrades to any paid plan, you both get 2 GB extra storage!</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
+    )}
+    </>
   );
 }
 
@@ -394,6 +505,31 @@ function DropdownLink({
       <span className="group-hover:translate-x-0.5 transition-transform duration-150">{label}</span>
       {icon && <span className="text-base">{icon}</span>}
       {LucideIcon && <LucideIcon className="w-4 h-4 text-muted-foreground" />}
+    </button>
+  );
+}
+
+function ServerOption({ label, emoji, active, locked, onClick }: {
+  label: string; emoji: string; active: boolean; locked?: boolean; onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors",
+        active ? "bg-primary/10 text-foreground" : "text-muted-foreground hover:bg-muted/20 hover:text-foreground",
+        locked && "opacity-50"
+      )}
+    >
+      <div className={cn(
+        "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+        active ? "border-primary" : "border-muted-foreground/40"
+      )}>
+        {active && <div className="w-2 h-2 rounded-full bg-primary" />}
+      </div>
+      <span className="text-base">{emoji}</span>
+      <span className="font-medium">{label}</span>
+      {locked && <Zap className="w-3.5 h-3.5 text-muted-foreground ml-auto" />}
     </button>
   );
 }
