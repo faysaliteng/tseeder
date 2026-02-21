@@ -1,80 +1,152 @@
 
-# Working Instructions: tseeder Deployment (Cloudflare x DigitalOcean)
 
-Create a new file `WORKING-INSTRUCTIONS.md` at the project root documenting the complete, tested A-to-Z deployment procedure based on what was actually done and verified working.
+# Crypto Payment Gateway
 
-## Document Structure
+## Overview
+Build a self-hosted crypto payment gateway that accepts BTC, USDT (TRC-20/ERC-20), LTC, and BNB. Admin configures destination wallet addresses in the admin panel. Users see a QR code + wallet address when upgrading, and the system polls blockchain explorers to verify payment and activate the plan.
 
-The file will cover these sections in order:
+## Architecture
 
-### 1. Overview and Architecture
-- Frontend: Cloudflare Pages (fseeder.cc)
-- Backend API: Cloudflare Workers (api.fseeder.cc)
-- Database: Cloudflare D1 (SQLite)
-- Storage: Cloudflare R2 (S3-compatible)
-- Queues: Cloudflare Queues (job dispatch + DLQ)
-- Real-time: Durable Objects (SSE progress streaming)
-- Compute Agent: DigitalOcean VM running Node.js 20 with WebTorrent
+```text
+User clicks "Pay with Crypto"
+        |
+        v
+Frontend creates a crypto payment order via API
+        |
+        v
+API generates a unique payment record in D1
+  (coin, amount, destination wallet, expiry, user_id, plan)
+        |
+        v
+Frontend shows QR code + address + countdown timer
+        |
+        v
+API has a scheduled CRON or Durable Object alarm
+  that polls public blockchain APIs to check for incoming tx
+        |
+        v
+Once confirmed (enough confirmations), API marks payment as "confirmed"
+  and activates the user's plan (same applyPlanByName logic as Stripe)
+```
 
-### 2. Prerequisites
-- Windows 11 + VS Code + PowerShell (for development)
-- Cloudflare account on Workers Paid plan
-- DigitalOcean droplet (Ubuntu 24.04, minimum 1 vCPU / 2 GB RAM)
-- Domain registered and DNS managed by Cloudflare
+## What Changes
 
-### 3. Cloudflare Setup (Steps 1-9)
-- Wrangler login
-- Create D1, R2, Queues, KV namespaces
-- Edit wrangler.toml with real IDs
-- Run D1 migrations
-- Generate and set all secrets (SESSION_SECRET, CSRF_SECRET, CALLBACK_SIGNING_SECRET, WORKER_CLUSTER_TOKEN, R2 keys, WORKER_CLUSTER_URL)
-- Deploy backend Worker
-- Deploy frontend to Pages (manual CLI or GitHub auto-deploy)
-- DNS records (api CNAME, root CNAME)
+### Frontend Only (auto-deploys via GitHub)
 
-### 4. DigitalOcean VM Setup (the part that required debugging)
-- SSH into VM
-- Install Node.js 20 (NOT Bun -- documented why: `node-datachannel` requires full libuv, Bun crashes with `uv_timer_init` panic)
-- Install tsx locally
-- Copy compute-agent source files
-- Install npm dependencies including `node-datachannel` built from source
-- Create `/etc/tseeder-agent.env` with all required variables
-- Update systemd service to use `node --import tsx` instead of `bun run`
-- Handle systemd security hardening (ReadWritePaths for download directory)
-- Start and verify agent
+1. **`src/pages/CryptoCheckout.tsx`** (new) -- Full-page checkout with:
+   - Plan summary (name, price in USD)
+   - Coin selector (BTC / USDT / LTC / BNB)
+   - QR code generated client-side from the wallet address (using a lightweight QR library or inline SVG generator)
+   - Wallet address with copy button
+   - Expected amount display
+   - Countdown timer (30-minute expiry)
+   - Live status polling every 10s via React Query to check payment confirmation
+   - Auto-redirect to settings on success
 
-### 5. Connecting Agent to API
-- Set WORKER_CLUSTER_URL secret on Cloudflare to point to VM IP
-- Redeploy Worker to activate new secret
-- Verify via Admin > Infrastructure panel
+2. **`src/pages/admin/CryptoWallets.tsx`** (new) -- Admin page to:
+   - View/add/edit destination wallet addresses per coin (BTC, USDT, LTC, BNB)
+   - Set USD prices per plan
+   - View pending/confirmed/expired crypto payments
+   - Manually confirm a payment (emergency override)
 
-### 6. Turnstile Removal
-- Document that Turnstile was removed due to hostname mismatch issues
-- List all files that were modified
+3. **`src/components/admin/AdminLayout.tsx`** (edit) -- Add "Crypto Wallets" nav item to sidebar
 
-### 7. Everyday Operations
-- Redeploy backend command
-- Redeploy frontend command
-- View live logs
-- Change a secret
-- Check database
-- Restart compute agent
-- View agent logs
+4. **`src/pages/Settings.tsx`** (edit) -- Add "Pay with Crypto" button alongside existing Stripe billing section
 
-### 8. Troubleshooting (real issues we hit)
-- Bun crashes with `uv_timer_init` -- switch to Node.js 20
-- `tsx` not found by systemd -- install locally, not globally
-- `ERR_MODULE_NOT_FOUND` for tsx -- npm install tsx in project dir
-- `.env.production` UTF-16 on Windows -- use WriteAllText
-- CORS errors -- APP_DOMAIN must match
-- Agent shows "Unreachable" -- check WORKER_CLUSTER_TOKEN match, trailing slashes, CALLBACK_SIGNING_SECRET
-- Secrets don't take effect -- must redeploy Worker after setting secrets
+5. **`src/App.tsx`** (edit) -- Add routes:
+   - `/app/crypto-checkout` for the checkout page
+   - `/admin/crypto-wallets` for the admin wallet management
 
-## Technical Details
+6. **`src/lib/api.ts`** (edit) -- Add crypto billing API client methods:
+   - `cryptoBilling.getWallets()` -- get available coins + addresses
+   - `cryptoBilling.createOrder(planName, coin)` -- create payment order
+   - `cryptoBilling.getOrder(orderId)` -- poll payment status
+   - `cryptoBilling.adminListWallets()` / `adminSetWallet()` / `adminListOrders()` / `adminConfirmOrder()`
 
-- Single new file: `WORKING-INSTRUCTIONS.md` at project root
-- Approximately 400-500 lines of markdown
-- All commands are copy-paste ready
-- Includes the exact working systemd ExecStart line: `/usr/bin/node --import tsx /opt/tseeder-agent/src/index.ts`
-- Documents the correct `/etc/tseeder-agent.env` format with all required variables
-- Notes the firewall requirement (port 8787 open for Cloudflare callbacks)
+7. **`src/lib/qr.ts`** (new) -- Lightweight QR code generator (pure JS, no external dependency) to render wallet addresses as QR codes
+
+### Backend -- API Worker (manual deploy from PC)
+
+8. **`apps/api/src/handlers/crypto.ts`** (new) -- All crypto payment handlers:
+   - `GET /crypto/wallets` -- public: returns enabled coins + wallet addresses
+   - `POST /crypto/orders` -- authenticated: creates a payment order with amount, coin, expiry
+   - `GET /crypto/orders/:id` -- authenticated: returns order status (pending/confirming/confirmed/expired)
+   - `GET /admin/crypto/wallets` -- admin: list all wallet configs
+   - `POST /admin/crypto/wallets` -- admin: set wallet address for a coin
+   - `GET /admin/crypto/orders` -- admin: list all crypto orders with filters
+   - `POST /admin/crypto/orders/:id/confirm` -- admin: manually confirm payment
+
+9. **`apps/api/src/crypto-verifier.ts`** (new) -- Blockchain verification module:
+   - Polls public APIs (blockstream.info for BTC, tronscan for USDT TRC-20, blockcypher for LTC, bscscan for BNB)
+   - Checks if the destination address received the expected amount after the order was created
+   - Returns confirmation count
+   - No API keys needed for basic public blockchain queries
+
+10. **`apps/api/src/index.ts`** (edit) -- Register new crypto routes
+
+11. **D1 Migration `0014_crypto_payments.sql`** (new):
+```sql
+CREATE TABLE IF NOT EXISTS crypto_wallets (
+  coin       TEXT PRIMARY KEY CHECK (coin IN ('BTC','USDT','LTC','BNB')),
+  address    TEXT NOT NULL,
+  network    TEXT NOT NULL DEFAULT '',
+  is_active  INTEGER NOT NULL DEFAULT 1,
+  updated_by TEXT,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS crypto_orders (
+  id              TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+  user_id         TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  plan_name       TEXT NOT NULL,
+  coin            TEXT NOT NULL,
+  network         TEXT NOT NULL DEFAULT '',
+  wallet_address  TEXT NOT NULL,
+  amount_usd      REAL NOT NULL,
+  amount_crypto   REAL NOT NULL,
+  tx_hash         TEXT,
+  confirmations   INTEGER NOT NULL DEFAULT 0,
+  status          TEXT NOT NULL DEFAULT 'pending'
+                  CHECK (status IN ('pending','confirming','confirmed','expired','failed')),
+  expires_at      TEXT NOT NULL,
+  confirmed_at    TEXT,
+  confirmed_by    TEXT,
+  created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_crypto_orders_user   ON crypto_orders(user_id);
+CREATE INDEX IF NOT EXISTS idx_crypto_orders_status ON crypto_orders(status);
+
+CREATE TABLE IF NOT EXISTS crypto_prices (
+  plan_name   TEXT PRIMARY KEY,
+  price_usd   REAL NOT NULL,
+  updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+```
+
+### Compute Agent (no changes needed)
+
+## Security Measures
+
+- All wallet addresses are stored server-side in D1 only -- never hardcoded in frontend
+- Admin-only access to wallet configuration (rbacMiddleware("superadmin"))
+- Orders expire after 30 minutes to prevent stale payment windows
+- Blockchain verification uses multiple public APIs with fallback
+- Amount matching uses a tolerance window (e.g., +/- 0.5%) to account for network fees
+- Admin manual confirm requires DangerModal with reason + audit log
+- Rate limiting on order creation (5 per hour per user)
+- All actions logged to audit trail
+
+## Deployment After Implementation
+
+| Component | Deploy Method |
+|-----------|--------------|
+| Frontend (Settings, CryptoCheckout, AdminCryptoWallets, api.ts, App.tsx) | Auto-deploy via GitHub push |
+| API Worker (crypto.ts, crypto-verifier.ts, index.ts) | Manual: `cd apps/api && npx wrangler deploy src/index.ts --config ../../infra/wrangler.toml --env production` |
+| D1 Migration | Manual: `npx wrangler d1 execute tseeder-db --file=packages/shared/migrations/0014_crypto_payments.sql --env production` |
+| Compute Agent | No changes needed |
+
+## Price Conversion
+The API will fetch live crypto prices from CoinGecko's free public API (`/api/v3/simple/price?ids=bitcoin,tether,litecoin,binancecoin&vs_currencies=usd`) to calculate the exact crypto amount the user needs to send. Price is locked at order creation time.
+
