@@ -685,7 +685,7 @@ export default function SettingsPage() {
                       </div>
                     </div>
                     {(usageData?.plan.name === "free" || !usageData) && (
-                      <button className="flex items-center gap-1.5 text-xs font-bold text-warning border border-warning/40 rounded-xl px-4 py-2 hover:bg-warning hover:text-black transition-all shadow-[0_0_12px_hsl(38_92%_50%/0.2)] relative overflow-hidden group">
+                      <button onClick={() => navigate("/app/crypto-checkout?plan=pro")} className="flex items-center gap-1.5 text-xs font-bold text-warning border border-warning/40 rounded-xl px-4 py-2 hover:bg-warning hover:text-black transition-all shadow-[0_0_12px_hsl(38_92%_50%/0.2)] relative overflow-hidden group">
                         <span className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
                         <Zap className="w-3 h-3 relative z-10" /><span className="relative z-10">Upgrade ▲</span>
                       </button>
