@@ -277,7 +277,7 @@ router.post("/billing/webhook",             [],                                 
 
 // ── Crypto Billing ─────────────────────────────────────────────────────────────
 router.get("/crypto/wallets",                       [],                                                          handleGetCryptoWallets);
-router.post("/crypto/orders",                       [authMiddleware, csrfMiddleware, rateLimitMiddleware("crypto-order", 30, 3600)], handleCreateCryptoOrder);
+router.post("/crypto/orders",                       [authMiddleware, csrfMiddleware], handleCreateCryptoOrder);
 router.get("/crypto/orders/:id",                    [authMiddleware],                                            handleGetCryptoOrder);
 router.get("/admin/crypto/wallets",                 [authMiddleware, rbacMiddleware("superadmin")],               handleAdminListCryptoWallets);
 router.post("/admin/crypto/wallets",                [authMiddleware, rbacMiddleware("superadmin"), csrfMiddleware], handleAdminSetCryptoWallet);
