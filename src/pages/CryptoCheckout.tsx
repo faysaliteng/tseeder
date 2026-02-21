@@ -12,15 +12,21 @@ import {
   Bitcoin, Copy, Check, Loader2, Clock, Shield, ArrowLeft,
   AlertTriangle, CheckCircle2, RefreshCw,
 } from "lucide-react";
+import btcIcon from "@/assets/crypto/btc.svg";
+import usdtIcon from "@/assets/crypto/usdt.svg";
+import ltcIcon from "@/assets/crypto/ltc.svg";
+import bnbIcon from "@/assets/crypto/bnb.svg";
+import solIcon from "@/assets/crypto/sol.svg";
+import maticIcon from "@/assets/crypto/matic.svg";
 
-const COIN_META: Record<string, { label: string; color: string; network: string }> = {
-  BTC: { label: "Bitcoin", color: "text-warning", network: "Bitcoin" },
-  USDT: { label: "Tether USDT", color: "text-success", network: "TRC-20" },
-  "USDT-TRC20": { label: "USDT", color: "text-success", network: "TRC-20" },
-  "USDT-SOL": { label: "USDT", color: "text-success", network: "Solana (SPL)" },
-  "USDT-POLYGON": { label: "USDT", color: "text-success", network: "Polygon" },
-  LTC: { label: "Litecoin", color: "text-muted-foreground", network: "Litecoin" },
-  BNB: { label: "BNB", color: "text-warning", network: "BEP-20" },
+const COIN_META: Record<string, { label: string; color: string; network: string; icon: string; desc: string }> = {
+  BTC:            { label: "Bitcoin",  color: "text-warning",          network: "Bitcoin",       icon: btcIcon,  desc: "~10 min confirmation" },
+  USDT:           { label: "USDT",     color: "text-success",          network: "TRC-20 (Tron)", icon: usdtIcon, desc: "Fast & low fees" },
+  "USDT-TRC20":   { label: "USDT",     color: "text-success",          network: "TRC-20 (Tron)", icon: usdtIcon, desc: "Fast & low fees" },
+  "USDT-SOL":     { label: "USDT",     color: "text-success",          network: "Solana (SPL)",  icon: solIcon,  desc: "Instant & near-zero fees" },
+  "USDT-POLYGON": { label: "USDT",     color: "text-success",          network: "Polygon",       icon: maticIcon, desc: "Low fees, fast" },
+  LTC:            { label: "Litecoin", color: "text-muted-foreground", network: "Litecoin",      icon: ltcIcon,  desc: "~2.5 min confirmation" },
+  BNB:            { label: "BNB",      color: "text-warning",          network: "BEP-20 (BSC)",  icon: bnbIcon,  desc: "Fast & cheap" },
 };
 
 function CopyBtn({ text }: { text: string }) {
@@ -193,19 +199,25 @@ export default function CryptoCheckoutPage() {
                   ) : (
                     <div className="grid grid-cols-2 gap-3">
                       {availableCoins.map((w: any) => {
-                        const meta = COIN_META[w.coin] ?? { label: w.coin, color: "text-foreground", network: "" };
+                        const meta = COIN_META[w.coin] ?? { label: w.coin, color: "text-foreground", network: "", icon: "", desc: "" };
                         return (
                           <button
                             key={w.coin}
                             onClick={() => handleSelectCoin(w.coin)}
                             disabled={createOrderMut.isPending}
                             className={cn(
-                              "flex flex-col items-start gap-2 rounded-xl border-2 p-4 transition-all hover:border-primary/50",
+                              "flex items-center gap-3 rounded-xl border-2 p-3.5 transition-all hover:border-primary/50 text-left",
                               selectedCoin === w.coin ? "border-primary bg-primary/8" : "border-border bg-muted/10"
                             )}
                           >
-                            <span className={cn("text-sm font-bold", meta.color)}>{meta.label}</span>
-                            <span className="text-[10px] text-muted-foreground">{meta.network}</span>
+                            {meta.icon && (
+                              <img src={meta.icon} alt={meta.label} className="w-8 h-8 shrink-0 rounded-full" />
+                            )}
+                            <div className="min-w-0">
+                              <span className={cn("text-sm font-bold block", meta.color)}>{meta.label}</span>
+                              <span className="text-[10px] text-muted-foreground block">{meta.network}</span>
+                              <span className="text-[9px] text-muted-foreground/70 block mt-0.5">{meta.desc}</span>
+                            </div>
                           </button>
                         );
                       })}
