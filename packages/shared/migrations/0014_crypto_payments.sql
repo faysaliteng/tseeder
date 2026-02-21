@@ -1,12 +1,13 @@
 -- Crypto Payment Gateway tables
 
 CREATE TABLE IF NOT EXISTS crypto_wallets (
-  coin       TEXT PRIMARY KEY CHECK (coin IN ('BTC','USDT','LTC','BNB')),
+  coin       TEXT NOT NULL CHECK (coin IN ('BTC','USDT','USDT-TRC20','USDT-SOL','USDT-POLYGON','LTC','BNB')),
   address    TEXT NOT NULL,
   network    TEXT NOT NULL DEFAULT '',
   is_active  INTEGER NOT NULL DEFAULT 1,
   updated_by TEXT,
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (coin)
 );
 
 CREATE TABLE IF NOT EXISTS crypto_orders (

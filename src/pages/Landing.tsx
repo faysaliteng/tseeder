@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { blog, type ApiArticle } from "@/lib/api";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { blog, auth, setCsrfToken, ApiError, type ApiArticle } from "@/lib/api";
 import {
   Zap, Shield, Globe, Download, Play, Star,
   HardDrive, Activity, Lock, Cpu, Puzzle,
@@ -104,15 +104,58 @@ function HeroSignupCard() {
   const [newsletter, setNewsletter] = useState<"yes" | "no">("no");
   const [agreed, setAgreed] = useState(false);
   const [mode, setMode] = useState<"signup" | "login">("signup");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+
+  const registerMut = useMutation({
+    mutationFn: () => auth.register(email, password),
+    onSuccess: () => setSuccess(true),
+    onError: (err) => setError(err instanceof ApiError ? err.message : "Registration failed. Try again."),
+  });
+
+  const loginMut = useMutation({
+    mutationFn: () => auth.login(email, password),
+    onSuccess: (data) => {
+      setCsrfToken(data.csrfToken);
+      navigate("/app/dashboard");
+    },
+    onError: (err) => setError(err instanceof ApiError ? err.message : "Login failed. Try again."),
+  });
+
+  const isPending = registerMut.isPending || loginMut.isPending;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+    if (!email || !password) return;
     if (mode === "signup") {
-      navigate(`/auth/register${email ? `?email=${encodeURIComponent(email)}` : ""}`);
+      if (!agreed) { setError("Please accept the Terms to continue."); return; }
+      if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
+      registerMut.mutate();
     } else {
-      navigate(`/auth/login${email ? `?email=${encodeURIComponent(email)}` : ""}`);
+      loginMut.mutate();
     }
   };
+
+  if (success) {
+    return (
+      <div className="rounded-2xl overflow-hidden shadow-[0_8px_64px_rgba(0,0,0,0.18)] border border-gray-200 bg-white">
+        <div className="h-1 w-full" style={{ background: "linear-gradient(90deg, #e05252, #f39c12, #38bdf8)" }} />
+        <div className="p-7 text-center space-y-4">
+          <div className="w-14 h-14 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto">
+            <BadgeCheck className="w-7 h-7 text-emerald-500" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900">Check your email</h2>
+          <p className="text-sm text-gray-500">We sent a verification link to <strong className="text-gray-900">{email}</strong>.</p>
+          <button onClick={() => navigate("/auth/login")}
+            className="w-full py-3 rounded-xl font-semibold text-sm text-white transition-all hover:opacity-95"
+            style={{ background: "linear-gradient(135deg, #e05252, #f39c12, #38bdf8)" }}>
+            Go to Sign In
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-2xl overflow-hidden shadow-[0_8px_64px_rgba(0,0,0,0.18)] border border-gray-200 bg-white">
@@ -121,15 +164,20 @@ function HeroSignupCard() {
         <h2 className="text-2xl font-bold text-gray-900 mb-5">
           {mode === "signup" ? "Get Started — Free" : "Welcome back"}
         </h2>
+
+        {error && (
+          <div className="mb-4 px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 text-xs text-red-600 font-medium">{error}</div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Email address</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@email.com"
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@email.com" required
               className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 text-gray-900 text-sm placeholder:text-gray-400 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Password {mode === "signup" && <span className="text-gray-400 font-normal text-xs">(8+ chars)</span>}</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••"
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required
               className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 text-gray-900 text-sm placeholder:text-gray-400 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
           </div>
           {mode === "signup" && (
@@ -153,15 +201,12 @@ function HeroSignupCard() {
               </label>
             </>
           )}
-          <button type="submit"
-            className="w-full py-3 rounded-xl font-semibold text-sm text-white transition-all hover:opacity-95"
+          <button type="submit" disabled={isPending}
+            className="w-full py-3 rounded-xl font-semibold text-sm text-white transition-all hover:opacity-95 disabled:opacity-60"
             style={{ background: "linear-gradient(135deg, #e05252, #f39c12, #38bdf8)", boxShadow: "0 4px 16px rgba(224,82,82,0.35)" }}>
-            {mode === "signup" ? "Continue" : "Sign In"}
+            {isPending ? "Please wait…" : mode === "signup" ? "Continue" : "Sign In"}
           </button>
         </form>
-
-
-
 
         <div className="flex items-center justify-center gap-1.5 mt-3">
           <BadgeCheck className="w-3.5 h-3.5 text-emerald-500" />
@@ -170,9 +215,9 @@ function HeroSignupCard() {
 
         <p className="text-center text-xs text-gray-500 mt-3">
           {mode === "signup" ? (
-            <>Already have an account?{" "}<button onClick={() => setMode("login")} className="text-indigo-600 font-semibold hover:underline">Sign in</button></>
+            <>Already have an account?{" "}<button onClick={() => { setMode("login"); setError(""); }} className="text-indigo-600 font-semibold hover:underline">Sign in</button></>
           ) : (
-            <>New here?{" "}<button onClick={() => setMode("signup")} className="text-indigo-600 font-semibold hover:underline">Create account</button></>
+            <>New here?{" "}<button onClick={() => { setMode("signup"); setError(""); }} className="text-indigo-600 font-semibold hover:underline">Create account</button></>
           )}
         </p>
       </div>

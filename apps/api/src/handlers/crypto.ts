@@ -19,13 +19,16 @@ import { writeAuditLog } from "../d1-helpers";
 
 type Ctx = { params: Record<string, string>; query: Record<string, string>; user?: { id: string; role: string; email?: string } };
 
-const VALID_COINS = ["BTC", "USDT", "LTC", "BNB"];
+const VALID_COINS = ["BTC", "USDT", "USDT-TRC20", "USDT-SOL", "USDT-POLYGON", "LTC", "BNB"];
 const ORDER_EXPIRY_MINUTES = 30;
 
 // ── Coin → CoinGecko ID mapping ──────────────────────────────────────────────
 const COINGECKO_IDS: Record<string, string> = {
   BTC: "bitcoin",
   USDT: "tether",
+  "USDT-TRC20": "tether",
+  "USDT-SOL": "tether",
+  "USDT-POLYGON": "tether",
   LTC: "litecoin",
   BNB: "binancecoin",
 };
