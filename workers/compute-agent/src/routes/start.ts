@@ -100,6 +100,15 @@ async function runDownloadPipeline(opts: {
           workerId: process.env.WORKER_ID ?? "agent-1",
           eventType: "scan_started",
           idempotencyKey: `${jobId}:scan:start`,
+          progressPct: 100,
+          downloadSpeed: 0,
+          uploadSpeed: 0,
+          eta: 0,
+          peers: 0,
+          seeds: 0,
+          bytesDownloaded: progress.bytesTotal,
+          bytesTotal: progress.bytesTotal,
+          status: "scanning",
           scanStatus: "scanning",
         });
 

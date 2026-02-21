@@ -94,6 +94,10 @@ export const CallbackProgressSchema = z.object({
   })).optional(),
   error: z.string().max(1000).optional(),
   status: z.nativeEnum(JobStatus),
+  scanStatus: z.string().max(20).optional(),
+  scanDetail: z.string().max(2000).nullable().optional(),
+  scanDurationMs: z.number().optional(),
+  scanFilesScanned: z.number().optional(),
 });
 export type CallbackProgress = z.infer<typeof CallbackProgressSchema>;
 
@@ -195,6 +199,8 @@ export interface Job {
   createdAt: string;
   updatedAt: string;
   completedAt: string | null;
+  scanStatus: string | null;
+  scanDetail: string | null;
 }
 
 export interface JobFile {

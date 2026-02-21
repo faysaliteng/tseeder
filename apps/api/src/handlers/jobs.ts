@@ -267,8 +267,8 @@ export async function handleJobCallback(req: Request, env: Env): Promise<Respons
   if (!job) return apiError("NOT_FOUND", "Job not found", 404, correlationId);
 
   // Update D1 job row
-  const scanStatus = (update as any).scanStatus as string | undefined;
-  const scanDetail = (update as any).scanDetail as string | undefined;
+  const scanStatus = update.scanStatus;
+  const scanDetail = update.scanDetail ?? undefined;
 
   await updateJobStatus(env.DB, {
     id: update.jobId, status: update.status,

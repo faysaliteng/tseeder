@@ -232,7 +232,7 @@ export default function JobDetailPage() {
     refetchInterval: (query) => {
       const d = query.state.data;
       if (!d) return false;
-      return ["downloading","uploading","metadata_fetch","submitted","queued"].includes(d.status) ? 10_000 : false;
+      return ["downloading","uploading","metadata_fetch","submitted","queued","scanning"].includes(d.status) ? 10_000 : false;
     },
     retry: 2,
   });
@@ -249,7 +249,7 @@ export default function JobDetailPage() {
     queryFn: () => usageApi.get(),
   });
 
-  const isActive = job ? ["downloading","uploading","metadata_fetch","submitted","queued"].includes(job.status) : false;
+  const isActive = job ? ["downloading","uploading","metadata_fetch","submitted","queued","scanning"].includes(job.status) : false;
   const { progress, connected } = useJobSSE(isActive ? jobId ?? null : null);
   const liveJob: ApiJob | null = job ? mergeSSEIntoJob(job, progress) : null;
 
