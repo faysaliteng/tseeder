@@ -1,8 +1,6 @@
-// fseeder Extension Popup Script — Firefox (MV2)
-// Wrapper: uses browser.* API with chrome.* fallback
-const B = typeof browser !== 'undefined' ? browser : chrome;
+// fseeder Extension Popup Script
 const API_BASE = 'https://api.fseeder.cc';
-const ICON = 'icon48.png';
+const ICON = 'icon48.svg';
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const viewLogin     = document.getElementById('view-login');
@@ -42,7 +40,7 @@ function showStatus(el, msg, type) {
 }
 
 async function getStorage(...keys) {
-  return B.storage.local.get(keys);
+  return new Promise(r => chrome.storage.local.get(keys, r));
 }
 
 async function apiCall(path, opts = {}) {
@@ -52,7 +50,7 @@ async function apiCall(path, opts = {}) {
   if (!(opts.body instanceof FormData)) headers['Content-Type'] = 'application/json';
   const res = await fetch(`${API_BASE}${path}`, { ...opts, headers });
   if (res.status === 401) {
-    await B.storage.local.remove(['tsdr_token', 'tsdr_email']);
+    await new Promise(r => chrome.storage.local.remove(['tsdr_token', 'tsdr_email'], r));
     init();
     throw new Error('Session expired — please sign in again');
   }
@@ -111,10 +109,11 @@ loginBtn.addEventListener('click', async () => {
       return;
     }
 
-    await B.storage.local.set({
+    // Store token and email
+    await new Promise(r => chrome.storage.local.set({
       tsdr_token: json.token,
       tsdr_email: json.user.email,
-    });
+    }, r));
 
     showStatus(loginStatus, '✅ Signed in!', 'success');
     setTimeout(init, 500);
@@ -126,6 +125,7 @@ loginBtn.addEventListener('click', async () => {
   }
 });
 
+// Enter key on password field
 loginPassword.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') loginBtn.click();
 });
@@ -137,6 +137,7 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     tab.classList.add('active');
     document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+
     if (tab.dataset.tab === 'jobs') loadJobs();
   });
 });
@@ -164,7 +165,7 @@ sendBtn.addEventListener('click', async () => {
 
     magnetInput.value = '';
     showStatus(statusMsg, '✅ Sent to your cloud vault!', 'success');
-    B.notifications.create({
+    chrome.notifications.create({
       type: 'basic', iconUrl: ICON,
       title: 'fseeder', message: 'Torrent added to your cloud queue!',
     });
@@ -209,7 +210,7 @@ uploadBtn.addEventListener('click', async () => {
     });
 
     if (res.status === 401) {
-      await B.storage.local.remove(['tsdr_token', 'tsdr_email']);
+      await new Promise(r => chrome.storage.local.remove(['tsdr_token', 'tsdr_email'], r));
       init();
       return;
     }
@@ -219,7 +220,7 @@ uploadBtn.addEventListener('click', async () => {
     fileName.textContent = '';
     uploadBtn.style.display = 'none';
     showStatus(statusMsg, '✅ Torrent uploaded to cloud!', 'success');
-    B.notifications.create({
+    chrome.notifications.create({
       type: 'basic', iconUrl: ICON,
       title: 'fseeder', message: 'Torrent file uploaded!',
     });
@@ -231,17 +232,16 @@ uploadBtn.addEventListener('click', async () => {
   }
 });
 
-// ── Scan page for magnets (Firefox uses tabs.executeScript for MV2) ──────────
+// ── Scan page for magnets ─────────────────────────────────────────────────────
 function scanPageForMagnets() {
-  B.tabs.query({ active: true, currentWindow: true }).then(tabs => {
+  chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
     if (!tabs[0]) return;
-    B.tabs.executeScript(tabs[0].id, {
-      code: `(function() {
-        return Array.from(document.querySelectorAll('a[href]'))
-          .map(a => a.href).filter(h => h.startsWith('magnet:')).slice(0, 5);
-      })()`,
-    }).then(results => {
-      const magnets = results?.[0] ?? [];
+    chrome.scripting.executeScript({
+      target: { tabId: tabs[0].id },
+      func: () => Array.from(document.querySelectorAll('a[href]'))
+        .map(a => a.href).filter(h => h.startsWith('magnet:')).slice(0, 5),
+    }, results => {
+      const magnets = results?.[0]?.result ?? [];
       if (magnets.length === 0) {
         quickActions.innerHTML = '<span class="muted-sm">No magnets found on this page</span>';
         return;
@@ -257,8 +257,6 @@ function scanPageForMagnets() {
         chip.onclick = () => { magnetInput.value = m; sendBtn.click(); };
         quickActions.appendChild(chip);
       });
-    }).catch(() => {
-      quickActions.innerHTML = '<span class="muted-sm">Cannot scan this page</span>';
     });
   });
 }
@@ -358,6 +356,7 @@ async function openJobDetail(jobId) {
 
     jobDetailContent.innerHTML = html;
 
+    // Attach download handlers
     jobDetailContent.querySelectorAll('.btn-dl').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
@@ -367,6 +366,7 @@ async function openJobDetail(jobId) {
         try {
           const dlRes = await apiCall(`/files/${fileId}/download`);
           if (!dlRes.ok) throw new Error(`${dlRes.status}`);
+          // Get the download URL from the response - it's a proxied stream
           const blob = await dlRes.blob();
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
@@ -389,6 +389,7 @@ async function openJobDetail(jobId) {
 
 backBtn.addEventListener('click', () => {
   showView(viewMain);
+  // Re-select jobs tab
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
   document.querySelector('[data-tab="jobs"]').classList.add('active');
@@ -397,7 +398,7 @@ backBtn.addEventListener('click', () => {
 
 // ── Sign out ──────────────────────────────────────────────────────────────────
 document.getElementById('sign-out-btn').addEventListener('click', async () => {
-  await B.storage.local.remove(['tsdr_token', 'tsdr_email', 'tsdr_api_base']);
+  await new Promise(r => chrome.storage.local.remove(['tsdr_token', 'tsdr_email', 'tsdr_api_base'], r));
   init();
 });
 

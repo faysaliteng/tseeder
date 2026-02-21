@@ -7,101 +7,93 @@
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
-
-  <!-- Login view -->
-  <div id="view-login">
-    <div class="header">
-      <div class="logo-row">
-        <img src="logo.png" alt="fseeder" class="logo-img" width="25" height="25" />
-        <div>
-          <h1 class="app-title">fseeder</h1>
-          <p class="app-subtitle">Cloud Torrent Manager</p>
-        </div>
-      </div>
-    </div>
-    <div class="card">
-      <label>Email</label>
-      <input type="email" id="login-email" placeholder="you@example.com" />
-      <label>Password</label>
-      <input type="password" id="login-password" placeholder="••••••••" />
-      <button id="login-btn" class="btn-primary">Sign in</button>
-      <div id="login-status" class="status-msg"></div>
+  <div class="header">
+    <img src="logo.png" alt="fseeder" class="header-logo" />
+    <div>
+      <div class="brand">f<span>seeder</span></div>
+      <div class="subtitle">Cloud Torrent Manager</div>
     </div>
   </div>
 
-  <!-- Main view -->
-  <div id="view-main" style="display:none">
-    <div class="header">
-      <div class="logo-row">
-        <img src="logo.png" alt="fseeder" class="logo-img" width="25" height="25" />
-        <div>
-          <h1 class="app-title">fseeder</h1>
-          <p class="app-subtitle">Cloud Torrent Manager</p>
-        </div>
-      </div>
-      <div class="user-row" id="user-row">
-        <div class="user-avatar" id="user-initial">U</div>
-        <span class="user-email" id="user-email"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="fe8b8d9b8cbe9b869f938e929bd09d9193">[email&#160;protected]</a></span>
-        <span class="online-dot">● Online</span>
-      </div>
+  <!-- ── Login state ── -->
+  <div class="view" id="view-login">
+    <p class="login-tagline">Sign in to send torrents directly to your cloud vault.</p>
+    <div class="form-group">
+      <label for="login-email">Email</label>
+      <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email" />
     </div>
+    <div class="form-group">
+      <label for="login-password">Password</label>
+      <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" />
+    </div>
+    <button class="btn-primary" id="login-btn">Sign in</button>
+    <div class="status-msg" id="login-status"></div>
+    <div class="login-links">
+      <a href="https://fseeder.cc/auth/reset" target="_blank">Forgot password?</a>
+      <a href="https://fseeder.cc/auth/register" target="_blank">Create account</a>
+    </div>
+  </div>
 
-    <!-- Tabs -->
+  <!-- ── Main state (logged in) ── -->
+  <div class="view" id="view-main" style="display:none">
     <div class="tabs">
       <button class="tab active" data-tab="add">⚡ Add</button>
       <button class="tab" data-tab="jobs">📦 Jobs</button>
     </div>
 
-    <!-- Add tab -->
-    <div id="tab-add" class="tab-content active">
-      <div class="card">
-        <label>Magnet link or URL</label>
-        <input type="text" id="magnet-input" placeholder="magnet:?xt=urn:btih:..." />
-        <div class="btn-row">
-          <button id="send-btn" class="btn-primary">⚡ Send to Cloud</button>
-          <a href="https://fseeder.cc/dashboard" target="_blank" class="btn-secondary">Dashboard →</a>
-        </div>
-        <div id="status-msg" class="status-msg"></div>
+    <div class="tab-content active" id="tab-add">
+      <div class="user-row">
+        <div class="avatar" id="user-initial">U</div>
+        <div class="user-email" id="user-email">user@example.com</div>
+        <span class="online-dot">● Online</span>
+        <button class="btn-signout" id="sign-out-btn">Sign out</button>
       </div>
 
-      <!-- Torrent file upload -->
-      <div class="card" id="file-drop">
-        <input type="file" id="torrent-file" accept=".torrent" style="display:none" />
-        <button id="file-pick-btn" class="btn-file">📁 Choose .torrent file</button>
-        <span id="file-name" class="file-name"></span>
-        <button id="upload-btn" class="btn-primary" style="display:none">⬆ Upload Torrent</button>
+      <label>Paste magnet link or URL</label>
+      <textarea id="magnet-input" placeholder="magnet:?xt=urn:btih:... or https://..."></textarea>
+
+      <div class="send-row">
+        <button class="btn-send" id="send-btn">⚡ Send to Cloud</button>
+        <a href="https://fseeder.cc/app/dashboard" target="_blank" class="btn-dash">Dashboard →</a>
       </div>
 
-      <!-- Quick actions: magnets found on page -->
-      <div id="quick-actions" class="quick-actions">
+      <div class="divider"></div>
+
+      <label>Or upload a .torrent file</label>
+      <div class="file-drop" id="file-drop">
+        <input type="file" id="torrent-file" accept=".torrent" hidden />
+        <button class="btn-file" id="file-pick-btn">📁 Choose .torrent file</button>
+        <span class="file-name" id="file-name"></span>
+      </div>
+      <button class="btn-send btn-upload" id="upload-btn" style="display:none">⬆ Upload Torrent</button>
+
+      <div class="status-msg" id="status-msg"></div>
+
+      <div class="divider"></div>
+      <label>Page magnets detected</label>
+      <div class="quick-actions" id="quick-actions">
         <span class="muted-sm">Scanning page…</span>
       </div>
     </div>
 
-    <!-- Jobs tab -->
-    <div id="tab-jobs" class="tab-content">
-      <div class="card">
-        <div class="jobs-header">
-          <label>Recent Jobs</label>
-          <button id="refresh-jobs-btn" class="btn-icon" title="Refresh">🔄</button>
-        </div>
-        <div id="jobs-list"></div>
+    <div class="tab-content" id="tab-jobs">
+      <div class="jobs-header">
+        <label>Recent jobs</label>
+        <button class="btn-refresh" id="refresh-jobs-btn">↻</button>
+      </div>
+      <div class="jobs-list" id="jobs-list">
+        <span class="muted-sm">Loading…</span>
       </div>
     </div>
-
-    <div class="footer">
-      <button id="sign-out-btn" class="btn-link">Sign out</button>
-    </div>
   </div>
 
-  <!-- Job detail view -->
-  <div id="view-job-detail" style="display:none">
-    <div class="header">
-      <button id="back-to-jobs" class="btn-back">← Back</button>
-    </div>
-    <div class="card" id="job-detail-content"></div>
+  <div class="view" id="view-job-detail" style="display:none">
+    <button class="btn-back" id="back-to-jobs">← Back</button>
+    <div id="job-detail-content"></div>
   </div>
 
-  <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script src="popup-firefox.js"></script>
+  <div class="footer-ext">fseeder.cc · Your IP stays hidden · Always encrypted</div>
+
+  <script src="popup.js"></script>
 </body>
 </html>

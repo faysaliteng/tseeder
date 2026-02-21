@@ -1,5 +1,4 @@
 // fseeder Extension Popup Script — Firefox (MV2)
-// Wrapper: uses browser.* API with chrome.* fallback
 const B = typeof browser !== 'undefined' ? browser : chrome;
 const API_BASE = 'https://api.fseeder.cc';
 const ICON = 'icon48.png';
