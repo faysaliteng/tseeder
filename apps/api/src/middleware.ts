@@ -48,6 +48,7 @@ export const csrfMiddleware: Middleware = async (req, env, ctx) => {
   const csrfHeader = req.headers.get("X-CSRF-Token");
   if (!csrfHeader) return json403("CSRF_REQUIRED", "X-CSRF-Token header required");
 
+  const cookie = req.headers.get("Cookie") ?? "";
   const sessionToken = extractCookie(cookie, "session") ?? "";
   const sessionHash = await hashToken(sessionToken);
   const session = await getSessionByTokenHash(env.DB, sessionHash);
