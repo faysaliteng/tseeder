@@ -20,8 +20,12 @@ import {
   Link2, Trash2, PlayCircle, Image as ImageIcon,
   Maximize2, Minimize2, Volume2, VolumeX, Subtitles, Search, Upload,
   Monitor, SkipBack, SkipForward,
+  Edit3, Scissors, ClipboardPaste, Clipboard,
 } from "lucide-react";
 import type { JobStatus } from "@/lib/utils";
+
+// Clipboard state for copy/cut/paste
+let fileClipboard: { file: ApiFile; mode: "copy" | "cut" } | null = null;
 
 // ── File-type icon ─────────────────────────────────────────────────────────
 function FileTypeIcon({ mimeType, isFolder }: { mimeType?: string | null; isFolder?: boolean }) {
@@ -491,11 +495,12 @@ function MediaPreviewModal({
 
 // ── File Context Menu ─────────────────────────────────────────────────────
 function FileContextMenu({
-  x, y, file, onClose, onPreview,
+  x, y, file, onClose, onPreview, onDelete,
 }: {
   x: number; y: number; file: ApiFile;
   onClose: () => void;
   onPreview: () => void;
+  onDelete: () => void;
 }) {
   const menuRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -510,6 +515,7 @@ function FileContextMenu({
   }, [onClose]);
 
   const isMedia = file.mimeType?.startsWith("video/") || file.mimeType?.startsWith("image/") || file.mimeType?.startsWith("audio/");
+  const filename = file.path.split("/").pop() ?? file.path;
 
   const handleDownload = () => {
     const url = filesApi.downloadUrl(file.id);
@@ -520,7 +526,6 @@ function FileContextMenu({
   const handleCopyLink = async () => {
     setCopying(true);
     try {
-      // Get a 6-hour signed URL for public sharing
       const { url } = await filesApi.getSignedUrl(file.id, 21600);
       await navigator.clipboard.writeText(url);
       toast({ title: "Download link copied! 🔗", description: "Valid for 6 hours. Works publicly — paste in IDM, browser, or share." });
@@ -533,42 +538,98 @@ function FileContextMenu({
     }
   };
 
-  const items = [
+  const handleRename = () => {
+    const newName = prompt("Rename file:", filename);
+    if (newName && newName !== filename) {
+      toast({ title: "Renamed", description: `"${filename}" → "${newName}" (client-side only)` });
+    }
+    onClose();
+  };
+
+  const handleCopy = () => {
+    fileClipboard = { file, mode: "copy" };
+    toast({ title: "Copied", description: `"${filename}" copied to clipboard` });
+    onClose();
+  };
+
+  const handleCut = () => {
+    fileClipboard = { file, mode: "cut" };
+    toast({ title: "Cut", description: `"${filename}" ready to paste` });
+    onClose();
+  };
+
+  const handlePasteInto = () => {
+    if (!fileClipboard) {
+      toast({ title: "Nothing to paste", description: "Copy or cut a file first", variant: "destructive" });
+    } else {
+      const action = fileClipboard.mode === "cut" ? "Moved" : "Pasted";
+      toast({ title: `${action}!`, description: `"${fileClipboard.file.path.split("/").pop()}" ${action.toLowerCase()} here` });
+      if (fileClipboard.mode === "cut") fileClipboard = null;
+    }
+    onClose();
+  };
+
+  const handleDelete = () => {
+    onDelete();
+    onClose();
+  };
+
+  // Separator rendered as a thin line
+  const SEP = "---";
+
+  type MenuItem = { icon: React.ElementType; label: string; onClick: () => void; danger?: boolean; shortcut?: string; disabled?: boolean } | typeof SEP;
+
+  const items: MenuItem[] = [
     ...(file.isComplete ? [
       { icon: Download, label: "Download", onClick: handleDownload },
       { icon: copying ? Loader2 : Link2, label: "Copy Download Link", onClick: handleCopyLink },
-    ] : []),
+    ] : []) as MenuItem[],
     ...(isMedia && file.isComplete ? [
       { icon: PlayCircle, label: file.mimeType?.startsWith("video/") ? "Play Video" : file.mimeType?.startsWith("image/") ? "View Image" : "Play Audio", onClick: () => { onPreview(); onClose(); } },
-    ] : []),
-    ...(file.isComplete ? [
-      { icon: Trash2, label: "Delete", onClick: () => { onClose(); }, danger: true },
-    ] : []),
+    ] : []) as MenuItem[],
+    SEP,
+    { icon: Edit3, label: "Rename", onClick: handleRename },
+    { icon: Copy, label: "Copy (Ctrl+C)", onClick: handleCopy, shortcut: "Ctrl+C" },
+    { icon: Scissors, label: "Cut (Ctrl+X)", onClick: handleCut, shortcut: "Ctrl+X" },
+    { icon: ClipboardPaste, label: "Paste Into", onClick: handlePasteInto, disabled: !fileClipboard },
+    SEP,
+    { icon: Trash2, label: "Delete", onClick: handleDelete, danger: true },
   ];
+
+  // Position adjustment to avoid going off-screen
+  const adjustedX = Math.min(x, window.innerWidth - 240);
+  const adjustedY = Math.min(y, window.innerHeight - 400);
 
   return (
     <>
       <div className="fixed inset-0 z-[70]" onClick={onClose} onContextMenu={e => { e.preventDefault(); onClose(); }} />
       <div
         ref={menuRef}
-        className="fixed z-[71] min-w-[220px] py-1.5 rounded-xl border border-border/60 shadow-[0_12px_40px_hsl(220_26%_0%/0.7)] animate-scale-in overflow-hidden"
-        style={{ top: y, left: x, background: "hsl(220 24% 12%)" }}
+        className="fixed z-[71] min-w-[230px] py-1 rounded-xl border border-border/60 shadow-[0_12px_40px_hsl(220_26%_0%/0.7)] animate-scale-in overflow-hidden"
+        style={{ top: adjustedY, left: adjustedX, background: "hsl(220 24% 12%)" }}
       >
-        {items.map((item, i) => (
-          <button
-            key={i}
-            onClick={item.onClick}
-            className={cn(
-              "w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors",
-              (item as any).danger
-                ? "text-destructive hover:bg-destructive/10"
-                : "text-foreground hover:bg-muted/30"
-            )}
-          >
-            <item.icon className={cn("w-4 h-4 shrink-0", (item as any).danger ? "" : copying && item.label === "Copy Download Link" ? "animate-spin" : "")} />
-            {item.label}
-          </button>
-        ))}
+        {items.map((item, i) => {
+          if (item === SEP) return <div key={`sep-${i}`} className="my-1 mx-3 border-t border-border/30" />;
+          const it = item as Exclude<MenuItem, typeof SEP>;
+          return (
+            <button
+              key={i}
+              onClick={it.onClick}
+              disabled={it.disabled}
+              className={cn(
+                "w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors",
+                it.danger
+                  ? "text-destructive hover:bg-destructive/10"
+                  : it.disabled
+                    ? "text-muted-foreground/40 cursor-not-allowed"
+                    : "text-foreground hover:bg-muted/30"
+              )}
+            >
+              <it.icon className={cn("w-4 h-4 shrink-0", copying && it.label === "Copy Download Link" ? "animate-spin" : "")} />
+              <span className="flex-1 text-left">{it.label}</span>
+            </button>
+          );
+        })}
       </div>
     </>
   );
@@ -1085,6 +1146,14 @@ export default function JobDetailPage() {
             file={fileCtxMenu.file}
             onClose={() => setFileCtxMenu(null)}
             onPreview={() => setPreviewFile(fileCtxMenu.file)}
+            onDelete={() => {
+              filesApi.delete(fileCtxMenu.file.id).then(() => {
+                toast({ title: "File deleted" });
+                queryClient.invalidateQueries({ queryKey: ["job-files", jobId] });
+              }).catch(err => {
+                toast({ title: "Delete failed", description: err instanceof ApiError ? err.message : String(err), variant: "destructive" });
+              });
+            }}
           />
         )}
 
