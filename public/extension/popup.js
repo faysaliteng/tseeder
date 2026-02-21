@@ -1,6 +1,6 @@
 // fseeder Extension Popup Script
 const API_BASE = 'https://api.fseeder.cc';
-const ICON = 'icon48.svg';
+const ICON = 'icon48.png';
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const viewLogin     = document.getElementById('view-login');
