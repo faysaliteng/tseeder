@@ -44,7 +44,9 @@ chmod +x "${INSTALL_DIR}/update.sh"
 # ── Install dependencies ─────────────────────────────────────────────────────
 info "Installing dependencies…"
 cd "$INSTALL_DIR"
-npm install --omit=dev 2>/dev/null || npm install
+npm install 2>/dev/null || npm install
+# tsx must be available locally for the systemd service
+npm ls tsx &>/dev/null || npm install tsx
 
 # ── Fix ownership ─────────────────────────────────────────────────────────────
 chown -R tseeder-agent:tseeder-agent "$INSTALL_DIR"
