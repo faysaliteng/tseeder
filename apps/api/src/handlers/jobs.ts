@@ -222,8 +222,8 @@ export function handleJobAction(action: "pause" | "resume" | "cancel") {
       headers: { "Content-Type": "application/json" },
     }));
 
-    // Notify compute agent (best-effort)
-    if (action === "cancel" && job.worker_id) {
+    // Notify compute agent (best-effort) — stop torrent on both pause and cancel
+    if ((action === "cancel" || action === "pause") && job.worker_id) {
       try {
         await fetch(`${env.WORKER_CLUSTER_URL}/stop/${id}`, {
           method: "POST",

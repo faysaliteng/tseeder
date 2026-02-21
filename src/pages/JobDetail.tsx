@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import JSZip from "jszip";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { jobs as jobsApi, files as filesApi, usage as usageApi, type ApiJob, type ApiFile, ApiError } from "@/lib/api";
@@ -11,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import {
-  ArrowLeft, Pause, Play, X, Download, Folder, File,
+  ArrowLeft, Pause, Play, X, Download, FolderArchive, Folder, File,
   FileVideo, FileText, FileImage, Loader2, AlertCircle,
   ChevronRight, ChevronDown, RefreshCw,
   Wifi, WifiOff, Users, Gauge, CheckCircle2, Zap, Copy, Check,
@@ -278,6 +279,35 @@ export default function JobDetailPage() {
 
   const fileTree = filesData?.files ? buildTree(filesData.files) : null;
 
+  const [zipping, setZipping] = useState(false);
+  const handleDownloadZip = useCallback(async () => {
+    if (!filesData?.files?.length || !liveJob) return;
+    setZipping(true);
+    try {
+      const zip = new JSZip();
+      // Fetch each file and add to ZIP
+      for (const file of filesData.files) {
+        if (!file.isComplete) continue;
+        const url = filesApi.downloadUrl(file.id);
+        const res = await fetch(url, { credentials: "include" });
+        if (!res.ok) continue;
+        const blob = await res.blob();
+        zip.file(file.path, blob);
+      }
+      const content = await zip.generateAsync({ type: "blob" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(content);
+      a.download = `${liveJob.name}.zip`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast({ title: "ZIP download started ⚡" });
+    } catch (err) {
+      toast({ title: "ZIP failed", description: String(err), variant: "destructive" });
+    } finally {
+      setZipping(false);
+    }
+  }, [filesData, liveJob, toast]);
+
   return (
     <div className="min-h-screen bg-background flex flex-col relative">
       <div className="fixed inset-0 pointer-events-none z-0" style={{
@@ -461,11 +491,25 @@ export default function JobDetailPage() {
                       </span>
                     )}
 
-                    {filesData && (
-                      <span className="text-xs text-muted-foreground ml-auto">
-                        {filesData.files.length} file{filesData.files.length !== 1 ? "s" : ""}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2 ml-auto">
+                      {filesData && filesData.files.length > 1 && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/10"
+                          onClick={handleDownloadZip}
+                          disabled={zipping}
+                        >
+                          {zipping ? <Loader2 className="w-3 h-3 animate-spin" /> : <FolderArchive className="w-3 h-3" />}
+                          {zipping ? "Zipping…" : "Download ZIP"}
+                        </Button>
+                      )}
+                      {filesData && (
+                        <span className="text-xs text-muted-foreground">
+                          {filesData.files.length} file{filesData.files.length !== 1 ? "s" : ""}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-3 px-4 py-2 border-b border-border/30 bg-muted/10">
