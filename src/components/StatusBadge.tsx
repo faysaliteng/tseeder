@@ -7,6 +7,7 @@ const dotColor: Record<string, string> = {
   queued: "bg-warning",
   downloading: "bg-primary",
   uploading: "bg-primary",
+  scanning: "bg-info",
   completed: "bg-success",
   paused: "bg-muted-foreground",
   failed: "bg-destructive",
@@ -14,7 +15,7 @@ const dotColor: Record<string, string> = {
 };
 
 export function StatusBadge({ status }: { status: JobStatus }) {
-  const isPulse = status === "downloading" || status === "metadata_fetch" || status === "uploading";
+  const isPulse = status === "downloading" || status === "metadata_fetch" || status === "uploading" || status === "scanning";
   return (
     <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium", statusColor(status))}>
       <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", dotColor[status], isPulse && "animate-pulse")} />

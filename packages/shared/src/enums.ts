@@ -8,6 +8,7 @@ export enum JobStatus {
   Queued = "queued",
   Downloading = "downloading",
   Uploading = "uploading",
+  Scanning = "scanning",
   Completed = "completed",
   Paused = "paused",
   Failed = "failed",

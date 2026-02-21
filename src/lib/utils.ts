@@ -31,6 +31,7 @@ export type JobStatus =
   | "queued"
   | "downloading"
   | "uploading"
+  | "scanning"
   | "completed"
   | "paused"
   | "failed"
@@ -43,6 +44,7 @@ export function statusLabel(status: JobStatus): string {
     queued: "Queued",
     downloading: "Downloading",
     uploading: "Uploading",
+    scanning: "Scanning…",
     completed: "Completed",
     paused: "Paused",
     failed: "Failed",
@@ -58,6 +60,7 @@ export function statusColor(status: JobStatus): string {
     queued: "text-warning",
     downloading: "text-primary",
     uploading: "text-primary",
+    scanning: "text-info",
     completed: "text-success",
     paused: "text-muted-foreground",
     failed: "text-destructive",
