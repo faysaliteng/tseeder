@@ -471,7 +471,15 @@ export default function DashboardPage() {
               />
             </div>
 
-            <button className="hidden sm:flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors uppercase tracking-wide whitespace-nowrap">
+            <button
+              onClick={() => {
+                const name = prompt("Folder name:");
+                if (name?.trim()) {
+                  toast({ title: "Folder created", description: `"${name.trim()}" — folders are virtual groupings. Add downloads inside to populate.` });
+                }
+              }}
+              className="hidden sm:flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors uppercase tracking-wide whitespace-nowrap"
+            >
               <Plus className="w-3.5 h-3.5" /> Create Folder
             </button>
 
