@@ -3,6 +3,7 @@ import { jobRegistry } from "../job-registry";
 import { WebTorrentEngine } from "../engine";
 // R2 upload disabled — files stay on local disk
 import { postCallback } from "../callback";
+import { scanDirectory } from "../virus-scan";
 import { logger } from "../logger";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -90,8 +91,62 @@ async function runDownloadPipeline(opts: {
       });
 
       if (progress.status === "done") {
-        // Files stay on local disk — no R2 upload
-        logger.info({ jobId, files: buildFileList(downloadDir, jobId) }, "Download complete, files available locally");
+        const fileList = buildFileList(downloadDir, jobId);
+
+        // ── Virus scan ──────────────────────────────────────────────
+        logger.info({ jobId }, "Download complete, starting virus scan…");
+        await postCallback(callbackUrl, callbackSecret, correlationId, {
+          jobId,
+          workerId: process.env.WORKER_ID ?? "agent-1",
+          eventType: "scan_started",
+          idempotencyKey: `${jobId}:scan:start`,
+          scanStatus: "scanning",
+        });
+
+        const scanResult = await scanDirectory(downloadDir);
+        logger.info({ jobId, scanStatus: scanResult.status, scanDetail: scanResult.detail, durationMs: scanResult.durationMs }, "Virus scan finished");
+
+        // If infected, delete the files and report failure
+        if (scanResult.status === "infected") {
+          logger.warn({ jobId }, "Infected files detected — deleting download directory");
+          fs.rmSync(downloadDir, { recursive: true, force: true });
+
+          await postCallback(callbackUrl, callbackSecret, correlationId, {
+            jobId,
+            workerId: process.env.WORKER_ID ?? "agent-1",
+            eventType: "job_failed",
+            idempotencyKey: `${jobId}:scan:infected`,
+            progressPct: 100, downloadSpeed: 0, uploadSpeed: 0, eta: 0,
+            peers: 0, seeds: 0,
+            bytesDownloaded: progress.bytesTotal, bytesTotal: progress.bytesTotal,
+            status: "failed",
+            error: `Virus detected: ${scanResult.detail}`,
+            scanStatus: "infected",
+            scanDetail: scanResult.detail,
+          });
+          jobRegistry.set(jobId, { status: "failed", startedAt: Date.now() });
+          return;
+        }
+
+        // Clean or scan error — mark completed with scan info
+        await postCallback(callbackUrl, callbackSecret, correlationId, {
+          jobId,
+          workerId: process.env.WORKER_ID ?? "agent-1",
+          eventType: "job_completed",
+          idempotencyKey: `${jobId}:${++idempotencySeq}`,
+          progressPct: 100, downloadSpeed: 0, uploadSpeed: 0,
+          peers: 0, seeds: 0,
+          bytesDownloaded: progress.bytesTotal, bytesTotal: progress.bytesTotal,
+          eta: 0,
+          status: "completed",
+          files: fileList,
+          scanStatus: scanResult.status,
+          scanDetail: scanResult.detail,
+          scanDurationMs: scanResult.durationMs,
+          scanFilesScanned: scanResult.filesScanned,
+        });
+
+        logger.info({ jobId, files: fileList }, "Download complete + scan done, files available locally");
         jobRegistry.set(jobId, { status: "completed", startedAt: Date.now() });
         return;
       }

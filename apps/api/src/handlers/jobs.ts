@@ -267,11 +267,16 @@ export async function handleJobCallback(req: Request, env: Env): Promise<Respons
   if (!job) return apiError("NOT_FOUND", "Job not found", 404, correlationId);
 
   // Update D1 job row
+  const scanStatus = (update as any).scanStatus as string | undefined;
+  const scanDetail = (update as any).scanDetail as string | undefined;
+
   await updateJobStatus(env.DB, {
     id: update.jobId, status: update.status,
     workerId: update.workerId,
     error: update.error,
     completedAt: update.status === "completed" ? new Date().toISOString() : undefined,
+    scanStatus,
+    scanDetail,
   });
 
   // Upsert files if provided
@@ -371,6 +376,8 @@ function jobRowToApi(row: import("../d1-helpers").JobRow, overrides?: { bytesTot
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     completedAt: row.completed_at,
+    scanStatus: (row as any).scan_status ?? null,
+    scanDetail: (row as any).scan_detail ?? null,
     // Progress fields come from Durable Object, not D1
     progressPct: 0,
     downloadSpeed: 0,
