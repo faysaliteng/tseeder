@@ -166,8 +166,34 @@ export async function handleListJobs(req: Request, env: Env, ctx: Ctx): Promise<
     for (const r of sizeRows.results) sizeMap.set(r.job_id, r.total);
   }
 
+  // Fetch live progress from Durable Objects for active (non-terminal) jobs
+  const activeStatuses = new Set(["submitted", "metadata_fetch", "queued", "downloading", "uploading", "scanning"]);
+  const activeRows = rows.filter(r => activeStatuses.has(r.status));
+  const progressMap = new Map<string, Record<string, unknown>>();
+
+  if (activeRows.length > 0) {
+    const doFetches = activeRows.map(async (r) => {
+      try {
+        const doId = env.JOB_PROGRESS_DO.idFromName(r.id);
+        const doStub = env.JOB_PROGRESS_DO.get(doId);
+        const doRes = await doStub.fetch(new Request("http://do/state"));
+        if (doRes.ok) {
+          const state = await doRes.json<Record<string, unknown>>();
+          if (state && !state.error) progressMap.set(r.id, state);
+        }
+      } catch { /* non-fatal — fall back to defaults */ }
+    });
+    await Promise.all(doFetches);
+  }
+
   return Response.json({
-    data: rows.map(r => jobRowToApi(r, { bytesTotal: sizeMap.get(r.id) })),
+    data: rows.map(r => {
+      const doState = progressMap.get(r.id);
+      return jobRowToApi(r, {
+        bytesTotal: sizeMap.get(r.id),
+        doProgress: doState,
+      });
+    }),
     meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
   });
 }
@@ -191,7 +217,21 @@ export async function handleGetJob(req: Request, env: Env, ctx: Ctx): Promise<Re
     bytesTotal = sizeRow?.total ?? 0;
   }
 
-  return Response.json(jobRowToApi(job, { bytesTotal }));
+  // Fetch live progress from DO for active jobs
+  let doProgress: Record<string, unknown> | undefined;
+  const activeStatuses = new Set(["submitted", "metadata_fetch", "queued", "downloading", "uploading", "scanning"]);
+  if (activeStatuses.has(job.status)) {
+    try {
+      const doId = env.JOB_PROGRESS_DO.idFromName(id);
+      const doRes = await env.JOB_PROGRESS_DO.get(doId).fetch(new Request("http://do/state"));
+      if (doRes.ok) {
+        const state = await doRes.json<Record<string, unknown>>();
+        if (state && !state.error) doProgress = state;
+      }
+    } catch { /* non-fatal */ }
+  }
+
+  return Response.json(jobRowToApi(job, { bytesTotal, doProgress }));
 }
 
 // ── POST /jobs/:id/pause|resume|cancel ────────────────────────────────────────
@@ -363,7 +403,8 @@ export async function handleDeleteJob(req: Request, env: Env, ctx: Ctx): Promise
 
 // ── Row → API shape ───────────────────────────────────────────────────────────
 
-function jobRowToApi(row: import("../d1-helpers").JobRow, overrides?: { bytesTotal?: number }) {
+function jobRowToApi(row: import("../d1-helpers").JobRow, overrides?: { bytesTotal?: number; doProgress?: Record<string, unknown> }) {
+  const dop = overrides?.doProgress;
   return {
     id: row.id,
     userId: row.user_id,
@@ -378,14 +419,14 @@ function jobRowToApi(row: import("../d1-helpers").JobRow, overrides?: { bytesTot
     completedAt: row.completed_at,
     scanStatus: (row as any).scan_status ?? null,
     scanDetail: (row as any).scan_detail ?? null,
-    // Progress fields come from Durable Object, not D1
-    progressPct: 0,
-    downloadSpeed: 0,
-    uploadSpeed: 0,
-    eta: 0,
-    peers: 0,
-    seeds: 0,
-    bytesDownloaded: 0,
-    bytesTotal: overrides?.bytesTotal ?? 0,
+    // Live progress from Durable Object when available
+    progressPct: (dop?.progressPct as number) ?? 0,
+    downloadSpeed: (dop?.downloadSpeed as number) ?? 0,
+    uploadSpeed: (dop?.uploadSpeed as number) ?? 0,
+    eta: (dop?.eta as number) ?? 0,
+    peers: (dop?.peers as number) ?? 0,
+    seeds: (dop?.seeds as number) ?? 0,
+    bytesDownloaded: (dop?.bytesDownloaded as number) ?? 0,
+    bytesTotal: overrides?.bytesTotal ?? (dop?.bytesTotal as number) ?? 0,
   };
 }
