@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import JSZip from "jszip";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -17,6 +17,7 @@ import {
   ChevronRight, ChevronDown, RefreshCw,
   Wifi, WifiOff, Users, Gauge, CheckCircle2, Zap, Copy, Check,
   ShieldCheck, ShieldAlert, ShieldQuestion, ScanSearch,
+  Link2, Trash2, PlayCircle, Image as ImageIcon,
 } from "lucide-react";
 import type { JobStatus } from "@/lib/utils";
 
@@ -64,8 +65,155 @@ function MetricCard({
   );
 }
 
+// ── Media Preview Modal ────────────────────────────────────────────────────
+function MediaPreviewModal({
+  file, onClose,
+}: { file: ApiFile; onClose: () => void }) {
+  const isVideo = file.mimeType?.startsWith("video/");
+  const isImage = file.mimeType?.startsWith("image/");
+  const isAudio = file.mimeType?.startsWith("audio/");
+  const filename = file.path.split("/").pop() ?? file.path;
+  const streamUrl = filesApi.downloadUrl(file.id);
+
+  return (
+    <>
+      <div className="fixed inset-0 z-[80] bg-black/80 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 z-[81] flex items-center justify-center p-4 pointer-events-none">
+        <div className="relative pointer-events-auto w-full max-w-4xl glass-premium rounded-2xl shadow-[0_20px_60px_hsl(220_26%_0%/0.8)] border border-primary/10 animate-scale-in overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-border/40">
+            {isVideo && <PlayCircle className="w-4 h-4 text-info shrink-0" />}
+            {isImage && <ImageIcon className="w-4 h-4 text-success shrink-0" />}
+            {isAudio && <Zap className="w-4 h-4 text-warning shrink-0" />}
+            <span className="text-sm font-bold text-foreground truncate flex-1">
+              Now Playing : {filename}
+            </span>
+            <button onClick={onClose}
+              className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors shrink-0">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="bg-black">
+            {isVideo && (
+              <video
+                controls
+                autoPlay
+                className="w-full max-h-[70vh]"
+                src={streamUrl}
+              >
+                Your browser does not support the video tag.
+              </video>
+            )}
+            {isImage && (
+              <img
+                src={streamUrl}
+                alt={filename}
+                className="w-full max-h-[70vh] object-contain"
+              />
+            )}
+            {isAudio && (
+              <div className="p-8 flex items-center justify-center">
+                <audio controls autoPlay src={streamUrl} className="w-full max-w-lg">
+                  Your browser does not support the audio tag.
+                </audio>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── File Context Menu ─────────────────────────────────────────────────────
+function FileContextMenu({
+  x, y, file, onClose, onPreview,
+}: {
+  x: number; y: number; file: ApiFile;
+  onClose: () => void;
+  onPreview: () => void;
+}) {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
+  const [copying, setCopying] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [onClose]);
+
+  const isMedia = file.mimeType?.startsWith("video/") || file.mimeType?.startsWith("image/") || file.mimeType?.startsWith("audio/");
+
+  const handleDownload = () => {
+    const url = filesApi.downloadUrl(file.id);
+    window.open(url, "_blank", "noopener");
+    onClose();
+  };
+
+  const handleCopyLink = async () => {
+    setCopying(true);
+    try {
+      // Get a 6-hour signed URL for public sharing
+      const { url } = await filesApi.getSignedUrl(file.id, 21600);
+      await navigator.clipboard.writeText(url);
+      toast({ title: "Download link copied! 🔗", description: "Valid for 6 hours. Works publicly — paste in IDM, browser, or share." });
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "Failed to generate link";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setCopying(false);
+      onClose();
+    }
+  };
+
+  const items = [
+    ...(file.isComplete ? [
+      { icon: Download, label: "Download", onClick: handleDownload },
+      { icon: copying ? Loader2 : Link2, label: "Copy Download Link", onClick: handleCopyLink },
+    ] : []),
+    ...(isMedia && file.isComplete ? [
+      { icon: PlayCircle, label: file.mimeType?.startsWith("video/") ? "Play Video" : file.mimeType?.startsWith("image/") ? "View Image" : "Play Audio", onClick: () => { onPreview(); onClose(); } },
+    ] : []),
+    ...(file.isComplete ? [
+      { icon: Trash2, label: "Delete", onClick: () => { onClose(); }, danger: true },
+    ] : []),
+  ];
+
+  return (
+    <>
+      <div className="fixed inset-0 z-[70]" onClick={onClose} onContextMenu={e => { e.preventDefault(); onClose(); }} />
+      <div
+        ref={menuRef}
+        className="fixed z-[71] min-w-[220px] py-1.5 rounded-xl border border-border/60 shadow-[0_12px_40px_hsl(220_26%_0%/0.7)] animate-scale-in overflow-hidden"
+        style={{ top: y, left: x, background: "hsl(220 24% 12%)" }}
+      >
+        {items.map((item, i) => (
+          <button
+            key={i}
+            onClick={item.onClick}
+            className={cn(
+              "w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors",
+              (item as any).danger
+                ? "text-destructive hover:bg-destructive/10"
+                : "text-foreground hover:bg-muted/30"
+            )}
+          >
+            <item.icon className={cn("w-4 h-4 shrink-0", (item as any).danger ? "" : copying && item.label === "Copy Download Link" ? "animate-spin" : "")} />
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
 // ── File row ────────────────────────────────────────────────────────────────
-function FileRow({ file }: { file: ApiFile }) {
+function FileRow({ file, onContextMenu, onPreview }: { file: ApiFile; onContextMenu: (e: React.MouseEvent, file: ApiFile) => void; onPreview: (file: ApiFile) => void }) {
   const { toast } = useToast();
   const [streaming, setStreaming] = useState(false);
   const [streamCopied, setStreamCopied] = useState(false);
@@ -82,7 +230,6 @@ function FileRow({ file }: { file: ApiFile }) {
   );
 
   const handleDownload = () => {
-    // Direct proxy download through API → agent tunnel
     const url = filesApi.downloadUrl(file.id);
     window.open(url, "_blank", "noopener");
   };
@@ -110,24 +257,47 @@ function FileRow({ file }: { file: ApiFile }) {
   const filename = file.path.split("/").pop() ?? file.path;
 
   return (
-    <div className={cn(
-      "flex items-center gap-3 px-4 py-2.5 hover:-translate-y-px hover:bg-muted/10 group transition-all duration-150 border-b border-border/30 last:border-0 border-l-2",
-      mimeColor,
-    )}>
+    <div
+      className={cn(
+        "flex items-center gap-3 px-4 py-2.5 hover:-translate-y-px hover:bg-muted/10 group transition-all duration-150 border-b border-border/30 last:border-0 border-l-2 cursor-pointer",
+        mimeColor,
+      )}
+      onClick={() => {
+        if (isStreamable) onPreview(file);
+        else handleDownload();
+      }}
+      onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, file); }}
+    >
       <div className="w-4 shrink-0" />
       <FileTypeIcon mimeType={file.mimeType} />
       <span className="flex-1 min-w-0 text-sm text-foreground truncate" title={file.path}>
         {filename}
       </span>
+      {isStreamable && (
+        <span className="text-xs text-info/60 hidden sm:block shrink-0">
+          {file.mimeType?.startsWith("video/") ? "▶ Click to play" : file.mimeType?.startsWith("image/") ? "🖼 Click to view" : "♪ Click to play"}
+        </span>
+      )}
       {!file.isComplete && file.sizeBytes > 0 && (
         <span className="text-xs text-warning font-semibold shrink-0">Incomplete</span>
       )}
       <span className="text-xs text-muted-foreground w-20 text-right shrink-0 tabular-nums">
         {file.sizeBytes > 0 ? formatBytes(file.sizeBytes) : "—"}
       </span>
-      <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 flex items-center gap-1.5">
-        {/* Stream button — video/audio/image only */}
+      <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+        {/* Preview button — media only */}
         {isStreamable && (
+          <button
+            className="flex items-center gap-1.5 text-xs px-3 py-1 rounded-lg border border-info/30 text-info hover:bg-info/10 hover:border-info/50 transition-all font-medium"
+            onClick={() => onPreview(file)}
+            title="Preview media"
+          >
+            <PlayCircle className="w-3 h-3" />
+            Preview
+          </button>
+        )}
+        {/* Stream button — video/audio only */}
+        {isStreamable && !file.mimeType?.startsWith("image/") && (
           <button
             className={cn(
               "flex items-center gap-1.5 text-xs px-3 py-1 rounded-lg border transition-all font-medium disabled:opacity-40",
@@ -179,7 +349,7 @@ function buildTree(files: ApiFile[]): FolderNode {
   return root;
 }
 
-function FolderTreeNode({ node, depth = 0 }: { node: FolderNode; depth?: number }) {
+function FolderTreeNode({ node, depth = 0, onContextMenu, onPreview }: { node: FolderNode; depth?: number; onContextMenu: (e: React.MouseEvent, file: ApiFile) => void; onPreview: (file: ApiFile) => void }) {
   const [open, setOpen] = useState(true);
   return (
     <div>
@@ -194,8 +364,8 @@ function FolderTreeNode({ node, depth = 0 }: { node: FolderNode; depth?: number 
       </button>
       {open && node.children.map((child, i) => (
         "children" in child
-          ? <FolderTreeNode key={child.name + i} node={child} depth={depth + 1} />
-          : <div key={(child as ApiFile).id} style={{ paddingLeft: `${depth * 20}px` }}><FileRow file={child as ApiFile} /></div>
+          ? <FolderTreeNode key={child.name + i} node={child} depth={depth + 1} onContextMenu={onContextMenu} onPreview={onPreview} />
+          : <div key={(child as ApiFile).id} style={{ paddingLeft: `${depth * 20}px` }}><FileRow file={child as ApiFile} onContextMenu={onContextMenu} onPreview={onPreview} /></div>
       ))}
     </div>
   );
@@ -280,6 +450,8 @@ export default function JobDetailPage() {
   const fileTree = filesData?.files ? buildTree(filesData.files) : null;
 
   const [zipping, setZipping] = useState(false);
+  const [fileCtxMenu, setFileCtxMenu] = useState<{ x: number; y: number; file: ApiFile } | null>(null);
+  const [previewFile, setPreviewFile] = useState<ApiFile | null>(null);
   const handleDownloadZip = useCallback(async () => {
     if (!filesData?.files?.length || !liveJob) return;
     setZipping(true);
@@ -533,8 +705,8 @@ export default function JobDetailPage() {
                   ) : fileTree ? (
                     fileTree.children.map((child, i) => (
                       "children" in child
-                        ? <FolderTreeNode key={child.name + i} node={child} />
-                        : <FileRow key={(child as ApiFile).id} file={child as ApiFile} />
+                        ? <FolderTreeNode key={child.name + i} node={child} onContextMenu={(e, f) => { setFileCtxMenu({ x: e.clientX, y: e.clientY, file: f }); }} onPreview={(f) => setPreviewFile(f)} />
+                        : <FileRow key={(child as ApiFile).id} file={child as ApiFile} onContextMenu={(e, f) => { setFileCtxMenu({ x: e.clientX, y: e.clientY, file: f }); }} onPreview={(f) => setPreviewFile(f)} />
                     ))
                   ) : null}
                 </div>
@@ -542,6 +714,25 @@ export default function JobDetailPage() {
             </>
           )}
         </main>
+
+        {/* File context menu */}
+        {fileCtxMenu && (
+          <FileContextMenu
+            x={fileCtxMenu.x}
+            y={fileCtxMenu.y}
+            file={fileCtxMenu.file}
+            onClose={() => setFileCtxMenu(null)}
+            onPreview={() => setPreviewFile(fileCtxMenu.file)}
+          />
+        )}
+
+        {/* Media preview modal */}
+        {previewFile && (
+          <MediaPreviewModal
+            file={previewFile}
+            onClose={() => setPreviewFile(null)}
+          />
+        )}
       </div>
     </div>
   );
