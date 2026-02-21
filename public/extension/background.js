@@ -1,6 +1,6 @@
 // fseeder Extension — Background Service Worker
 const API_BASE = 'https://api.fseeder.cc';
-const ICON = 'icon48.svg';
+const ICON = 'icon48.png';
 
 // ── Context menus ──────────────────────────────────────────────────────────────
 
