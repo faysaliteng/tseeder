@@ -419,15 +419,15 @@ function BillingSection({ planName }: { planName: string }) {
             <div className="flex gap-2 flex-wrap">
               <Button size="sm" variant="outline" className="rounded-xl border-warning/40 text-warning gap-1.5 hover:bg-warning hover:text-black transition-all"
                 onClick={() => handleCrypto("pro")}>
-                <Zap className="w-3.5 h-3.5" /> Basic — $5
+                <Zap className="w-3.5 h-3.5" /> Basic — $4.85
               </Button>
               <Button size="sm" variant="outline" className="rounded-xl border-warning/40 text-warning gap-1.5 hover:bg-warning hover:text-black transition-all"
                 onClick={() => handleCrypto("business")}>
-                <Zap className="w-3.5 h-3.5" /> Pro — $9
+                <Zap className="w-3.5 h-3.5" /> Pro — $8.85
               </Button>
               <Button size="sm" variant="outline" className="rounded-xl border-warning/40 text-warning gap-1.5 hover:bg-warning hover:text-black transition-all"
                 onClick={() => handleCrypto("enterprise")}>
-                <Zap className="w-3.5 h-3.5" /> Master — $18
+                <Zap className="w-3.5 h-3.5" /> Master — $15.89
               </Button>
             </div>
           </div>
