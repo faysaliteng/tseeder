@@ -1,0 +1,49 @@
+{
+  "manifest_version": 2,
+  "name": "fseeder — Cloud Torrent Downloader",
+  "short_name": "fseeder",
+  "version": "1.0.0",
+  "description": "Send any magnet link or torrent to fseeder.cc with one click. Download at datacenter speed, keep your IP private.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "extension@fseeder.cc",
+      "strict_min_version": "91.0"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "browser_action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    },
+    "default_title": "fseeder — Send to cloud"
+  },
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "storage",
+    "notifications",
+    "tabs",
+    "https://fseeder.cc/*",
+    "https://*.fseeder.cc/*",
+    "https://api.fseeder.cc/*"
+  ],
+  "background": {
+    "scripts": ["background-firefox.js"],
+    "persistent": false
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": ["*.png", "*.svg", "*.css"]
+}

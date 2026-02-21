@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fseeder</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+
+  <!-- Login view -->
+  <div id="view-login">
+    <div class="header">
+      <div class="logo-row">
+        <img src="logo.png" alt="fseeder" class="logo-img" />
+        <div>
+          <h1 class="app-title">fseeder</h1>
+          <p class="app-subtitle">Cloud Torrent Manager</p>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="you@example.com" />
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="••••••••" />
+      <button id="login-btn" class="btn-primary">Sign in</button>
+      <div id="login-status" class="status-msg"></div>
+    </div>
+  </div>
+
+  <!-- Main view -->
+  <div id="view-main" style="display:none">
+    <div class="header">
+      <div class="logo-row">
+        <img src="logo.png" alt="fseeder" class="logo-img" />
+        <div>
+          <h1 class="app-title">fseeder</h1>
+          <p class="app-subtitle">Cloud Torrent Manager</p>
+        </div>
+      </div>
+      <div class="user-row" id="user-row">
+        <div class="user-avatar" id="user-initial">U</div>
+        <span class="user-email" id="user-email">user@example.com</span>
+        <span class="online-dot">● Online</span>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" data-tab="add">⚡ Add</button>
+      <button class="tab" data-tab="jobs">📦 Jobs</button>
+    </div>
+
+    <!-- Add tab -->
+    <div id="tab-add" class="tab-content active">
+      <div class="card">
+        <label>Magnet link or URL</label>
+        <input type="text" id="magnet-input" placeholder="magnet:?xt=urn:btih:..." />
+        <div class="btn-row">
+          <button id="send-btn" class="btn-primary">⚡ Send to Cloud</button>
+          <a href="https://fseeder.cc/dashboard" target="_blank" class="btn-secondary">Dashboard →</a>
+        </div>
+        <div id="status-msg" class="status-msg"></div>
+      </div>
+
+      <!-- Torrent file upload -->
+      <div class="card" id="file-drop">
+        <input type="file" id="torrent-file" accept=".torrent" style="display:none" />
+        <button id="file-pick-btn" class="btn-file">📁 Choose .torrent file</button>
+        <span id="file-name" class="file-name"></span>
+        <button id="upload-btn" class="btn-primary" style="display:none">⬆ Upload Torrent</button>
+      </div>
+
+      <!-- Quick actions: magnets found on page -->
+      <div id="quick-actions" class="quick-actions">
+        <span class="muted-sm">Scanning page…</span>
+      </div>
+    </div>
+
+    <!-- Jobs tab -->
+    <div id="tab-jobs" class="tab-content">
+      <div class="card">
+        <div class="jobs-header">
+          <label>Recent Jobs</label>
+          <button id="refresh-jobs-btn" class="btn-icon" title="Refresh">🔄</button>
+        </div>
+        <div id="jobs-list"></div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <button id="sign-out-btn" class="btn-link">Sign out</button>
+    </div>
+  </div>
+
+  <!-- Job detail view -->
+  <div id="view-job-detail" style="display:none">
+    <div class="header">
+      <button id="back-to-jobs" class="btn-back">← Back</button>
+    </div>
+    <div class="card" id="job-detail-content"></div>
+  </div>
+
+  <script src="popup-firefox.js"></script>
+</body>
+</html>
