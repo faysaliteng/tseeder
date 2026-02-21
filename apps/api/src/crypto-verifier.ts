@@ -32,6 +32,9 @@ interface PendingOrder {
 const REQUIRED_CONFIRMATIONS: Record<string, number> = {
   BTC: 2,
   USDT: 20,
+  "USDT-TRC20": 20,
+  "USDT-SOL": 1,        // Solana finality is fast
+  "USDT-POLYGON": 30,
   LTC: 4,
   BNB: 12,
 };
@@ -113,15 +116,23 @@ interface VerificationResult {
 }
 
 async function checkPayment(order: PendingOrder): Promise<VerificationResult | null> {
-  const requiredConf = REQUIRED_CONFIRMATIONS[order.coin] ?? 6;
+  const requiredConf = REQUIRED_CONFIRMATIONS[order.coin] ?? REQUIRED_CONFIRMATIONS[baseCoin(order.coin)] ?? 6;
 
   switch (order.coin) {
     case "BTC": return checkBTC(order, requiredConf);
     case "LTC": return checkLTC(order, requiredConf);
-    case "USDT": return checkUSDT_TRC20(order, requiredConf);
+    case "USDT":
+    case "USDT-TRC20": return checkUSDT_TRC20(order, requiredConf);
+    case "USDT-SOL": return checkUSDT_SOL(order, requiredConf);
+    case "USDT-POLYGON": return checkUSDT_POLYGON(order, requiredConf);
     case "BNB": return checkBNB(order, requiredConf);
     default: return null;
   }
+}
+
+function baseCoin(coin: string): string {
+  if (coin.startsWith("USDT")) return "USDT";
+  return coin;
 }
 
 // ── BTC via Blockstream.info ──────────────────────────────────────────────────
@@ -267,7 +278,101 @@ async function checkBNB(order: PendingOrder, requiredConf: number): Promise<Veri
         confirmations,
         txHash: tx.hash,
       };
+}
+
+// ── USDT-SOL via Solana public RPC ───────────────────────────────────────────
+
+async function checkUSDT_SOL(order: PendingOrder, requiredConf: number): Promise<VerificationResult | null> {
+  // Solana USDT mint: Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB
+  const USDT_MINT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
+  const resp = await fetch("https://api.mainnet-beta.solana.com", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0", id: 1, method: "getSignaturesForAddress",
+      params: [order.wallet_address, { limit: 10 }],
+    }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!resp.ok) return null;
+
+  const data = await resp.json<any>();
+  const sigs = data?.result ?? [];
+  const orderTime = Math.floor(new Date(order.created_at).getTime() / 1000);
+  const minAmount = order.amount_crypto * (1 - TOLERANCE);
+
+  for (const sig of sigs) {
+    if (sig.blockTime && sig.blockTime < orderTime - 60) continue;
+    if (sig.err) continue;
+
+    // Fetch transaction details
+    const txResp = await fetch("https://api.mainnet-beta.solana.com", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0", id: 1, method: "getTransaction",
+        params: [sig.signature, { encoding: "jsonParsed", maxSupportedTransactionVersion: 0 }],
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!txResp.ok) continue;
+
+    const txData = await txResp.json<any>();
+    const instructions = txData?.result?.transaction?.message?.instructions ?? [];
+
+    for (const ix of instructions) {
+      if (ix.program !== "spl-token") continue;
+      const info = ix.parsed?.info;
+      if (!info) continue;
+      if (info.mint !== USDT_MINT) continue;
+      // Check destination matches and amount is sufficient
+      const amount = parseFloat(info.amount ?? info.tokenAmount?.amount ?? "0") / 1e6;
+      if (amount >= minAmount) {
+        const conf = sig.confirmationStatus === "finalized" ? requiredConf : 1;
+        return {
+          confirmed: conf >= requiredConf,
+          confirmations: conf,
+          txHash: sig.signature,
+        };
+      }
     }
+  }
+
+  return null;
+}
+
+// ── USDT-POLYGON via Polygonscan ─────────────────────────────────────────────
+
+async function checkUSDT_POLYGON(order: PendingOrder, requiredConf: number): Promise<VerificationResult | null> {
+  const USDT_CONTRACT = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F";
+  const resp = await fetch(
+    `https://api.polygonscan.com/api?module=account&action=tokentx&contractaddress=${USDT_CONTRACT}&address=${order.wallet_address}&sort=desc&page=1&offset=10`,
+    { signal: AbortSignal.timeout(10_000) },
+  );
+  if (!resp.ok) return null;
+
+  const data = await resp.json<any>();
+  if (data.status !== "1") return null;
+
+  const orderTime = Math.floor(new Date(order.created_at).getTime() / 1000);
+  const minAmount = order.amount_crypto * (1 - TOLERANCE);
+
+  for (const tx of data.result ?? []) {
+    if (parseInt(tx.timeStamp) < orderTime - 60) continue;
+    if (tx.to?.toLowerCase() !== order.wallet_address.toLowerCase()) continue;
+    const value = parseFloat(tx.value) / 1e6; // USDT has 6 decimals
+    if (value >= minAmount) {
+      const confirmations = parseInt(tx.confirmations ?? "0");
+      return {
+        confirmed: confirmations >= requiredConf,
+        confirmations,
+        txHash: tx.hash,
+      };
+    }
+  }
+
+  return null;
+}
   }
 
   return null;
