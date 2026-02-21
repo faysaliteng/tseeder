@@ -319,13 +319,13 @@ export default function LandingPage() {
                         { icon: Play,          label: "Streaming",        desc: "Watch videos instantly in browser",   href: "#features" },
                         { icon: Cloud,         label: "Cloud Download",   desc: "Download files to the cloud",         href: "#features" },
                         { icon: Lock,          label: "Security",         desc: "Private and encrypted storage",        href: "#features" },
-                        { icon: Smartphone,    label: "Mobile Apps",      desc: "Access from any device",              href: "#features" },
+                        { icon: Smartphone,    label: "Mobile Apps",      desc: "Access from any device",              href: "/install" },
                         { icon: MonitorPlay,   label: "Video Player",     desc: "Built-in player with subtitles",      href: "#features" },
-                        { icon: Download,      label: "Remote Download",  desc: "Add files from anywhere",             href: "#features" },
-                        { icon: Puzzle,        label: "Integrations",     desc: "Connect Plex, Kodi & more",           href: "#features" },
-                        { icon: Cpu,           label: "Automation",       desc: "Auto-organize your files",            href: "#features" },
-                        { icon: Tv2,           label: "Plex & Jellyfin",  desc: "Stream to media servers",             href: "#features" },
-                        { icon: HardDrive,     label: "WebDAV",           desc: "Mount as network drive",              href: "#features" },
+                        { icon: Download,      label: "Remote Download",  desc: "Add files from anywhere",             href: "/extension" },
+                        { icon: Puzzle,        label: "Integrations",     desc: "Connect Plex, Kodi & more",           href: "/app/integrations" },
+                        { icon: Cpu,           label: "Automation",       desc: "Auto-organize your files",            href: "/app/automation" },
+                        { icon: Tv2,           label: "Plex & Jellyfin",  desc: "Stream to media servers",             href: "/app/integrations" },
+                        { icon: HardDrive,     label: "WebDAV",           desc: "Mount as network drive",              href: "/app/mount" },
                       ].map((item) => (
                         <a
                           key={item.label}
