@@ -133,15 +133,18 @@ export async function createJob(db: D1Database, params: {
 
 export async function updateJobStatus(db: D1Database, params: {
   id: string; status: string; workerId?: string; error?: string; completedAt?: string;
+  scanStatus?: string; scanDetail?: string;
 }): Promise<void> {
   await db.prepare(`
     UPDATE jobs SET status = ?, worker_id = COALESCE(?, worker_id),
     error = COALESCE(?, error), completed_at = COALESCE(?, completed_at),
+    scan_status = COALESCE(?, scan_status), scan_detail = COALESCE(?, scan_detail),
     updated_at = datetime('now')
     WHERE id = ?
   `).bind(
     params.status, params.workerId ?? null,
     params.error ?? null, params.completedAt ?? null,
+    params.scanStatus ?? null, params.scanDetail ?? null,
     params.id,
   ).run();
 }

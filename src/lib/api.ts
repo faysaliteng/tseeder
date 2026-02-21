@@ -98,6 +98,8 @@ export interface ApiJob {
   bytesDownloaded: number; bytesTotal: number;
   infohash: string | null; error: string | null;
   createdAt: string; updatedAt: string; completedAt: string | null;
+  scanStatus: "scanning" | "clean" | "infected" | "error" | null;
+  scanDetail: string | null;
 }
 
 export interface PaginatedResponse<T> {

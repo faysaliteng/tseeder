@@ -14,6 +14,7 @@ import {
   Pause, Play, X, Search, ChevronUp, ChevronDown,
   CheckSquare, Square, Loader2, AlertCircle,
   CheckCircle2, Clock, Minus, Plus, RefreshCw, Zap, Trash2,
+  ShieldCheck, ShieldAlert,
 } from "lucide-react";
 
 // ── Status config ─────────────────────────────────────────────────────────────
@@ -157,6 +158,12 @@ function JobRow({
             {liveJob.name}
           </span>
           <StatusDot status={liveJob.status} />
+          {liveJob.status === "completed" && liveJob.scanStatus === "clean" && (
+            <span title="Virus-free"><ShieldCheck className="w-3 h-3 text-success shrink-0" /></span>
+          )}
+          {liveJob.status === "completed" && liveJob.scanStatus === "infected" && (
+            <span title="Threat detected"><ShieldAlert className="w-3 h-3 text-destructive shrink-0" /></span>
+          )}
           {liveJob.status === "downloading" && (
             <span className="hidden sm:block text-xs text-muted-foreground shrink-0 tabular-nums">
               {formatSpeed(liveJob.downloadSpeed)} · {liveJob.peers}p

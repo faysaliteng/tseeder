@@ -15,6 +15,7 @@ import {
   FileVideo, FileText, FileImage, Loader2, AlertCircle,
   ChevronRight, ChevronDown, RefreshCw,
   Wifi, WifiOff, Users, Gauge, CheckCircle2, Zap, Copy, Check,
+  ShieldCheck, ShieldAlert, ShieldQuestion, ScanSearch,
 } from "lucide-react";
 import type { JobStatus } from "@/lib/utils";
 
@@ -422,10 +423,33 @@ export default function JobDetailPage() {
               {/* File browser */}
               {liveJob.status === "completed" && (
                 <div className="glass-card rounded-2xl overflow-hidden animate-slide-up-fade" style={{ animationDelay: "0.1s" }}>
-                  {/* Completed banner */}
+                  {/* Completed banner with scan status */}
                   <div className="flex items-center gap-3 px-4 py-3 border-b border-success/20 bg-success/5">
                     <CheckCircle2 className="w-4 h-4 text-success shrink-0" style={{ filter: "drop-shadow(0 0 4px hsl(142 71% 45%))" }} />
                     <h2 className="text-sm font-bold text-success">Download complete</h2>
+
+                    {/* Virus scan badge */}
+                    {liveJob.scanStatus === "clean" && (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-success/10 border border-success/30 text-success">
+                        <ShieldCheck className="w-3 h-3" /> Virus-free
+                      </span>
+                    )}
+                    {liveJob.scanStatus === "scanning" && (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-info/10 border border-info/30 text-info">
+                        <ScanSearch className="w-3 h-3 animate-pulse" /> Scanning…
+                      </span>
+                    )}
+                    {liveJob.scanStatus === "error" && (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-warning/10 border border-warning/30 text-warning" title={liveJob.scanDetail ?? "Scan error"}>
+                        <ShieldQuestion className="w-3 h-3" /> Scan unavailable
+                      </span>
+                    )}
+                    {liveJob.scanStatus === "infected" && (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-destructive/10 border border-destructive/30 text-destructive" title={liveJob.scanDetail ?? ""}>
+                        <ShieldAlert className="w-3 h-3" /> Threat detected
+                      </span>
+                    )}
+
                     {filesData && (
                       <span className="text-xs text-muted-foreground ml-auto">
                         {filesData.files.length} file{filesData.files.length !== 1 ? "s" : ""}

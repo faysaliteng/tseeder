@@ -968,3 +968,71 @@ All secrets must be synchronized between Cloudflare Worker and the VM agent:
 | `R2_SECRET_ACCESS_KEY` | **Both** Cloudflare + VM | From R2 API Tokens |
 | `R2_ENDPOINT` | **Both** Cloudflare + VM | `https://ACCT_ID.r2.cloudflarestorage.com` |
 | `R2_ACCOUNT_ID` | Cloudflare only | Your Cloudflare account ID |
+
+---
+
+## 10. ClamAV Virus Scanning
+
+Every downloaded torrent is virus-scanned before being marked as "completed". Infected files are **automatically deleted** and the job is marked as failed.
+
+### VM Setup
+
+```bash
+# Install ClamAV
+sudo apt install -y clamav
+
+# Update virus definitions (takes 2-3 minutes first time)
+sudo freshclam
+
+# Verify it works
+clamscan --version
+echo "Test" > /tmp/testfile.txt && clamscan /tmp/testfile.txt
+```
+
+### How It Works
+
+1. Torrent download completes → agent sends `scan_started` callback
+2. `clamscan -r` runs on the job directory (recursive scan)
+3. **If clean** → job marked `completed` with `scan_status = "clean"`
+4. **If infected** → files deleted from disk, job marked `failed` with error "Virus detected: ..."
+5. **If ClamAV not installed** → job completes with `scan_status = "error"` (graceful degradation)
+
+### D1 Migration
+
+Run this migration on your D1 database:
+
+```sql
+ALTER TABLE jobs ADD COLUMN scan_status TEXT DEFAULT NULL
+  CHECK (scan_status IN ('scanning', 'clean', 'infected', 'error', NULL));
+ALTER TABLE jobs ADD COLUMN scan_detail TEXT DEFAULT NULL;
+```
+
+### Keeping Definitions Updated
+
+ClamAV needs fresh virus definitions. Set up a cron:
+
+```bash
+# Update definitions daily at 3 AM
+echo "0 3 * * * /usr/bin/freshclam --quiet" | sudo crontab -
+```
+
+### Troubleshooting
+
+| Issue | Fix |
+|---|---|
+| `clamscan: command not found` | `sudo apt install -y clamav` |
+| Scan takes too long (>5 min) | Large downloads — scan times out gracefully, job still completes |
+| Old virus definitions | Run `sudo freshclam` manually |
+| `freshclam` fails | Check DNS, run `sudo freshclam --debug` |
+
+### Files Changed
+
+| File | Change |
+|---|---|
+| `workers/compute-agent/src/virus-scan.ts` | New — ClamAV scanner module |
+| `workers/compute-agent/src/routes/start.ts` | Integrated scan after download completion |
+| `apps/api/src/handlers/jobs.ts` | Persists `scan_status` + `scan_detail` from callback |
+| `apps/api/src/d1-helpers.ts` | `updateJobStatus` supports scan fields |
+| `packages/shared/migrations/0013_scan_status.sql` | Adds scan columns to jobs table |
+| `src/pages/JobDetail.tsx` | Shows virus scan badge (✅ Virus-free / ⚠️ Threat detected) |
+| `src/pages/Dashboard.tsx` | Shows shield icon on completed jobs |
