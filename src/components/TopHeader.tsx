@@ -2,10 +2,13 @@ import { useState, useRef, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { formatBytes } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import { jobs as jobsApi, type ApiJob } from "@/lib/api";
 import {
   Plus, Upload, Zap, Menu, X, Star,
   LogOut, User, HelpCircle, Settings, CloudLightning,
   BookOpen, Users, Copy, Check, ServerCog,
+  Play, Loader2, Clock,
 } from "lucide-react";
 import fseederLogo from "@/assets/fseeder-logo.png";
 import { OrgSwitcher } from "@/components/OrgSwitcher";
@@ -123,6 +126,93 @@ function ProviderChip() {
   );
 }
 
+// ── Wishlist Dropdown — shows queued jobs when free plan limit reached ─────
+function WishlistDropdown({ open, onToggle, onClose }: { open: boolean; onToggle: () => void; onClose: () => void }) {
+  const navigate = useNavigate();
+  const { data: jobsData } = useQuery({
+    queryKey: ["jobs"],
+    queryFn: () => jobsApi.list({ limit: 100 }),
+    staleTime: 10_000,
+  });
+
+  const allJobs: ApiJob[] = jobsData?.data ?? [];
+  const activeStatuses = ["downloading", "uploading", "metadata_fetch", "submitted"];
+  const activeJobs = allJobs.filter(j => activeStatuses.includes(j.status));
+  const queuedJobs = allJobs.filter(j => j.status === "queued");
+  // On free plan, max 2 simultaneous - show queued as wishlist
+  const wishlistJobs = queuedJobs;
+  const totalWishlist = wishlistJobs.length;
+
+  return (
+    <div className="relative hidden sm:block">
+      <button
+        onClick={onToggle}
+        title="Wishlist"
+        className={cn(
+          "flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-150 relative",
+          open ? "text-warning bg-warning/10" : "text-muted-foreground hover:text-warning hover:bg-muted/40"
+        )}
+      >
+        <Star className="w-5 h-5" />
+        {totalWishlist > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-warning text-[9px] font-bold text-black flex items-center justify-center shadow-[0_0_6px_hsl(38_92%_50%/0.5)]">
+            {totalWishlist}
+          </span>
+        )}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={onClose} />
+          <div className="absolute right-0 top-12 z-50 w-80 glass-premium rounded-xl shadow-[0_12px_40px_hsl(220_26%_0%/0.6)] border border-border/60 animate-scale-in overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
+              <span className="text-sm font-bold text-foreground">Wishlist</span>
+              <div className="flex items-center gap-2">
+                {totalWishlist > 0 && (
+                  <span className="text-xs text-warning font-semibold">{totalWishlist} queued</span>
+                )}
+                <Star className="w-4 h-4 text-muted-foreground" />
+              </div>
+            </div>
+            {/* Active downloads count */}
+            <div className="px-4 py-2 border-b border-border/30 bg-muted/5">
+              <p className="text-xs text-muted-foreground">
+                <span className="text-primary font-semibold">{activeJobs.length}</span> / 2 active downloads (Free plan)
+              </p>
+            </div>
+            {totalWishlist === 0 ? (
+              <div className="px-4 py-6 text-center">
+                <p className="text-sm text-muted-foreground">Wishlist Empty</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">
+                  Free plan allows 2 simultaneous downloads. Extra tasks queue here automatically.
+                </p>
+              </div>
+            ) : (
+              <div className="max-h-[280px] overflow-y-auto">
+                {wishlistJobs.map(job => (
+                  <button
+                    key={job.id}
+                    onClick={() => { navigate(`/app/dashboard/${job.id}`); onClose(); }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/20 transition-colors text-left border-b border-border/20 last:border-0"
+                  >
+                    <Clock className="w-4 h-4 text-warning shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-foreground truncate font-medium">{job.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {job.bytesTotal > 0 ? formatBytes(job.bytesTotal) : "Waiting…"} · Queued
+                      </p>
+                    </div>
+                    <Play className="w-3.5 h-3.5 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [pasteOpen, setPasteOpen] = useState(false);
@@ -215,33 +305,7 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
         <div className="flex-1" />
 
         {/* Wishlist star button */}
-        <div className="relative hidden sm:block">
-          <button
-            onClick={() => { setWishlistOpen(o => !o); setServerOpen(false); }}
-            title="Wishlist"
-            className={cn(
-              "flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-150",
-              wishlistOpen ? "text-warning bg-warning/10" : "text-muted-foreground hover:text-warning hover:bg-muted/40"
-            )}
-          >
-            <Star className="w-5 h-5" />
-          </button>
-          {wishlistOpen && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setWishlistOpen(false)} />
-              <div className="absolute right-0 top-12 z-50 w-72 glass-premium rounded-xl shadow-[0_12px_40px_hsl(220_26%_0%/0.6)] border border-border/60 animate-scale-in overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
-                  <span className="text-sm font-bold text-foreground">Wishlist</span>
-                  <Star className="w-4 h-4 text-muted-foreground" />
-                </div>
-                <div className="px-4 py-6 text-center">
-                  <p className="text-sm text-muted-foreground">Wishlist Empty</p>
-                  <p className="text-xs text-muted-foreground/60 mt-1">Star items from your files to save them here</p>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+        <WishlistDropdown open={wishlistOpen} onToggle={() => { setWishlistOpen(o => !o); setServerOpen(false); }} onClose={() => setWishlistOpen(false)} />
 
         {/* Paste bar or action buttons */}
         {pasteOpen ? (
