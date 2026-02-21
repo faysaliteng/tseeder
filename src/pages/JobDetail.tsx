@@ -75,10 +75,14 @@ function MetricCard({
 function MediaPreviewModal({
   file, onClose,
 }: { file: ApiFile; onClose: () => void }) {
-  const isVideo = file.mimeType?.startsWith("video/");
-  const isImage = file.mimeType?.startsWith("image/");
-  const isAudio = file.mimeType?.startsWith("audio/");
   const filename = file.path.split("/").pop() ?? file.path;
+  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+  const videoExts = ["mp4","mkv","avi","webm","mov","flv","wmv","m4v","ts","mpg","mpeg","3gp"];
+  const imageExts = ["jpg","jpeg","png","gif","webp","bmp","svg","ico","tiff"];
+  const audioExts = ["mp3","flac","aac","ogg","wav","wma","m4a","opus"];
+  const isVideo = file.mimeType?.startsWith("video/") || videoExts.includes(ext);
+  const isImage = file.mimeType?.startsWith("image/") || imageExts.includes(ext);
+  const isAudio = file.mimeType?.startsWith("audio/") || audioExts.includes(ext);
 
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -514,8 +518,15 @@ function FileContextMenu({
     return () => document.removeEventListener("mousedown", handler);
   }, [onClose]);
 
-  const isMedia = file.mimeType?.startsWith("video/") || file.mimeType?.startsWith("image/") || file.mimeType?.startsWith("audio/");
   const filename = file.path.split("/").pop() ?? file.path;
+  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+  const videoExts = ["mp4","mkv","avi","webm","mov","flv","wmv","m4v","ts","mpg","mpeg","3gp"];
+  const imageExts = ["jpg","jpeg","png","gif","webp","bmp","svg","ico","tiff"];
+  const audioExts = ["mp3","flac","aac","ogg","wav","wma","m4a","opus"];
+  const isVideo = file.mimeType?.startsWith("video/") || videoExts.includes(ext);
+  const isImage = file.mimeType?.startsWith("image/") || imageExts.includes(ext);
+  const isAudio = file.mimeType?.startsWith("audio/") || audioExts.includes(ext);
+  const isMedia = isVideo || isImage || isAudio;
 
   const handleDownload = () => {
     const url = filesApi.downloadUrl(file.id);
@@ -584,8 +595,8 @@ function FileContextMenu({
       { icon: Download, label: "Download", onClick: handleDownload },
       { icon: copying ? Loader2 : Link2, label: "Copy Download Link", onClick: handleCopyLink },
     ] : []) as MenuItem[],
-    ...(isMedia && file.isComplete ? [
-      { icon: PlayCircle, label: file.mimeType?.startsWith("video/") ? "Play Video" : file.mimeType?.startsWith("image/") ? "View Image" : "Play Audio", onClick: () => { onPreview(); onClose(); } },
+    ...(isMedia ? [
+      { icon: PlayCircle, label: isVideo ? "Play Video" : isImage ? "View Image" : "Play Audio", onClick: () => { onPreview(); onClose(); } },
     ] : []) as MenuItem[],
     SEP,
     { icon: Edit3, label: "Rename", onClick: handleRename },
@@ -646,10 +657,15 @@ function FileRow({ file, onContextMenu, onPreview }: { file: ApiFile; onContextM
     : file.mimeType?.startsWith("image/") ? "border-l-success"
     : "border-l-border";
 
+  const fname = file.path.split("/").pop()?.toLowerCase() ?? "";
+  const fext = fname.split(".").pop() ?? "";
+  const vidExts = ["mp4","mkv","avi","webm","mov","flv","wmv","m4v","ts","mpg","mpeg","3gp"];
+  const audExts = ["mp3","flac","aac","ogg","wav","wma","m4a","opus"];
+  const imgExts = ["jpg","jpeg","png","gif","webp","bmp","svg","ico","tiff"];
   const isStreamable = file.isComplete && (
-    file.mimeType?.startsWith("video/") ||
-    file.mimeType?.startsWith("audio/") ||
-    file.mimeType?.startsWith("image/")
+    file.mimeType?.startsWith("video/") || vidExts.includes(fext) ||
+    file.mimeType?.startsWith("audio/") || audExts.includes(fext) ||
+    file.mimeType?.startsWith("image/") || imgExts.includes(fext)
   );
 
   const handleDownload = () => {
