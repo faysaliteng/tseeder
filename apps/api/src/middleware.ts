@@ -38,12 +38,12 @@ export function rbacMiddleware(requiredRole: string): Middleware {
 export const csrfMiddleware: Middleware = async (req, env, ctx) => {
   if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return null;
 
-  // API key Bearer auth (no session cookie) is exempt from CSRF — the key itself
-  // is the second factor for mutation requests (extension, scripts, integrations).
-  const cookie = req.headers.get("Cookie") ?? "";
+  // API key / Bearer auth is exempt from CSRF — the token itself acts as the
+  // second factor for mutation requests (extension, scripts, integrations).
+  // Extensions may share the domain with the web app, so cookies could be sent
+  // alongside the Bearer header. The presence of Bearer alone is sufficient.
   const hasBearerToken = !!req.headers.get("Authorization")?.startsWith("Bearer ");
-  const hasSessionCookie = !!extractCookie(cookie, "session");
-  if (hasBearerToken && !hasSessionCookie) return null;
+  if (hasBearerToken) return null;
 
   const csrfHeader = req.headers.get("X-CSRF-Token");
   if (!csrfHeader) return json403("CSRF_REQUIRED", "X-CSRF-Token header required");
