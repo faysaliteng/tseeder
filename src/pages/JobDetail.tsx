@@ -396,6 +396,17 @@ export default function JobDetailPage() {
                   </div>
                 )}
 
+                {liveJob.status === "scanning" && (
+                  <div className="mt-4 p-4 bg-info/5 border border-info/30 rounded-xl flex items-center gap-3">
+                    <ScanSearch className="w-5 h-5 text-info animate-pulse shrink-0" style={{ filter: "drop-shadow(0 0 6px hsl(199 89% 48% / 0.5))" }} />
+                    <div>
+                      <p className="text-sm font-semibold text-info">Scanning for viruses…</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Download complete. Files are being scanned before they become available.</p>
+                    </div>
+                    <Loader2 className="w-4 h-4 text-info animate-spin ml-auto shrink-0" />
+                  </div>
+                )}
+
                 {liveJob.status === "failed" && liveJob.error && (
                   <div className="mt-4 p-3 bg-destructive/10 border border-destructive/30 rounded-xl neon-border-danger">
                     <p className="text-sm text-destructive">{liveJob.error}</p>
