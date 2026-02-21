@@ -1,7 +1,7 @@
 import type { Env } from "../index";
 import { SignedUrlRequestSchema } from "@rdm/shared";
 import { getFileById, listFilesForJob, writeAuditLog } from "../d1-helpers";
-import { signS3Request } from "../crypto";
+import { signHmac, verifyHmac } from "../crypto";
 import { apiError, formatZodError } from "./auth";
 
 type Ctx = { params: Record<string, string>; user?: { id: string; role: string } };
@@ -41,7 +41,8 @@ export async function handleGetFiles(req: Request, env: Env, ctx: Ctx): Promise<
 }
 
 // ── POST /files/:fileId/signed-url ────────────────────────────────────────────
-// Now proxies through the agent tunnel instead of generating R2 signed URLs.
+// Returns a token-based streaming URL that proxies through the API worker.
+// This avoids R2 signed URL encoding issues with special characters.
 
 export async function handleSignedUrl(req: Request, env: Env, ctx: Ctx): Promise<Response> {
   const correlationId = req.headers.get("X-Correlation-ID") ?? crypto.randomUUID();
@@ -64,58 +65,126 @@ export async function handleSignedUrl(req: Request, env: Env, ctx: Ctx): Promise
     return apiError("VALIDATION_ERROR", "File is not ready for download yet", 409, correlationId);
   }
 
-  // If file has an R2 key, use signed S3 URL (legacy path)
-  if (file.r2_key) {
-    const signedUrl = await signS3Request({
-      method: "GET",
-      bucket: env.R2_BUCKET_NAME,
-      key: file.r2_key,
-      region: "auto",
-      accessKeyId: env.R2_ACCESS_KEY_ID,
-      secretAccessKey: env.R2_SECRET_ACCESS_KEY,
-      expiresIn: parsed.data.expiresIn,
-      endpoint: env.R2_ENDPOINT,
-    });
+  // Generate a short-lived HMAC stream token
+  const expiresIn = parsed.data.expiresIn;
+  const expires = Math.floor(Date.now() / 1000) + expiresIn;
+  const payload = `stream:${fileId}:${expires}`;
+  const token = await signHmac(payload, env.JWT_SECRET);
 
-    await writeAuditLog(env.DB, {
-      actorId: userId, action: "file.signed_url",
-      targetType: "file", targetId: fileId,
-      metadata: { r2Key: file.r2_key, expiresIn: parsed.data.expiresIn },
-    });
-
-    return Response.json({
-      fileId,
-      url: signedUrl,
-      expiresAt: new Date(Date.now() + parsed.data.expiresIn * 1000).toISOString(),
-      filename: file.path.split("/").pop(),
-    });
-  }
-
-  // No R2 key — proxy download from agent via tunnel
-  const job = await env.DB.prepare("SELECT id FROM jobs WHERE id = ?")
-    .bind(file.job_id).first<{ id: string }>();
-  if (!job) return apiError("NOT_FOUND", "Job not found", 404, correlationId);
-
-  // Build agent download URL: /download/:jobId/:filePath
-  const agentBase = env.WORKER_CLUSTER_URL;
-  if (!agentBase) {
-    return apiError("SERVER_ERROR", "Agent not configured", 500, correlationId);
-  }
-
-  const encodedPath = file.path.split("/").map(s => encodeURIComponent(s)).join("/");
-  const downloadUrl = `${agentBase.replace(/\/$/, "")}/download/${file.job_id}/${encodedPath}`;
+  // Build the stream URL (goes through this same API worker)
+  const apiBase = new URL(req.url).origin;
+  const streamUrl = `${apiBase}/files/${fileId}/stream?token=${token}&expires=${expires}`;
 
   await writeAuditLog(env.DB, {
     actorId: userId, action: "file.signed_url",
     targetType: "file", targetId: fileId,
-    metadata: { agentDownload: true, path: file.path },
+    metadata: { stream: true, expiresIn },
   });
 
   return Response.json({
     fileId,
-    url: downloadUrl,
-    expiresAt: new Date(Date.now() + parsed.data.expiresIn * 1000).toISOString(),
+    url: streamUrl,
+    expiresAt: new Date(expires * 1000).toISOString(),
     filename: file.path.split("/").pop(),
+  });
+}
+
+// ── GET /files/:fileId/stream?token=xxx&expires=xxx ───────────────────────────
+// Token-based streaming proxy. No cookies needed — works with VLC, Kodi, etc.
+
+export async function handleStreamProxy(req: Request, env: Env, ctx: Ctx): Promise<Response> {
+  const correlationId = req.headers.get("X-Correlation-ID") ?? crypto.randomUUID();
+  const { fileId } = ctx.params;
+
+  const url = new URL(req.url);
+  const token = url.searchParams.get("token");
+  const expiresStr = url.searchParams.get("expires");
+
+  if (!token || !expiresStr) {
+    return apiError("AUTH_ERROR", "Missing stream token", 401, correlationId);
+  }
+
+  const expires = parseInt(expiresStr, 10);
+  if (isNaN(expires) || Math.floor(Date.now() / 1000) > expires) {
+    return apiError("AUTH_ERROR", "Stream token expired", 401, correlationId);
+  }
+
+  // Verify HMAC
+  const payload = `stream:${fileId}:${expires}`;
+  const valid = await verifyHmac(payload, env.JWT_SECRET, token);
+  if (!valid) {
+    return apiError("AUTH_ERROR", "Invalid stream token", 401, correlationId);
+  }
+
+  const file = await getFileById(env.DB, fileId);
+  if (!file) return apiError("NOT_FOUND", "File not found", 404, correlationId);
+  if (!file.is_complete) return apiError("VALIDATION_ERROR", "File not ready", 409, correlationId);
+
+  // Stream from R2 if r2_key exists
+  if (file.r2_key) {
+    const obj = await env.FILES_BUCKET.get(file.r2_key);
+    if (!obj) return apiError("NOT_FOUND", "File not found in storage", 404, correlationId);
+
+    const filename = file.path.split("/").pop() ?? "download";
+    const headers = new Headers();
+    headers.set("Content-Type", obj.httpMetadata?.contentType ?? "application/octet-stream");
+    headers.set("Content-Length", String(obj.size));
+    headers.set("Accept-Ranges", "bytes");
+    // Allow inline playback (not download)
+    headers.set("Content-Disposition", `inline; filename="${encodeURIComponent(filename)}"`);
+    headers.set("Cache-Control", "private, max-age=3600");
+
+    // Handle Range requests for seeking in video players
+    const rangeHeader = req.headers.get("Range");
+    if (rangeHeader && obj.size) {
+      const match = rangeHeader.match(/bytes=(\d+)-(\d*)/);
+      if (match) {
+        const start = parseInt(match[1], 10);
+        const end = match[2] ? parseInt(match[2], 10) : obj.size - 1;
+        const chunk = end - start + 1;
+
+        // Re-fetch with range from R2
+        const rangedObj = await env.FILES_BUCKET.get(file.r2_key, {
+          range: { offset: start, length: chunk },
+        });
+        if (!rangedObj) return apiError("SERVER_ERROR", "Range request failed", 500, correlationId);
+
+        headers.set("Content-Range", `bytes ${start}-${end}/${obj.size}`);
+        headers.set("Content-Length", String(chunk));
+
+        return new Response(rangedObj.body, { status: 206, headers });
+      }
+    }
+
+    return new Response(obj.body, { status: 200, headers });
+  }
+
+  // Fallback: proxy from agent
+  const agentBase = env.WORKER_CLUSTER_URL;
+  if (!agentBase) return apiError("SERVER_ERROR", "Agent not configured", 500, correlationId);
+
+  const encodedPath = file.path.split("/").map(s => encodeURIComponent(s)).join("/");
+  const agentUrl = `${agentBase.replace(/\/$/, "")}/download/${file.job_id}/${encodedPath}`;
+
+  const agentRes = await fetch(agentUrl, {
+    headers: {
+      "Authorization": `Bearer ${env.WORKER_CLUSTER_TOKEN}`,
+      "X-Correlation-ID": correlationId,
+      ...(req.headers.get("Range") ? { "Range": req.headers.get("Range")! } : {}),
+    },
+  });
+
+  if (!agentRes.ok) return apiError("SERVER_ERROR", `Agent stream failed: ${agentRes.status}`, 502, correlationId);
+
+  const filename = file.path.split("/").pop() ?? "download";
+  return new Response(agentRes.body, {
+    status: agentRes.status,
+    headers: {
+      "Content-Type": agentRes.headers.get("Content-Type") ?? "application/octet-stream",
+      "Content-Disposition": `inline; filename="${encodeURIComponent(filename)}"`,
+      "Content-Length": agentRes.headers.get("Content-Length") ?? "",
+      "Accept-Ranges": "bytes",
+    },
   });
 }
 
