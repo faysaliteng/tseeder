@@ -60,7 +60,6 @@ async function fetchCryptoPrice(coin: string): Promise<number> {
   if (!price || price <= 0) throw new Error(`Invalid price for ${coin}`);
   return price;
 }
-}
 
 // ── GET /crypto/wallets ───────────────────────────────────────────────────────
 
