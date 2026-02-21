@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import fseederLogo from "@/assets/fseeder-logo.png";
 import { OrgSwitcher } from "@/components/OrgSwitcher";
+import { PricingModal } from "@/components/PricingModal";
 
 interface TopHeaderProps {
   usage: {
@@ -126,6 +127,7 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
   const [pasteOpen, setPasteOpen] = useState(false);
   const [pasteValue, setPasteValue] = useState("");
   const [addRipple, setAddRipple] = useState(false);
+  const [pricingOpen, setPricingOpen] = useState(false);
   const pasteRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -157,6 +159,7 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
   const isDashboard = location.pathname === "/app/dashboard" || location.pathname === "/";
 
   return (
+    <>
     <header className="sticky top-0 z-50 glass border-b border-border/60 shadow-[0_4px_24px_hsl(220_26%_0%/0.4)]">
       <div className="flex items-center gap-2.5 px-4 h-[72px]">
 
@@ -183,7 +186,7 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
               </span>
               {!isPro && (
                 <button
-                  onClick={() => navigate("/app/crypto-checkout?plan=pro")}
+                  onClick={() => setPricingOpen(true)}
                   className="text-[10px] font-bold text-warning flex items-center gap-0.5 hover:opacity-80 whitespace-nowrap shrink-0 transition-opacity"
                 >
                   ▲ UPGRADE
@@ -304,7 +307,7 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
           <div className="absolute right-4 top-[76px] z-50 w-64 glass-premium rounded-2xl shadow-[0_16px_48px_hsl(220_26%_0%/0.6)] overflow-hidden animate-scale-in border border-primary/10">
             {!isPro && (
               <button
-                onClick={() => { setMenuOpen(false); navigate("/app/crypto-checkout?plan=pro"); }}
+                onClick={() => { setMenuOpen(false); setPricingOpen(true); }}
                 className="w-full flex items-center justify-between px-4 py-3.5 font-bold text-sm hover:opacity-90 transition-opacity relative overflow-hidden group"
                 style={{ background: "linear-gradient(90deg, hsl(38 92% 40%), hsl(38 92% 50%))" }}
               >
@@ -334,6 +337,9 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
         </>
       )}
     </header>
+
+    <PricingModal open={pricingOpen} onClose={() => setPricingOpen(false)} />
+    </>
   );
 }
 
