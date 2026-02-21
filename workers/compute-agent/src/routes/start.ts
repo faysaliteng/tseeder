@@ -8,7 +8,8 @@ import { logger } from "../logger";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-const engine = new WebTorrentEngine();
+// Shared engine instance — exported so stop.ts can use the same one
+export const engine = new WebTorrentEngine();
 
 interface StartPayload {
   jobId: string;
@@ -72,6 +73,13 @@ async function runDownloadPipeline(opts: {
     });
 
     for await (const progress of progressStream) {
+      // Check if job was stopped externally (pause/cancel)
+      const registryEntry = jobRegistry.get(jobId);
+      if (registryEntry?.status === "stopped") {
+        logger.info({ jobId }, "Job was stopped externally, exiting pipeline");
+        return;
+      }
+
       // Post progress update to Workers API every tick
       await postCallback(callbackUrl, callbackSecret, correlationId, {
         jobId,

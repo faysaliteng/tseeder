@@ -1,8 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { StubTorrentEngine } from "../engine";
+import { engine } from "./start";
 import { jobRegistry } from "../job-registry";
-
-const engine = new StubTorrentEngine();
 
 export async function handleStop(
   req: IncomingMessage,
@@ -10,6 +8,8 @@ export async function handleStop(
   jobId: string,
   correlationId: string,
 ): Promise<void> {
+  // Mark as stopped in registry so the download pipeline loop exits
+  jobRegistry.set(jobId, { status: "stopped", startedAt: Date.now() });
   await engine.stop(jobId);
   jobRegistry.delete(jobId);
   res.writeHead(200, { "Content-Type": "application/json" });
