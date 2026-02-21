@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { cryptoBilling, ApiError } from "@/lib/api";
+import { cryptoBilling, usage as usageApi, ApiError } from "@/lib/api";
 import { TopHeader } from "@/components/TopHeader";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -68,6 +68,18 @@ export default function CryptoCheckoutPage() {
   const [selectedCoin, setSelectedCoin] = useState<string | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
 
+  const { data: usageData } = useQuery({
+    queryKey: ["usage"],
+    queryFn: () => usageApi.get(),
+    retry: false,
+  });
+
+  const headerUsage = {
+    plan: { name: usageData?.plan?.name ?? "free", maxStorageGb: usageData?.plan?.maxStorageGb ?? 5, bandwidthGb: usageData?.plan?.bandwidthGb ?? 20 },
+    storageUsedBytes: usageData?.storageUsedBytes ?? 0,
+    bandwidthUsedBytes: usageData?.bandwidthUsedBytes ?? 0,
+  };
+
   // Fetch available wallets
   const { data: walletsData, isLoading: walletsLoading } = useQuery({
     queryKey: ["crypto-wallets"],
@@ -130,7 +142,7 @@ export default function CryptoCheckoutPage() {
         background: "radial-gradient(ellipse 60% 40% at 50% 10%, hsl(38 92% 50% / 0.06) 0%, transparent 60%)"
       }} />
       <div className="relative z-10 flex flex-col flex-1">
-        <TopHeader usage={null as any} onAddMagnet={() => {}} onUploadTorrent={() => {}} />
+        <TopHeader usage={headerUsage} onAddMagnet={() => {}} onUploadTorrent={() => {}} />
 
         <main className="flex-1 max-w-lg mx-auto w-full px-3 sm:px-4 py-6 sm:py-8">
           {/* Back button */}
