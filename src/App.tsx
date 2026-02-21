@@ -40,6 +40,8 @@ import BlogPage from "./pages/Blog";
 import BlogPostPage from "./pages/BlogPost";
 import OrgSettingsPage from "./pages/OrgSettings";
 import CreateOrgPage from "./pages/CreateOrg";
+import CryptoCheckoutPage from "./pages/CryptoCheckout";
+import AdminCryptoWallets from "./pages/admin/CryptoWallets";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -105,10 +107,12 @@ const App = () => (
           <Route path="/admin/search" element={<AdminGlobalSearch />} />
           <Route path="/admin/config-history" element={<AdminConfigHistory />} />
           <Route path="/admin/observability" element={<AdminObservability />} />
+          <Route path="/admin/crypto-wallets" element={<AdminCryptoWallets />} />
 
           {/* Org routes */}
           <Route path="/app/org/new" element={<CreateOrgPage />} />
           <Route path="/app/org/:slug/settings" element={<OrgSettingsPage />} />
+          <Route path="/app/crypto-checkout" element={<CryptoCheckoutPage />} />
 
           {/* Public Blog */}
           <Route path="/blog" element={<BlogPage />} />

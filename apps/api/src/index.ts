@@ -37,6 +37,10 @@ import {
   handleBillingConfig, handleBillingCheckout, handleBillingPortal, handleBillingWebhook,
 } from "./handlers/stripe";
 import {
+  handleGetCryptoWallets, handleCreateCryptoOrder, handleGetCryptoOrder,
+  handleAdminListCryptoWallets, handleAdminSetCryptoWallet, handleAdminListCryptoOrders, handleAdminConfirmCryptoOrder,
+} from "./handlers/crypto";
+import {
   handleAdminDlqList, handleAdminDlqReplay, handleAdminGlobalSearch, handleAdminConfigHistory,
 } from "./handlers/admin";
 import {
@@ -271,6 +275,15 @@ router.post("/billing/portal",              [authMiddleware, csrfMiddleware],   
 // Webhook has no auth middleware — verified by Stripe signature
 router.post("/billing/webhook",             [],                                           handleBillingWebhook);
 
+// ── Crypto Billing ─────────────────────────────────────────────────────────────
+router.get("/crypto/wallets",                       [],                                                          handleGetCryptoWallets);
+router.post("/crypto/orders",                       [authMiddleware, csrfMiddleware, rateLimitMiddleware("crypto-order", 5, 3600)], handleCreateCryptoOrder);
+router.get("/crypto/orders/:id",                    [authMiddleware],                                            handleGetCryptoOrder);
+router.get("/admin/crypto/wallets",                 [authMiddleware, rbacMiddleware("superadmin")],               handleAdminListCryptoWallets);
+router.post("/admin/crypto/wallets",                [authMiddleware, rbacMiddleware("superadmin"), csrfMiddleware], handleAdminSetCryptoWallet);
+router.get("/admin/crypto/orders",                  [authMiddleware, rbacMiddleware("admin")],                    handleAdminListCryptoOrders);
+router.post("/admin/crypto/orders/:id/confirm",     [authMiddleware, rbacMiddleware("superadmin"), csrfMiddleware], handleAdminConfirmCryptoOrder);
+
 // ── Public Blog ────────────────────────────────────────────────────────────────
 router.get("/blog/articles",                [],                                           handleListArticles);
 router.get("/blog/articles/:slug",          [],                                           handleGetArticle);
@@ -411,9 +424,12 @@ export default {
         }
       };
 
-      // Every 2 minutes: Seedr poller
+      // Every 2 minutes: Seedr poller + crypto verifier
       const { runSeedrPoller } = await import("./seedr-poller");
       await runTask("seedr_poller", () => runSeedrPoller(env));
+
+      const { runCryptoVerifier } = await import("./crypto-verifier");
+      await runTask("crypto_verifier", () => runCryptoVerifier(env));
 
       // Hourly: uptime + queue depth snapshot
       const isHourly = event.cron === "0 * * * *" || !event.cron;

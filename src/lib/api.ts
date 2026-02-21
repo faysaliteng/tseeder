@@ -566,4 +566,43 @@ export const adminOrgs = {
   list: (page = 1) => request<PaginatedResponse<ApiOrg>>(`/admin/orgs?page=${page}`),
 };
 
+// ── Crypto Billing ────────────────────────────────────────────────────────────
+
+export const cryptoBilling = {
+  getWallets: () =>
+    request<{ wallets: Array<{ coin: string; address: string; network: string; is_active: number }> }>("/crypto/wallets"),
+
+  createOrder: (planName: string, coin: string) =>
+    request<{ order: any }>("/crypto/orders", {
+      method: "POST",
+      body: JSON.stringify({ planName, coin }),
+    }),
+
+  getOrder: (orderId: string) =>
+    request<{ order: any }>(`/crypto/orders/${orderId}`),
+
+  adminListWallets: () =>
+    request<{ wallets: any[] }>("/admin/crypto/wallets"),
+
+  adminSetWallet: (coin: string, address: string, network: string) =>
+    request<{ message: string; coin: string }>("/admin/crypto/wallets", {
+      method: "POST",
+      body: JSON.stringify({ coin, address, network }),
+    }),
+
+  adminListOrders: (params?: { status?: string; page?: number }) => {
+    const qs = new URLSearchParams(
+      Object.entries(params ?? {}).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])
+    ).toString();
+    return request<{ orders: any[]; meta: { page: number; limit: number; total: number; totalPages: number } }>(
+      `/admin/crypto/orders${qs ? `?${qs}` : ""}`
+    );
+  },
+
+  adminConfirmOrder: (orderId: string, reason: string) =>
+    request<{ message: string; orderId: string }>(`/admin/crypto/orders/${orderId}/confirm`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    }),
+};
 

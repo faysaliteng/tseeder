@@ -373,6 +373,10 @@ function BillingSection({ planName }: { planName: string }) {
 
   const isPaid = planName !== "free";
 
+  const handleCrypto = (plan: string) => {
+    window.location.href = `/app/crypto-checkout?plan=${plan}`;
+  };
+
   return (
     <SectionCard>
       <SectionHeader title="Billing" icon={Zap} gradient="from-warning/60 to-primary/60" />
@@ -403,6 +407,27 @@ function BillingSection({ planName }: { planName: string }) {
             </div>
           )}
         </div>
+
+        {/* Crypto payment option */}
+        {!isPaid && (
+          <div className="border border-warning/30 rounded-xl p-3 bg-warning/5 space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-warning uppercase tracking-widest">Pay with Crypto</span>
+            </div>
+            <p className="text-xs text-muted-foreground">Pay with Bitcoin, USDT, Litecoin or BNB. Instant activation on confirmation.</p>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" className="rounded-xl border-warning/40 text-warning gap-1.5 hover:bg-warning hover:text-black transition-all"
+                onClick={() => handleCrypto("pro")}>
+                <Zap className="w-3.5 h-3.5" /> Pro — Crypto
+              </Button>
+              <Button size="sm" variant="outline" className="rounded-xl border-warning/40 text-warning gap-1.5 hover:bg-warning hover:text-black transition-all"
+                onClick={() => handleCrypto("business")}>
+                <Zap className="w-3.5 h-3.5" /> Business — Crypto
+              </Button>
+            </div>
+          </div>
+        )}
+
         {!isPaid && (
           <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground">
             <div className="glass-card rounded-lg p-3 space-y-1">
