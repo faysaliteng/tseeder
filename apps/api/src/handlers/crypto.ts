@@ -33,7 +33,7 @@ const COIN_TICKERS: Record<string, string> = {
   BNB: "BNB",
 };
 
-const FREECRYPTO_API_KEY = "9ngv0d6tviskq0id9e4l";
+const CMC_API_KEY = "0b653f3ddc594101bdf445fac7dd9149";
 
 async function fetchCryptoPrice(coin: string): Promise<number> {
   const ticker = COIN_TICKERS[coin];
@@ -42,38 +42,24 @@ async function fetchCryptoPrice(coin: string): Promise<number> {
   // Stablecoins — hardcode to $1
   if (ticker === "USDT") return 1;
 
-  // Primary: FreeCryptoAPI (Bearer auth, CF Worker friendly)
+  // CoinMarketCap API
   const resp = await fetch(
-    `https://api.freecryptoapi.com/v1/getData?symbol=${ticker}`,
+    `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${ticker}&convert=USD`,
     {
       headers: {
-        "Authorization": `Bearer ${FREECRYPTO_API_KEY}`,
+        "X-CMC_PRO_API_KEY": CMC_API_KEY,
         "Accept": "application/json",
       },
       signal: AbortSignal.timeout(10_000),
     },
   );
 
-  if (!resp.ok) throw new Error(`FreeCryptoAPI error: ${resp.status}`);
-  const raw = await resp.text();
-  console.log(`FreeCryptoAPI response for ${ticker}:`, raw);
-  const data = JSON.parse(raw);
-
-  // Response could be { BTC: { price: 12345 } } or { price: 12345 } or { data: { price: 12345 } }
-  let price: number | undefined;
-  if (typeof data === "object") {
-    // Try direct .price
-    if (data.price && data.price > 0) price = data.price;
-    // Try nested under ticker key: { BTC: { price: ... } }
-    else if (data[ticker]?.price > 0) price = data[ticker].price;
-    // Try .data.price
-    else if (data.data?.price > 0) price = data.data.price;
-    // Try .data[ticker].price
-    else if (data.data?.[ticker]?.price > 0) price = data.data[ticker].price;
-  }
-
-  if (!price || price <= 0) throw new Error(`Invalid price response for ${coin}: ${raw.slice(0, 200)}`);
+  if (!resp.ok) throw new Error(`CoinMarketCap API error: ${resp.status}`);
+  const data = await resp.json<any>();
+  const price = data?.data?.[ticker]?.quote?.USD?.price;
+  if (!price || price <= 0) throw new Error(`Invalid price for ${coin}`);
   return price;
+}
 }
 
 // ── GET /crypto/wallets ───────────────────────────────────────────────────────
