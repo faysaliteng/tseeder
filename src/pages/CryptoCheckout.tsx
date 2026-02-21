@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { cryptoBilling, usage as usageApi, ApiError } from "@/lib/api";
+import { useSessionRestore } from "@/hooks/useSessionRestore";
 import { TopHeader } from "@/components/TopHeader";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -66,6 +67,7 @@ function CountdownTimer({ expiresAt }: { expiresAt: string }) {
 export default function CryptoCheckoutPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  useSessionRestore();
   const [params] = useSearchParams();
   const planName = params.get("plan") ?? "pro";
   const [selectedCoin, setSelectedCoin] = useState<string | null>(null);
