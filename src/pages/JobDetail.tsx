@@ -73,7 +73,24 @@ function MediaPreviewModal({
   const isImage = file.mimeType?.startsWith("image/");
   const isAudio = file.mimeType?.startsWith("audio/");
   const filename = file.path.split("/").pop() ?? file.path;
-  const streamUrl = filesApi.downloadUrl(file.id);
+
+  // Use signed URL so video/img/audio tags can access without auth cookies
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { url } = await filesApi.getSignedUrl(file.id, 7200);
+        if (!cancelled) setMediaUrl(url);
+      } catch {
+        // Fallback to proxy URL if signed URL fails
+        if (!cancelled) setMediaUrl(filesApi.downloadUrl(file.id));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [file.id]);
 
   return (
     <>
@@ -95,30 +112,49 @@ function MediaPreviewModal({
           </div>
 
           {/* Content */}
-          <div className="bg-black">
-            {isVideo && (
-              <video
-                controls
-                autoPlay
-                className="w-full max-h-[70vh]"
-                src={streamUrl}
-              >
-                Your browser does not support the video tag.
-              </video>
-            )}
-            {isImage && (
-              <img
-                src={streamUrl}
-                alt={filename}
-                className="w-full max-h-[70vh] object-contain"
-              />
-            )}
-            {isAudio && (
-              <div className="p-8 flex items-center justify-center">
-                <audio controls autoPlay src={streamUrl} className="w-full max-w-lg">
-                  Your browser does not support the audio tag.
-                </audio>
+          <div className="bg-black min-h-[200px] flex items-center justify-center">
+            {!mediaUrl ? (
+              <div className="flex flex-col items-center gap-3 py-12">
+                <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                <span className="text-sm text-muted-foreground">Loading media…</span>
               </div>
+            ) : loadError ? (
+              <div className="flex flex-col items-center gap-3 py-12 px-4 text-center">
+                <AlertCircle className="w-8 h-8 text-destructive" />
+                <span className="text-sm text-destructive">{loadError}</span>
+                <a href={mediaUrl} target="_blank" rel="noopener" className="text-xs text-primary hover:underline">Open in new tab</a>
+              </div>
+            ) : (
+              <>
+                {isVideo && (
+                  <video
+                    controls
+                    autoPlay
+                    playsInline
+                    className="w-full max-h-[70vh]"
+                    src={mediaUrl}
+                    onError={() => setLoadError("Could not play video. Try opening in a new tab.")}
+                  >
+                    Your browser does not support the video tag.
+                  </video>
+                )}
+                {isImage && (
+                  <img
+                    src={mediaUrl}
+                    alt={filename}
+                    className="w-full max-h-[70vh] object-contain"
+                    onError={() => setLoadError("Could not load image.")}
+                  />
+                )}
+                {isAudio && (
+                  <div className="p-8 flex items-center justify-center w-full">
+                    <audio controls autoPlay src={mediaUrl} className="w-full max-w-lg"
+                      onError={() => setLoadError("Could not play audio.")}>
+                      Your browser does not support the audio tag.
+                    </audio>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
