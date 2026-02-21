@@ -22,29 +22,44 @@ type Ctx = { params: Record<string, string>; query: Record<string, string>; user
 const VALID_COINS = ["BTC", "USDT", "USDT-TRC20", "USDT-SOL", "USDT-POLYGON", "LTC", "BNB"];
 const ORDER_EXPIRY_MINUTES = 30;
 
-// ── Coin → CoinGecko ID mapping ──────────────────────────────────────────────
-const COINGECKO_IDS: Record<string, string> = {
-  BTC: "bitcoin",
-  USDT: "tether",
-  "USDT-TRC20": "tether",
-  "USDT-SOL": "tether",
-  "USDT-POLYGON": "tether",
-  LTC: "litecoin",
-  BNB: "binancecoin",
+// ── Coin → CryptoCompare symbol mapping ──────────────────────────────────────
+const CRYPTO_SYMBOLS: Record<string, string> = {
+  BTC: "BTC",
+  USDT: "USDT",
+  "USDT-TRC20": "USDT",
+  "USDT-SOL": "USDT",
+  "USDT-POLYGON": "USDT",
+  LTC: "LTC",
+  BNB: "BNB",
 };
 
 async function fetchCryptoPrice(coin: string): Promise<number> {
-  const geckoId = COINGECKO_IDS[coin];
-  if (!geckoId) throw new Error(`Unknown coin: ${coin}`);
+  const symbol = CRYPTO_SYMBOLS[coin];
+  if (!symbol) throw new Error(`Unknown coin: ${coin}`);
 
+  // Stablecoins — hardcode to $1
+  if (symbol === "USDT") return 1;
+
+  // Primary: CryptoCompare (free, no key required)
+  try {
+    const resp = await fetch(
+      `https://min-api.cryptocompare.com/data/price?fsym=${symbol}&tsyms=USD`,
+      { signal: AbortSignal.timeout(10_000) },
+    );
+    if (resp.ok) {
+      const data = await resp.json<{ USD?: number }>();
+      if (data.USD && data.USD > 0) return data.USD;
+    }
+  } catch { /* fall through to backup */ }
+
+  // Fallback: Binance public ticker
   const resp = await fetch(
-    `https://api.coingecko.com/api/v3/simple/price?ids=${geckoId}&vs_currencies=usd`,
+    `https://api.binance.com/api/v3/ticker/price?symbol=${symbol}USDT`,
     { signal: AbortSignal.timeout(10_000) },
   );
-
-  if (!resp.ok) throw new Error(`CoinGecko API error: ${resp.status}`);
-  const data = await resp.json<Record<string, { usd: number }>>();
-  const price = data[geckoId]?.usd;
+  if (!resp.ok) throw new Error(`Price API error: ${resp.status}`);
+  const data = await resp.json<{ price?: string }>();
+  const price = parseFloat(data.price ?? "0");
   if (!price || price <= 0) throw new Error(`Invalid price for ${coin}`);
   return price;
 }
