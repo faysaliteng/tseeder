@@ -19,7 +19,8 @@ body {
   background: linear-gradient(135deg, rgba(99,102,241,0.08), transparent);
 }
 .header-logo, .logo-img {
-  width: 25px; height: 25px;
+  width: 25px !important; height: 25px !important;
+  max-width: 25px; max-height: 25px;
   border-radius: 6px;
   box-shadow: 0 0 12px rgba(99,102,241,0.35);
   flex-shrink: 0;
