@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { orgs as orgsApi, ApiError } from "@/lib/api";
 import { TopHeader } from "@/components/TopHeader";
 import { useToast } from "@/hooks/use-toast";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 import {
   Building2, Users, Mail, Crown, Shield, User,
   Trash2, Plus, Loader2, ChevronLeft, RefreshCw, AlertTriangle,
@@ -21,6 +22,7 @@ export default function OrgSettingsPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const qc = useQueryClient();
+  useAuthGuard();
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"admin" | "member">("member");
   const [deleteConfirm, setDeleteConfirm] = useState(false);

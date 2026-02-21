@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { jobs as jobsApi, usage as usageApi, type ApiJob, ApiError } from "@/lib/api";
-import { useSessionRestore } from "@/hooks/useSessionRestore";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { formatBytes, formatSpeed, formatEta } from "@/lib/utils";
 import { TopHeader } from "@/components/TopHeader";
 import { AddDownloadModal } from "@/components/AddDownloadModal";
@@ -236,7 +236,7 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  useSessionRestore();
+  const { isLoading: authLoading, isAuthenticated } = useAuthGuard();
 
   const [addOpen, setAddOpen] = useState(false);
   const [initialMagnet, setInitialMagnet] = useState("");
@@ -326,6 +326,14 @@ export default function DashboardPage() {
     queryClient.invalidateQueries({ queryKey: ["jobs"] });
     queryClient.invalidateQueries({ queryKey: ["usage"] });
   };
+
+  if (authLoading || !isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col relative">
