@@ -348,6 +348,8 @@ export default {
       env.APP_DOMAIN,
       "https://tseeder.cc",
       "https://www.tseeder.cc",
+      "https://fseeder.cc",
+      "https://www.fseeder.cc",
     ].filter(Boolean);
     const corsOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0] ?? "";
 
