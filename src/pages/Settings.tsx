@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usage as usageApi, auth as authApi, authMe, apiKeys as apiKeysApi, providers as providersApi, billing as billingApi, type ApiKey, ApiError } from "@/lib/api";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { TopHeader } from "@/components/TopHeader";
 import { formatBytes } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -456,6 +457,7 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  useAuthGuard();
 
   // Load real user data from /auth/me
   const { data: meData } = useQuery({

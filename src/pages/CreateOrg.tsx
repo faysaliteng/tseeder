@@ -4,11 +4,13 @@ import { useMutation } from "@tanstack/react-query";
 import { orgs as orgsApi, ApiError } from "@/lib/api";
 import { TopHeader } from "@/components/TopHeader";
 import { useToast } from "@/hooks/use-toast";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { Building2, Loader2, ChevronLeft } from "lucide-react";
 
 export default function CreateOrgPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  useAuthGuard();
   const [name, setName] = useState("");
 
   const createMutation = useMutation({
