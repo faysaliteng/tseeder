@@ -69,7 +69,7 @@ export async function handleSignedUrl(req: Request, env: Env, ctx: Ctx): Promise
   const expiresIn = parsed.data.expiresIn;
   const expires = Math.floor(Date.now() / 1000) + expiresIn;
   const payload = `stream:${fileId}:${expires}`;
-  const token = await signHmac(payload, env.JWT_SECRET);
+  const token = await signHmac(payload, env.SESSION_SECRET);
 
   // Build the stream URL (goes through this same API worker)
   const apiBase = new URL(req.url).origin;
@@ -111,7 +111,7 @@ export async function handleStreamProxy(req: Request, env: Env, ctx: Ctx): Promi
 
   // Verify HMAC
   const payload = `stream:${fileId}:${expires}`;
-  const valid = await verifyHmac(payload, env.JWT_SECRET, token);
+  const valid = await verifyHmac(payload, env.SESSION_SECRET, token);
   if (!valid) {
     return apiError("AUTH_ERROR", "Invalid stream token", 401, correlationId);
   }
