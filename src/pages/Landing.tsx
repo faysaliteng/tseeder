@@ -272,6 +272,7 @@ export default function LandingPage() {
   const [pricingFaqOpen, setPricingFaqOpen] = useState<number | null>(null);
   const [showComparison, setShowComparison] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [productsOpen, setProductsOpen] = useState(false);
 
   const { data: blogData } = useQuery({
     queryKey: ["blog-articles-landing"],
@@ -296,7 +297,63 @@ export default function LandingPage() {
 
           <div className="hidden md:flex items-center gap-7 text-sm font-medium text-gray-500">
             <a href="#pricing" className="hover:text-gray-900 transition-colors">Pricing</a>
-            <a href="#features" className="hover:text-gray-900 transition-colors">Features</a>
+
+            {/* Products dropdown */}
+            <div className="relative"
+              onMouseEnter={() => setProductsOpen(true)}
+              onMouseLeave={() => setProductsOpen(false)}
+            >
+              <button
+                className={`flex items-center gap-1 transition-colors ${productsOpen ? "text-gray-900" : "hover:text-gray-900"}`}
+                onClick={() => setProductsOpen(o => !o)}
+              >
+                Products
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${productsOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {productsOpen && (
+                <>
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 pt-2 z-50">
+                    <div className="w-[520px] bg-white rounded-2xl shadow-[0_12px_48px_rgba(0,0,0,0.12)] border border-gray-100 p-5 grid grid-cols-2 gap-x-4 gap-y-1 animate-fade-in">
+                      {[
+                        { icon: Play,          label: "Streaming",        desc: "Watch videos instantly in browser",   href: "#features" },
+                        { icon: Cloud,         label: "Cloud Download",   desc: "Download files to the cloud",         href: "#features" },
+                        { icon: Lock,          label: "Security",         desc: "Private and encrypted storage",        href: "#features" },
+                        { icon: Smartphone,    label: "Mobile Apps",      desc: "Access from any device",              href: "#features" },
+                        { icon: MonitorPlay,   label: "Video Player",     desc: "Built-in player with subtitles",      href: "#features" },
+                        { icon: Download,      label: "Remote Download",  desc: "Add files from anywhere",             href: "#features" },
+                        { icon: Puzzle,        label: "Integrations",     desc: "Connect Plex, Kodi & more",           href: "#features" },
+                        { icon: Cpu,           label: "Automation",       desc: "Auto-organize your files",            href: "#features" },
+                        { icon: Tv2,           label: "Plex & Jellyfin",  desc: "Stream to media servers",             href: "#features" },
+                        { icon: HardDrive,     label: "WebDAV",           desc: "Mount as network drive",              href: "#features" },
+                      ].map((item) => (
+                        <a
+                          key={item.label}
+                          href={item.href}
+                          onClick={() => setProductsOpen(false)}
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-indigo-50 transition-colors group"
+                        >
+                          <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0 group-hover:bg-indigo-100 transition-colors">
+                            <item.icon className="w-4.5 h-4.5 text-indigo-500" />
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-sm font-semibold text-gray-900">{item.label}</span>
+                            <span className="text-xs text-gray-400 truncate">{item.desc}</span>
+                          </div>
+                        </a>
+                      ))}
+                      <div className="col-span-2 mt-2 pt-2 border-t border-gray-100">
+                        <a href="#features" onClick={() => setProductsOpen(false)}
+                          className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 hover:text-indigo-600 transition-colors px-3 py-1">
+                          See all features <ArrowRight className="w-3 h-3" />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
             <Link to="/extension" className="hover:text-gray-900 transition-colors flex items-center gap-1.5">
               <Puzzle className="w-3.5 h-3.5 text-indigo-500" /> Extension
             </Link>
