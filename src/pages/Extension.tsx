@@ -95,7 +95,7 @@ const FEATURES = [
 
 // ── Files to bundle ──────────────────────────────────────────────────────────
 
-const EXTENSION_FILES = [
+const CHROME_FILES = [
   "manifest.json",
   "background.js",
   "content.js",
@@ -103,41 +103,64 @@ const EXTENSION_FILES = [
   "popup.js",
   "popup.css",
   "logo.png",
-  "icon16.svg",
-  "icon48.svg",
-  "icon128.svg",
+  "icon16.png",
+  "icon48.png",
+  "icon128.png",
+];
+
+const FIREFOX_FILES = [
+  "manifest-firefox.json",
+  "background-firefox.js",
+  "content.js",
+  "popup-firefox.html",
+  "popup-firefox.js",
+  "popup.css",
+  "logo.png",
+  "icon16.png",
+  "icon48.png",
+  "icon128.png",
 ];
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function ExtensionPage() {
-  const [downloading, setDownloading] = useState(false);
+  const [downloading, setDownloading] = useState<"chrome" | "firefox" | null>(null);
 
-  const handleDownload = async () => {
+  const handleDownload = async (variant: "chrome" | "firefox") => {
     if (downloading) return;
-    setDownloading(true);
+    setDownloading(variant);
+    const files = variant === "chrome" ? CHROME_FILES : FIREFOX_FILES;
+    const zipName = variant === "chrome" ? "fseeder-chrome.zip" : "fseeder-firefox.zip";
     try {
       const zip = new JSZip();
       const folder = zip.folder("fseeder-extension")!;
       await Promise.all(
-        EXTENSION_FILES.map(async (filename) => {
+        files.map(async (filename) => {
           const res = await fetch(`/extension/${filename}`);
           if (!res.ok) throw new Error(`Failed to fetch ${filename}: ${res.status}`);
-          folder.file(filename, await res.blob());
+          // For Firefox, rename manifest-firefox.json → manifest.json, etc.
+          let dest = filename;
+          if (variant === "firefox") {
+            if (filename === "manifest-firefox.json") dest = "manifest.json";
+            else if (filename === "background-firefox.js") dest = "background.js";
+            else if (filename === "popup-firefox.html") dest = "popup.html";
+            else if (filename === "popup-firefox.js") dest = "popup.js";
+          }
+          folder.file(dest, await res.blob());
         })
       );
       const content = await zip.generateAsync({ type: "blob" });
       const url = URL.createObjectURL(content);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "fseeder-extension.zip";
+      a.download = zipName;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error("Extension download failed:", err);
-      alert("Download failed. Please try again or load the extension manually from /extension/.");
+      alert("Download failed. Please try again.");
     } finally {
-      setDownloading(false);
+      setDownloading(null);
     }
   };
 
@@ -149,8 +172,8 @@ export default function ExtensionPage() {
         <div className="max-w-5xl mx-auto text-center">
 
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-indigo-200 bg-indigo-50 text-xs font-bold text-indigo-600 uppercase tracking-widest mb-8">
-            <Puzzle className="w-3.5 h-3.5" />
-            Browser Extension · Chrome &amp; Brave · Free
+            <img src={fseederLogo} alt="fseeder" className="w-[25px] h-[25px] rounded-md object-cover" />
+            Browser Extension · Chrome · Firefox · Free
           </div>
 
           {/* Extension popup mockup */}
@@ -210,25 +233,23 @@ export default function ExtensionPage() {
 
           <div className="flex items-center justify-center gap-4 flex-wrap mb-6">
             <button
-              onClick={handleDownload}
-              disabled={downloading}
+              onClick={() => handleDownload("chrome")}
+              disabled={!!downloading}
               className="inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-base shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed">
-              {downloading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
-              {downloading ? "Bundling…" : "Download Extension (.zip)"}
+              {downloading === "chrome" ? <Loader2 className="w-5 h-5 animate-spin" /> : <Chrome className="w-5 h-5" />}
+              {downloading === "chrome" ? "Bundling…" : "Chrome / Edge / Brave"}
             </button>
-            <a
-              href="https://chrome.google.com/webstore"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl border border-gray-200 bg-white text-gray-700 font-semibold text-base hover:border-indigo-200 hover:bg-indigo-50 transition-all duration-200">
-              <Chrome className="w-5 h-5 text-indigo-500" />
-              Chrome Web Store
-              <ExternalLink className="w-3.5 h-3.5 text-gray-400" />
-            </a>
+            <button
+              onClick={() => handleDownload("firefox")}
+              disabled={!!downloading}
+              className="inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl border border-gray-200 bg-white text-gray-700 font-bold text-base hover:border-orange-300 hover:bg-orange-50 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed">
+              {downloading === "firefox" ? <Loader2 className="w-5 h-5 animate-spin" /> : <Globe className="w-5 h-5 text-orange-500" />}
+              {downloading === "firefox" ? "Bundling…" : "Firefox"}
+            </button>
           </div>
 
           <p className="text-xs text-gray-400">
-            Works with Chrome, Brave, Edge, Opera · Manifest v3 · Open source · No analytics
+            Works with Chrome, Brave, Edge, Opera &amp; Firefox · Open source · No analytics
           </p>
         </div>
       </section>
@@ -281,13 +302,20 @@ export default function ExtensionPage() {
             ))}
           </div>
 
-          <div className="mt-12 flex justify-center">
+          <div className="mt-12 flex justify-center gap-4 flex-wrap">
             <button
-              onClick={handleDownload}
-              disabled={downloading}
+              onClick={() => handleDownload("chrome")}
+              disabled={!!downloading}
               className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed">
-              {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-              {downloading ? "Bundling extension…" : "Download fseeder Extension (.zip)"}
+              {downloading === "chrome" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Chrome className="w-4 h-4" />}
+              {downloading === "chrome" ? "Bundling…" : "Chrome / Edge / Brave"}
+            </button>
+            <button
+              onClick={() => handleDownload("firefox")}
+              disabled={!!downloading}
+              className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-2xl border border-gray-200 bg-white text-gray-700 font-bold shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed">
+              {downloading === "firefox" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4 text-orange-500" />}
+              {downloading === "firefox" ? "Bundling…" : "Firefox"}
             </button>
           </div>
         </div>
@@ -364,11 +392,18 @@ export default function ExtensionPage() {
           </p>
           <div className="flex items-center justify-center gap-4 flex-wrap">
             <button
-              onClick={handleDownload}
-              disabled={downloading}
+              onClick={() => handleDownload("chrome")}
+              disabled={!!downloading}
               className="inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl bg-white text-indigo-700 font-bold text-base hover:bg-indigo-50 transition-colors shadow-lg disabled:opacity-60 disabled:cursor-not-allowed">
-              {downloading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
-              {downloading ? "Bundling…" : "Download Extension (.zip)"}
+              {downloading === "chrome" ? <Loader2 className="w-5 h-5 animate-spin" /> : <Chrome className="w-5 h-5" />}
+              {downloading === "chrome" ? "Bundling…" : "Chrome / Edge / Brave"}
+            </button>
+            <button
+              onClick={() => handleDownload("firefox")}
+              disabled={!!downloading}
+              className="inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl border-2 border-white/30 text-white font-bold text-base hover:bg-white/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+              {downloading === "firefox" ? <Loader2 className="w-5 h-5 animate-spin" /> : <Globe className="w-5 h-5" />}
+              {downloading === "firefox" ? "Bundling…" : "Firefox"}
             </button>
             <Link to="/auth/register"
               className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl border-2 border-white/30 text-white font-bold text-base hover:bg-white/10 transition-colors">
