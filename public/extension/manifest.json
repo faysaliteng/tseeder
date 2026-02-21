@@ -12,8 +12,9 @@
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
-      "16": "icon16.svg",
-      "48": "icon48.svg"
+      "16": "logo.png",
+      "48": "logo.png",
+      "128": "logo.png"
     },
     "default_title": "fseeder — Send to cloud"
   },
