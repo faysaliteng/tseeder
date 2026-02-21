@@ -19,7 +19,7 @@ interface TopHeaderProps {
     plan: { name: string; maxStorageGb: number; bandwidthGb: number };
     storageUsedBytes: number;
     bandwidthUsedBytes: number;
-  };
+  } | null;
   onAddMagnet: (uri: string) => void;
   onUploadTorrent: () => void;
 }
@@ -228,8 +228,13 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
   const navigate = useNavigate();
   const location = useLocation();
 
-  const storageUsedPct = Math.min(100, (usage.storageUsedBytes / (usage.plan.maxStorageGb * 1e9)) * 100);
-  const isPro = usage.plan.name !== "free";
+  const safeUsage = usage ?? {
+    plan: { name: "free", maxStorageGb: 10, bandwidthGb: 50 },
+    storageUsedBytes: 0,
+    bandwidthUsedBytes: 0,
+  };
+  const storageUsedPct = Math.min(100, (safeUsage.storageUsedBytes / (safeUsage.plan.maxStorageGb * 1e9)) * 100);
+  const isPro = safeUsage.plan.name !== "free";
 
   const handlePasteSubmit = () => {
     const val = pasteValue.trim();
@@ -272,8 +277,8 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
         <div className="flex items-center gap-2.5 ml-1">
           <StorageRing
             usedPct={storageUsedPct}
-            usedBytes={usage.storageUsedBytes}
-            maxGb={usage.plan.maxStorageGb}
+            usedBytes={safeUsage.storageUsedBytes}
+            maxGb={safeUsage.plan.maxStorageGb}
           />
           <div className="flex flex-col min-w-0 overflow-hidden">
             <div className="flex items-center gap-1.5">
@@ -290,8 +295,8 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
               )}
             </div>
             <div className="text-xs font-semibold">
-              <span className="text-success">{formatBytes(usage.storageUsedBytes)}</span>
-              <span className="text-muted-foreground"> / {usage.plan.maxStorageGb} GB</span>
+              <span className="text-success">{formatBytes(safeUsage.storageUsedBytes)}</span>
+              <span className="text-muted-foreground"> / {safeUsage.plan.maxStorageGb} GB</span>
             </div>
             <ProviderChip />
           </div>
