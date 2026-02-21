@@ -228,9 +228,9 @@ function HeroSignupCard() {
 // ─── Pricing data ─────────────────────────────────────────────────────────────
 
 const PLANS = [
-  { name: "Basic", tagline: "Perfect for steady weekend use", price: 7.95, storage: "50 GB", streaming: "HD 720p", slots: 2, uploadSlots: 2, color: "#e05252", extras: ["FTP mount", "Ratio 1:1 or 12h seeding"], popular: false, emoji: "💧" },
-  { name: "Pro",   tagline: "Large libraries & private trackers", price: 12.95, storage: "150 GB", streaming: "FHD 1080p", slots: 8, uploadSlots: 8, color: "#2ecc71", extras: ["FTP mount", "Private tracker support", "Ratio 2:1 or 48h seeding"], popular: true, emoji: "🌱" },
-  { name: "Master",tagline: "Private Trackers & Priority Queue", price: 19.95, storage: "1 TB", streaming: "4K 2160p", slots: 25, uploadSlots: 25, color: "#9b59b6", extras: ["WebDAV mount", "Private tracker support", "Priority queue", "Ratio 5:1 or 120h seeding"], popular: false, emoji: "🌸" },
+  { name: "Basic", dbName: "pro", tagline: "Perfect for steady weekend use", price: 7.95, storage: "50 GB", streaming: "HD 720p", slots: 2, uploadSlots: 2, color: "#e05252", extras: ["FTP mount", "Ratio 1:1 or 12h seeding"], popular: false, emoji: "💧" },
+  { name: "Pro",   dbName: "business", tagline: "Large libraries & private trackers", price: 12.95, storage: "150 GB", streaming: "FHD 1080p", slots: 8, uploadSlots: 8, color: "#2ecc71", extras: ["FTP mount", "Private tracker support", "Ratio 2:1 or 48h seeding"], popular: true, emoji: "🌱" },
+  { name: "Master", dbName: "enterprise", tagline: "Private Trackers & Priority Queue", price: 19.95, storage: "1 TB", streaming: "4K 2160p", slots: 25, uploadSlots: 25, color: "#9b59b6", extras: ["WebDAV mount", "Private tracker support", "Priority queue", "Ratio 5:1 or 120h seeding"], popular: false, emoji: "🌸" },
 ];
 
 const PRICING_FAQ = [
@@ -457,7 +457,7 @@ export default function LandingPage() {
             <h2 className="text-2xl font-extrabold text-gray-900">Unlock the Full Experience</h2>
             <p className="text-gray-500 text-sm mt-1">Premium storage, faster speeds, and streaming on any device</p>
           </div>
-          <Link to="/app/crypto-checkout?plan=pro"
+          <Link to="/app/crypto-checkout?plan=business"
             className="shrink-0 px-8 py-3.5 rounded-full font-bold text-white text-sm hover:opacity-90 transition-all"
             style={{ background: "linear-gradient(135deg, #9b59b6, #a78bfa)", boxShadow: "0 4px 18px rgba(155,89,182,0.35)" }}>
             Join Premium
@@ -747,7 +747,7 @@ export default function LandingPage() {
                       <input type="checkbox" checked={billingYearly} readOnly className="accent-indigo-600" />
                       <span className="text-xs text-gray-500">Bill Yearly</span>
                     </label>
-                    <Link to={`/app/crypto-checkout?plan=${plan.name.toLowerCase()}`}
+                    <Link to={`/app/crypto-checkout?plan=${plan.dbName}`}
                       className="block w-full text-center py-2.5 rounded-xl font-bold text-sm text-white mb-5 hover:opacity-90 transition-all"
                       style={{ background: `linear-gradient(135deg, ${plan.color}, ${plan.color}cc)` }}>
                       Select Plan
