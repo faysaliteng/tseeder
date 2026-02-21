@@ -1,31 +1,34 @@
-// fseeder Extension — Background Service Worker
+// fseeder Extension — Firefox Background Script (MV2)
 const API_BASE = 'https://api.fseeder.cc';
 const ICON = 'icon48.png';
 
+// Use browser.* with chrome.* fallback
+const B = typeof browser !== 'undefined' ? browser : chrome;
+
 // ── Context menus ──────────────────────────────────────────────────────────────
 
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
+B.runtime.onInstalled.addListener(() => {
+  B.contextMenus.create({
     id: 'fsdr-send-magnet',
     title: '⚡ Send to fseeder Cloud',
     contexts: ['link'],
     targetUrlPatterns: ['magnet:*'],
   });
 
-  chrome.contextMenus.create({
+  B.contextMenus.create({
     id: 'fsdr-send-link',
     title: '⚡ Send URL to fseeder',
     contexts: ['link'],
   });
 });
 
-chrome.contextMenus.onClicked.addListener(async (info) => {
+B.contextMenus.onClicked.addListener(async (info) => {
   const url = info.linkUrl;
   if (!url) return;
 
-  const auth = await chrome.storage.local.get(['tsdr_token', 'tsdr_email']);
+  const auth = await B.storage.local.get(['tsdr_token', 'tsdr_email']);
   if (!auth.tsdr_token) {
-    chrome.notifications.create({
+    B.notifications.create({
       type: 'basic',
       iconUrl: ICON,
       title: 'fseeder',
@@ -44,11 +47,11 @@ chrome.contextMenus.onClicked.addListener(async (info) => {
 
 // ── Internal message from content script ───────────────────────────────────────
 
-chrome.runtime.onMessage.addListener((msg, _sender, _sendResponse) => {
+B.runtime.onMessage.addListener((msg, _sender, _sendResponse) => {
   if (msg.type === 'TSDR_QUEUE_MAGNET' && msg.magnetUri) {
-    chrome.storage.local.get(['tsdr_token'], async (auth) => {
+    B.storage.local.get(['tsdr_token']).then(async (auth) => {
       if (!auth.tsdr_token) {
-        chrome.notifications.create({
+        B.notifications.create({
           type: 'basic',
           iconUrl: ICON,
           title: 'fseeder',
@@ -60,27 +63,6 @@ chrome.runtime.onMessage.addListener((msg, _sender, _sendResponse) => {
     });
   }
   return false;
-});
-
-// ── External message from web app (auth bridge — still supported) ─────────────
-
-chrome.runtime.onMessageExternal.addListener((msg, _sender, sendResponse) => {
-  if (msg.type === 'TSDR_AUTH') {
-    chrome.storage.local.set({
-      tsdr_token: msg.token,
-      tsdr_email: msg.email,
-    }, () => {
-      sendResponse({ ok: true });
-    });
-    return true;
-  }
-
-  if (msg.type === 'TSDR_SIGNOUT') {
-    chrome.storage.local.remove(['tsdr_token', 'tsdr_email'], () => {
-      sendResponse({ ok: true });
-    });
-    return true;
-  }
 });
 
 // ── Core job POST ──────────────────────────────────────────────────────────────
@@ -97,15 +79,15 @@ async function sendJob(body, token) {
     });
 
     if (res.ok) {
-      chrome.notifications.create({
+      B.notifications.create({
         type: 'basic',
         iconUrl: ICON,
         title: 'fseeder ✅',
         message: 'Added to your cloud vault!',
       });
     } else if (res.status === 401) {
-      await chrome.storage.local.remove(['tsdr_token', 'tsdr_email']);
-      chrome.notifications.create({
+      await B.storage.local.remove(['tsdr_token', 'tsdr_email']);
+      B.notifications.create({
         type: 'basic',
         iconUrl: ICON,
         title: 'fseeder — Session expired',
@@ -115,7 +97,7 @@ async function sendJob(body, token) {
       throw new Error(`API error ${res.status}`);
     }
   } catch (err) {
-    chrome.notifications.create({
+    B.notifications.create({
       type: 'basic',
       iconUrl: ICON,
       title: 'fseeder ❌',
