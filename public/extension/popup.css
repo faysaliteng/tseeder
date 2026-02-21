@@ -18,16 +18,19 @@ body {
   display: flex; align-items: center; gap: 10px;
   background: linear-gradient(135deg, rgba(99,102,241,0.08), transparent);
 }
-.header-logo {
-  width: 36px; height: 36px;
-  border-radius: 10px;
-  box-shadow: 0 0 16px rgba(99,102,241,0.45);
+.header-logo, .logo-img {
+  width: 25px; height: 25px;
+  border-radius: 6px;
+  box-shadow: 0 0 12px rgba(99,102,241,0.35);
   flex-shrink: 0;
   object-fit: cover;
 }
-.brand { font-weight: 900; font-size: 15px; color: #e2e8f0; letter-spacing: -0.02em; }
+.logo-row {
+  display: flex; align-items: center; gap: 8px;
+}
+.app-title, .brand { font-weight: 900; font-size: 15px; color: #e2e8f0; letter-spacing: -0.02em; margin: 0; }
 .brand span { color: #6366f1; }
-.subtitle { font-size: 10px; color: #475569; margin-top: 1px; }
+.app-subtitle, .subtitle { font-size: 10px; color: #475569; margin-top: 1px; }
 
 /* ── Views ──────────────────────────────────────────────────── */
 .view { padding: 14px 16px; }
