@@ -13,9 +13,10 @@ export const engine = new WebTorrentEngine();
 
 interface StartPayload {
   jobId: string;
-  type: "magnet" | "torrent";
+  type: "magnet" | "torrent" | "url";
   magnetUri?: string;
   torrentBase64?: string;
+  directUrl?: string;
   callbackUrl: string;
   callbackSecret: string;
   correlationId: string;
@@ -34,7 +35,7 @@ export async function handleStart(
     return;
   }
 
-  const { jobId, type, magnetUri, torrentBase64, callbackUrl, callbackSecret } = body;
+  const { jobId, type, magnetUri, torrentBase64, directUrl, callbackUrl, callbackSecret } = body;
   const downloadDir = path.join(process.env.DOWNLOAD_DIR ?? "/tmp/rdm", jobId);
   fs.mkdirSync(downloadDir, { recursive: true });
 
@@ -45,25 +46,32 @@ export async function handleStart(
   res.end(JSON.stringify({ ok: true, jobId, message: "Job started" }));
 
   // Run download pipeline in background (no await)
-  runDownloadPipeline({ jobId, type, magnetUri, torrentBase64, downloadDir, callbackUrl, callbackSecret, correlationId })
+  runDownloadPipeline({ jobId, type, magnetUri, torrentBase64, directUrl, downloadDir, callbackUrl, callbackSecret, correlationId })
     .catch(err => logger.error({ jobId, err }, "Download pipeline error"));
 }
 
 async function runDownloadPipeline(opts: {
   jobId: string;
-  type: "magnet" | "torrent";
+  type: "magnet" | "torrent" | "url";
   magnetUri?: string;
   torrentBase64?: string;
+  directUrl?: string;
   downloadDir: string;
   callbackUrl: string;
   callbackSecret: string;
   correlationId: string;
 }): Promise<void> {
-  const { jobId, type, magnetUri, torrentBase64, downloadDir, callbackUrl, callbackSecret, correlationId } = opts;
+  const { jobId, type, magnetUri, torrentBase64, directUrl, downloadDir, callbackUrl, callbackSecret, correlationId } = opts;
   let idempotencySeq = 0;
 
   try {
     const torrentBuffer = torrentBase64 ? Buffer.from(torrentBase64, "base64") : undefined;
+
+    // Direct URL download (non-torrent HTTP link)
+    if (type === "url" && directUrl) {
+      await runDirectDownload({ jobId, directUrl, downloadDir, callbackUrl, callbackSecret, correlationId });
+      return;
+    }
 
     const progressStream = await engine.start({
       jobId,
@@ -229,4 +237,120 @@ async function readJson<T>(req: IncomingMessage): Promise<T | null> {
     });
     req.on("error", () => resolve(null));
   });
+}
+
+// ── Direct HTTP download (non-torrent URLs) ─────────────────────────────────
+
+async function runDirectDownload(opts: {
+  jobId: string;
+  directUrl: string;
+  downloadDir: string;
+  callbackUrl: string;
+  callbackSecret: string;
+  correlationId: string;
+}): Promise<void> {
+  const { jobId, directUrl, downloadDir, callbackUrl, callbackSecret, correlationId } = opts;
+  let idempotencySeq = 0;
+
+  try {
+    // Extract filename from URL
+    const urlObj = new URL(directUrl);
+    const fileName = decodeURIComponent(urlObj.pathname.split("/").pop() || "download");
+    const filePath = path.join(downloadDir, fileName);
+
+    logger.info({ jobId, url: directUrl, fileName }, "Starting direct HTTP download");
+
+    // Send initial progress
+    await postCallback(callbackUrl, callbackSecret, correlationId, {
+      jobId,
+      workerId: process.env.WORKER_ID ?? "agent-1",
+      eventType: "progress_update",
+      idempotencyKey: `${jobId}:${++idempotencySeq}`,
+      progressPct: 0, downloadSpeed: 0, uploadSpeed: 0, eta: -1,
+      peers: 0, seeds: 0, bytesDownloaded: 0, bytesTotal: 0,
+      status: "downloading",
+    });
+
+    const response = await fetch(directUrl, { signal: AbortSignal.timeout(600_000) });
+    if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`);
+    if (!response.body) throw new Error("No response body");
+
+    const contentLength = parseInt(response.headers.get("content-length") ?? "0");
+    let downloaded = 0;
+    let lastCallback = Date.now();
+
+    const writer = fs.createWriteStream(filePath);
+    const reader = response.body.getReader();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      writer.write(Buffer.from(value));
+      downloaded += value.byteLength;
+
+      // Throttle callbacks to every 2 seconds
+      if (Date.now() - lastCallback > 2000) {
+        const pct = contentLength > 0 ? Math.round((downloaded / contentLength) * 100) : 0;
+        await postCallback(callbackUrl, callbackSecret, correlationId, {
+          jobId,
+          workerId: process.env.WORKER_ID ?? "agent-1",
+          eventType: "progress_update",
+          idempotencyKey: `${jobId}:${++idempotencySeq}`,
+          progressPct: pct, downloadSpeed: 0, uploadSpeed: 0,
+          eta: -1, peers: 0, seeds: 0,
+          bytesDownloaded: downloaded, bytesTotal: contentLength,
+          status: "downloading",
+        });
+        lastCallback = Date.now();
+      }
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      writer.end(() => resolve());
+      writer.on("error", reject);
+    });
+
+    // Virus scan
+    const scanResult = await scanDirectory(downloadDir);
+    if (scanResult.status === "infected") {
+      fs.rmSync(downloadDir, { recursive: true, force: true });
+      await postCallback(callbackUrl, callbackSecret, correlationId, {
+        jobId, workerId: process.env.WORKER_ID ?? "agent-1",
+        eventType: "job_failed", idempotencyKey: `${jobId}:scan:infected`,
+        progressPct: 100, downloadSpeed: 0, uploadSpeed: 0, eta: 0,
+        peers: 0, seeds: 0, bytesDownloaded: downloaded, bytesTotal: contentLength,
+        status: "failed", error: `Virus detected: ${scanResult.detail}`,
+        scanStatus: "infected", scanDetail: scanResult.detail,
+      });
+      jobRegistry.set(jobId, { status: "failed", startedAt: Date.now() });
+      return;
+    }
+
+    // Complete
+    const fileList = buildFileList(downloadDir, jobId);
+    await postCallback(callbackUrl, callbackSecret, correlationId, {
+      jobId, workerId: process.env.WORKER_ID ?? "agent-1",
+      eventType: "job_completed", idempotencyKey: `${jobId}:${++idempotencySeq}`,
+      progressPct: 100, downloadSpeed: 0, uploadSpeed: 0, eta: 0,
+      peers: 0, seeds: 0, bytesDownloaded: downloaded, bytesTotal: contentLength,
+      status: "completed", files: fileList,
+      scanStatus: scanResult.status, scanDetail: scanResult.detail,
+      scanDurationMs: scanResult.durationMs, scanFilesScanned: scanResult.filesScanned,
+    });
+
+    logger.info({ jobId, fileName, size: downloaded }, "Direct download complete");
+    jobRegistry.set(jobId, { status: "completed", startedAt: Date.now() });
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    logger.error({ jobId, error: errMsg }, "Direct download failed");
+    await postCallback(callbackUrl, callbackSecret, correlationId, {
+      jobId, workerId: process.env.WORKER_ID ?? "agent-1",
+      eventType: "job_failed", idempotencyKey: `${jobId}:error:${Date.now()}`,
+      progressPct: 0, downloadSpeed: 0, uploadSpeed: 0, eta: 0,
+      peers: 0, seeds: 0, bytesDownloaded: 0, bytesTotal: 0,
+      status: "failed", error: errMsg,
+    });
+    jobRegistry.set(jobId, { status: "failed", startedAt: Date.now() });
+  }
 }

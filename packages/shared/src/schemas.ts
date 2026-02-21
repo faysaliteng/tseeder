@@ -56,6 +56,13 @@ export const CreateJobMagnetSchema = z.object({
 });
 export type CreateJobMagnet = z.infer<typeof CreateJobMagnetSchema>;
 
+export const CreateJobUrlSchema = z.object({
+  type: z.literal("url"),
+  url: z.string().url("Must be a valid URL").max(2048),
+  name: z.string().max(255).optional(),
+});
+export type CreateJobUrl = z.infer<typeof CreateJobUrlSchema>;
+
 export const CreateJobTorrentSchema = z.object({
   type: z.literal("torrent"),
   filename: z.string().min(1).max(255),
