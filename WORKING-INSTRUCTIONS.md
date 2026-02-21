@@ -1034,5 +1034,96 @@ echo "0 3 * * * /usr/bin/freshclam --quiet" | sudo crontab -
 | `apps/api/src/handlers/jobs.ts` | Persists `scan_status` + `scan_detail` from callback |
 | `apps/api/src/d1-helpers.ts` | `updateJobStatus` supports scan fields |
 | `packages/shared/migrations/0013_scan_status.sql` | Adds scan columns to jobs table |
+
+---
+
+## 11. Crypto Payment Gateway
+
+Users can pay for plan upgrades using cryptocurrency. The system supports multiple coins/networks and uses on-chain verification.
+
+### Supported Coins
+
+| Coin | Network | Notes |
+|---|---|---|
+| BTC | Bitcoin | ~10 min confirmation |
+| USDT | TRC-20 (Tron) | Fast & low fees |
+| USDT-SOL | Solana (SPL) | Instant & near-zero fees |
+| USDT-POLYGON | Polygon | Low fees, fast |
+| LTC | Litecoin | ~2.5 min confirmation |
+| BNB | BEP-20 (BSC) | Fast & cheap |
+
+### Plan → Price Mapping
+
+| Display Name | DB `plan_name` | Price (USD) |
+|---|---|---|
+| Basic | `pro` | $4.85 |
+| Pro | `business` | $8.85 |
+| Master | `enterprise` | $15.89 |
+
+> ⚠️ The frontend display names (Basic/Pro/Master) map to **different** database plan names (pro/business/enterprise). This mapping exists in `src/pages/Landing.tsx` (`PLANS[].dbName`) and `src/pages/CryptoCheckout.tsx` (`PLAN_DISPLAY`).
+
+### D1 Migration
+
+Run migration `0014_crypto_payments.sql`:
+
+```powershell
+cd apps/api
+npx wrangler d1 migrations apply rdm-database --env production --remote
+```
+
+This creates three tables: `crypto_wallets`, `crypto_orders`, `crypto_prices`.
+
+### Set Crypto Prices in D1
+
+```powershell
+cd apps/api
+npx wrangler d1 execute rdm-database --env production --remote --command "INSERT INTO crypto_prices (plan_name, price_usd) VALUES ('pro', 4.85) ON CONFLICT(plan_name) DO UPDATE SET price_usd = 4.85, updated_at = datetime('now')"
+npx wrangler d1 execute rdm-database --env production --remote --command "INSERT INTO crypto_prices (plan_name, price_usd) VALUES ('business', 8.85) ON CONFLICT(plan_name) DO UPDATE SET price_usd = 8.85, updated_at = datetime('now')"
+npx wrangler d1 execute rdm-database --env production --remote --command "INSERT INTO crypto_prices (plan_name, price_usd) VALUES ('enterprise', 15.89) ON CONFLICT(plan_name) DO UPDATE SET price_usd = 15.89, updated_at = datetime('now')"
+```
+
+### Configure Wallet Addresses
+
+Add your crypto wallet addresses via Admin panel → Crypto Wallets, or directly in D1:
+
+```sql
+INSERT INTO crypto_wallets (coin, address, network, is_active) VALUES
+  ('BTC', 'YOUR_BTC_ADDRESS', 'Bitcoin', 1),
+  ('USDT', 'YOUR_USDT_TRC20_ADDRESS', 'TRC-20', 1),
+  ('LTC', 'YOUR_LTC_ADDRESS', 'Litecoin', 1),
+  ('BNB', 'YOUR_BNB_ADDRESS', 'BEP-20', 1)
+ON CONFLICT(coin) DO UPDATE SET address = excluded.address, is_active = excluded.is_active, updated_at = datetime('now');
+```
+
+### How It Works
+
+1. User selects a plan on Landing page or Settings → clicks crypto payment
+2. Frontend sends `POST /crypto/orders` with `plan_name` (db name) and `coin`
+3. API looks up price from `crypto_prices` table, assigns a wallet from `crypto_wallets`
+4. Order created with 30-minute expiry, QR code displayed to user
+5. API polls blockchain (or admin manually confirms) to detect payment
+6. On confirmation → user's plan is upgraded, order status set to `confirmed`
+
+### Files Changed
+
+| File | Change |
+|---|---|
+| `packages/shared/migrations/0014_crypto_payments.sql` | Tables: `crypto_wallets`, `crypto_orders`, `crypto_prices` |
+| `apps/api/src/handlers/crypto.ts` | API endpoints for wallets, orders, pricing |
+| `src/pages/CryptoCheckout.tsx` | Checkout UI with coin selection, QR code, countdown timer |
+| `src/pages/Landing.tsx` | Pricing section with plan→dbName mapping ($4.85/$8.85/$15.89) |
+| `src/pages/Settings.tsx` | Billing section with crypto payment buttons per tier |
+| `src/pages/admin/CryptoWallets.tsx` | Admin wallet management UI |
+| `src/lib/api.ts` | `cryptoBilling` API client methods |
+| `src/lib/qr.ts` | QR code generator for wallet addresses |
+
+### Troubleshooting
+
+| Issue | Fix |
+|---|---|
+| "No price configured" error | Run the `INSERT INTO crypto_prices` commands above |
+| No coins shown on checkout | Add wallet addresses to `crypto_wallets` with `is_active = 1` |
+| Wrong plan name in checkout URL | Ensure Landing page `PLANS[].dbName` matches D1 `crypto_prices.plan_name` |
+| Price mismatch between UI and DB | Update both `src/pages/Settings.tsx` button labels AND `crypto_prices` table |
 | `src/pages/JobDetail.tsx` | Shows virus scan badge (✅ Virus-free / ⚠️ Threat detected) |
 | `src/pages/Dashboard.tsx` | Shows shield icon on completed jobs |
