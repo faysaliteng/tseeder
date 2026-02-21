@@ -33,6 +33,7 @@ const NAV = [
   { to: "/admin/security",        label: "Security",        icon: ShieldAlert,     color: "text-destructive" },
   { to: "/admin/audit",           label: "Audit Log",       icon: ScrollText,      color: "text-muted-foreground" },
   { to: "/admin/blog",            label: "Blog / CMS",      icon: FileText,        color: "text-info" },
+  { to: "/admin/crypto-wallets",  label: "Crypto Wallets",  icon: Layers,          color: "text-warning" },
   { to: "/admin/settings",        label: "Settings",        icon: Settings,        color: "text-muted-foreground" },
 ];
 
@@ -50,6 +51,7 @@ const CMD_ITEMS = [
   { group: "Navigation", label: "Security",       to: "/admin/security",       icon: ShieldAlert },
   { group: "Navigation", label: "Audit Log",      to: "/admin/audit",          icon: ScrollText },
   { group: "Navigation", label: "Blog / CMS",     to: "/admin/blog",           icon: FileText },
+  { group: "Navigation", label: "Crypto Wallets", to: "/admin/crypto-wallets", icon: Layers },
   { group: "Navigation", label: "Settings",       to: "/admin/settings",       icon: Settings },
   { group: "App", label: "Back to App",   to: "/app/dashboard", icon: LogOut },
   { group: "App", label: "Admin Login",   to: "/admin/login",   icon: Command },
