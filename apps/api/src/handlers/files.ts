@@ -120,46 +120,7 @@ export async function handleStreamProxy(req: Request, env: Env, ctx: Ctx): Promi
   if (!file) return apiError("NOT_FOUND", "File not found", 404, correlationId);
   if (!file.is_complete) return apiError("VALIDATION_ERROR", "File not ready", 409, correlationId);
 
-  // Stream from R2 if r2_key exists
-  if (file.r2_key) {
-    const obj = await env.FILES_BUCKET.get(file.r2_key);
-    if (!obj) return apiError("NOT_FOUND", "File not found in storage", 404, correlationId);
-
-    const filename = file.path.split("/").pop() ?? "download";
-    const headers = new Headers();
-    headers.set("Content-Type", obj.httpMetadata?.contentType ?? "application/octet-stream");
-    headers.set("Content-Length", String(obj.size));
-    headers.set("Accept-Ranges", "bytes");
-    // Allow inline playback (not download)
-    headers.set("Content-Disposition", `inline; filename="${encodeURIComponent(filename)}"`);
-    headers.set("Cache-Control", "private, max-age=3600");
-
-    // Handle Range requests for seeking in video players
-    const rangeHeader = req.headers.get("Range");
-    if (rangeHeader && obj.size) {
-      const match = rangeHeader.match(/bytes=(\d+)-(\d*)/);
-      if (match) {
-        const start = parseInt(match[1], 10);
-        const end = match[2] ? parseInt(match[2], 10) : obj.size - 1;
-        const chunk = end - start + 1;
-
-        // Re-fetch with range from R2
-        const rangedObj = await env.FILES_BUCKET.get(file.r2_key, {
-          range: { offset: start, length: chunk },
-        });
-        if (!rangedObj) return apiError("SERVER_ERROR", "Range request failed", 500, correlationId);
-
-        headers.set("Content-Range", `bytes ${start}-${end}/${obj.size}`);
-        headers.set("Content-Length", String(chunk));
-
-        return new Response(rangedObj.body, { status: 206, headers });
-      }
-    }
-
-    return new Response(obj.body, { status: 200, headers });
-  }
-
-  // Fallback: proxy from agent
+  // Always proxy from agent — no R2
   const agentBase = env.WORKER_CLUSTER_URL;
   if (!agentBase) return apiError("SERVER_ERROR", "Agent not configured", 500, correlationId);
 
