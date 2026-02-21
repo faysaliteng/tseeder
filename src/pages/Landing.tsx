@@ -228,9 +228,9 @@ function HeroSignupCard() {
 // ─── Pricing data ─────────────────────────────────────────────────────────────
 
 const PLANS = [
-  { name: "Basic", dbName: "pro", tagline: "Perfect for steady weekend use", price: 7.95, storage: "50 GB", streaming: "HD 720p", slots: 2, uploadSlots: 2, color: "#e05252", extras: ["FTP mount", "Ratio 1:1 or 12h seeding"], popular: false, emoji: "💧" },
-  { name: "Pro",   dbName: "business", tagline: "Large libraries & private trackers", price: 12.95, storage: "150 GB", streaming: "FHD 1080p", slots: 8, uploadSlots: 8, color: "#2ecc71", extras: ["FTP mount", "Private tracker support", "Ratio 2:1 or 48h seeding"], popular: true, emoji: "🌱" },
-  { name: "Master", dbName: "enterprise", tagline: "Private Trackers & Priority Queue", price: 19.95, storage: "1 TB", streaming: "4K 2160p", slots: 25, uploadSlots: 25, color: "#9b59b6", extras: ["WebDAV mount", "Private tracker support", "Priority queue", "Ratio 5:1 or 120h seeding"], popular: false, emoji: "🌸" },
+  { name: "Basic", dbName: "pro", tagline: "Perfect for steady weekend use", price: 4.85, storage: "50 GB", streaming: "HD 720p", slots: 2, uploadSlots: 2, color: "#e05252", extras: ["FTP mount", "Ratio 1:1 or 12h seeding"], popular: false, emoji: "💧" },
+  { name: "Pro",   dbName: "business", tagline: "Large libraries & private trackers", price: 8.85, storage: "150 GB", streaming: "FHD 1080p", slots: 8, uploadSlots: 8, color: "#2ecc71", extras: ["FTP mount", "Private tracker support", "Ratio 2:1 or 48h seeding"], popular: true, emoji: "🌱" },
+  { name: "Master", dbName: "enterprise", tagline: "Private Trackers & Priority Queue", price: 15.89, storage: "1 TB", streaming: "4K 2160p", slots: 25, uploadSlots: 25, color: "#9b59b6", extras: ["WebDAV mount", "Private tracker support", "Priority queue", "Ratio 5:1 or 120h seeding"], popular: false, emoji: "🌸" },
 ];
 
 const PRICING_FAQ = [
