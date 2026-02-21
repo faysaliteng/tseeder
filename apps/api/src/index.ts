@@ -11,7 +11,7 @@ import {
   handleExtensionLogin, extractCookie, apiError,
 } from "./handlers/auth";
 import { handleCreateJob, handleListJobs, handleGetJob, handleJobAction, handleJobCallback, handleDeleteJob } from "./handlers/jobs";
-import { handleGetFiles, handleSignedUrl, handleDeleteFile, handleProxyDownload } from "./handlers/files";
+import { handleGetFiles, handleSignedUrl, handleDeleteFile, handleProxyDownload, handleStreamProxy } from "./handlers/files";
 import { handleGetUsage, handleGetPlans } from "./handlers/admin";
 import {
   handleAdminListUsers, handleAdminGetUser, handleAdminUpdateUser, handleAdminForceLogout,
@@ -218,6 +218,7 @@ router.post("/jobs/callback",     [rateLimitMiddleware("callback", 200, 60)],  h
 router.get("/jobs/:id/files",              [authMiddleware],                   handleGetFiles);
 router.post("/files/:fileId/signed-url",   [authMiddleware, csrfMiddleware],   handleSignedUrl);
 router.get("/files/:fileId/download",      [authMiddleware],                   handleProxyDownload);
+router.get("/files/:fileId/stream",        [],                                  handleStreamProxy);  // token-based, no cookies needed
 router.delete("/files/:fileId",            [authMiddleware, csrfMiddleware],   handleDeleteFile);
 
 // ── Usage ──────────────────────────────────────────────────────────────────────
