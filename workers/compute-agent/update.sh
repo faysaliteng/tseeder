@@ -38,6 +38,8 @@ mkdir -p "${INSTALL_DIR}/src/routes"
 cp "${TMP_DIR}/${AGENT_SRC}/src/"*.ts        "${INSTALL_DIR}/src/"
 cp "${TMP_DIR}/${AGENT_SRC}/src/routes/"*.ts "${INSTALL_DIR}/src/routes/"
 cp "${TMP_DIR}/${AGENT_SRC}/package.json"    "${INSTALL_DIR}/"
+cp "${TMP_DIR}/${AGENT_SRC}/update.sh"      "${INSTALL_DIR}/" 2>/dev/null || true
+chmod +x "${INSTALL_DIR}/update.sh"
 
 # ── Install dependencies ─────────────────────────────────────────────────────
 info "Installing dependencies…"
