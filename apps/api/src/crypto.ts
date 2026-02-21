@@ -147,14 +147,17 @@ export async function signS3Request(params: {
   const scope = `${dateStamp}/${region}/s3/aws4_request`;
   const credentialParam = `${accessKeyId}/${scope}`;
 
-  const url = new URL(`${endpoint}/${bucket}/${encodeURIComponent(key)}`);
+  // Encode each path segment individually (preserving / separators)
+  const encodedKey = key.split("/").map(s => encodeURIComponent(s)).join("/");
+
+  const url = new URL(`${endpoint}/${bucket}/${encodedKey}`);
   url.searchParams.set("X-Amz-Algorithm", "AWS4-HMAC-SHA256");
   url.searchParams.set("X-Amz-Credential", credentialParam);
   url.searchParams.set("X-Amz-Date", amzDateTime);
   url.searchParams.set("X-Amz-Expires", String(expiresIn));
   url.searchParams.set("X-Amz-SignedHeaders", "host");
 
-  const canonicalUri = `/${bucket}/${key}`;
+  const canonicalUri = `/${bucket}/${encodedKey}`;
   const canonicalQueryString = [...url.searchParams.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
