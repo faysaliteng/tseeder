@@ -182,7 +182,10 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
                 {isPro ? "PRO" : "FREE"}
               </span>
               {!isPro && (
-                <button className="text-[10px] font-bold text-warning flex items-center gap-0.5 hover:opacity-80 whitespace-nowrap shrink-0 transition-opacity">
+                <button
+                  onClick={() => navigate("/app/crypto-checkout?plan=pro")}
+                  className="text-[10px] font-bold text-warning flex items-center gap-0.5 hover:opacity-80 whitespace-nowrap shrink-0 transition-opacity"
+                >
                   ▲ UPGRADE
                 </button>
               )}
@@ -300,8 +303,11 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
           <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
           <div className="absolute right-4 top-[76px] z-50 w-64 glass-premium rounded-2xl shadow-[0_16px_48px_hsl(220_26%_0%/0.6)] overflow-hidden animate-scale-in border border-primary/10">
             {!isPro && (
-              <button className="w-full flex items-center justify-between px-4 py-3.5 font-bold text-sm hover:opacity-90 transition-opacity relative overflow-hidden group"
-                style={{ background: "linear-gradient(90deg, hsl(38 92% 40%), hsl(38 92% 50%))" }}>
+              <button
+                onClick={() => { setMenuOpen(false); navigate("/app/crypto-checkout?plan=pro"); }}
+                className="w-full flex items-center justify-between px-4 py-3.5 font-bold text-sm hover:opacity-90 transition-opacity relative overflow-hidden group"
+                style={{ background: "linear-gradient(90deg, hsl(38 92% 40%), hsl(38 92% 50%))" }}
+              >
                 <span className="text-black flex items-center gap-2"><Zap className="w-4 h-4" /> Become Premium</span>
                 <span className="text-xl">🏆</span>
                 <span className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 bg-gradient-to-r from-transparent via-white/20 to-transparent" />

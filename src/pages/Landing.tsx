@@ -412,7 +412,7 @@ export default function LandingPage() {
             <h2 className="text-2xl font-extrabold text-gray-900">Unlock the Full Experience</h2>
             <p className="text-gray-500 text-sm mt-1">Premium storage, faster speeds, and streaming on any device</p>
           </div>
-          <Link to="/auth/register"
+          <Link to="/app/crypto-checkout?plan=pro"
             className="shrink-0 px-8 py-3.5 rounded-full font-bold text-white text-sm hover:opacity-90 transition-all"
             style={{ background: "linear-gradient(135deg, #9b59b6, #a78bfa)", boxShadow: "0 4px 18px rgba(155,89,182,0.35)" }}>
             Join Premium
@@ -702,7 +702,7 @@ export default function LandingPage() {
                       <input type="checkbox" checked={billingYearly} readOnly className="accent-indigo-600" />
                       <span className="text-xs text-gray-500">Bill Yearly</span>
                     </label>
-                    <Link to="/auth/register"
+                    <Link to={`/app/crypto-checkout?plan=${plan.name.toLowerCase()}`}
                       className="block w-full text-center py-2.5 rounded-xl font-bold text-sm text-white mb-5 hover:opacity-90 transition-all"
                       style={{ background: `linear-gradient(135deg, ${plan.color}, ${plan.color}cc)` }}>
                       Select Plan
