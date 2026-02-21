@@ -15,6 +15,9 @@ import {
 const COIN_META: Record<string, { label: string; color: string; network: string }> = {
   BTC: { label: "Bitcoin", color: "text-warning", network: "Bitcoin" },
   USDT: { label: "Tether USDT", color: "text-success", network: "TRC-20" },
+  "USDT-TRC20": { label: "USDT", color: "text-success", network: "TRC-20" },
+  "USDT-SOL": { label: "USDT", color: "text-success", network: "Solana (SPL)" },
+  "USDT-POLYGON": { label: "USDT", color: "text-success", network: "Polygon" },
   LTC: { label: "Litecoin", color: "text-muted-foreground", network: "Litecoin" },
   BNB: { label: "BNB", color: "text-warning", network: "BEP-20" },
 };
