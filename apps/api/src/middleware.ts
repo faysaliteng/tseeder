@@ -61,17 +61,23 @@ export const csrfMiddleware: Middleware = async (req, env, ctx) => {
 
 export function rateLimitMiddleware(key: string, max: number, windowSeconds: number): Middleware {
   return async (req, env, ctx) => {
-    const id = ctx.user?.id ?? req.headers.get("CF-Connecting-IP") ?? "unknown";
-    const kvKey = `rl:${key}:${id}`;
-    const raw = await env.RATE_LIMIT_KV.get(kvKey);
-    const current = parseInt(raw ?? "0");
-    if (current >= max) {
-      return Response.json(
-        { error: { code: "RATE_LIMITED", message: "Rate limit exceeded" } },
-        { status: 429, headers: { "Retry-After": String(windowSeconds) } },
-      );
+    try {
+      const id = ctx.user?.id ?? req.headers.get("CF-Connecting-IP") ?? "unknown";
+      const kvKey = `rl:${key}:${id}`;
+      const raw = await env.RATE_LIMIT_KV.get(kvKey);
+      const current = parseInt(raw ?? "0");
+      if (current >= max) {
+        return Response.json(
+          { error: { code: "RATE_LIMITED", message: "Rate limit exceeded" } },
+          { status: 429, headers: { "Retry-After": String(windowSeconds) } },
+        );
+      }
+      await env.RATE_LIMIT_KV.put(kvKey, String(current + 1), { expirationTtl: windowSeconds });
+    } catch (e) {
+      // Fail open — if KV is unavailable (e.g. daily limit exceeded),
+      // allow the request through rather than returning a 500.
+      console.error("Rate-limit KV error (failing open):", e);
     }
-    await env.RATE_LIMIT_KV.put(kvKey, String(current + 1), { expirationTtl: windowSeconds });
     return null;
   };
 }
