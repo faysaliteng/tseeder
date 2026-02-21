@@ -22,46 +22,68 @@ type Ctx = { params: Record<string, string>; query: Record<string, string>; user
 const VALID_COINS = ["BTC", "USDT", "USDT-TRC20", "USDT-SOL", "USDT-POLYGON", "LTC", "BNB"];
 const ORDER_EXPIRY_MINUTES = 30;
 
-// ── Coin → CryptoCompare symbol mapping ──────────────────────────────────────
+// ── Coin symbol mapping ───────────────────────────────────────────────────────
 const CRYPTO_SYMBOLS: Record<string, string> = {
-  BTC: "BTC",
-  USDT: "USDT",
-  "USDT-TRC20": "USDT",
-  "USDT-SOL": "USDT",
-  "USDT-POLYGON": "USDT",
-  LTC: "LTC",
-  BNB: "BNB",
+  BTC: "bitcoin",
+  USDT: "tether",
+  "USDT-TRC20": "tether",
+  "USDT-SOL": "tether",
+  "USDT-POLYGON": "tether",
+  LTC: "litecoin",
+  BNB: "binancecoin",
 };
 
+const FETCH_HEADERS = { "User-Agent": "fseeder/1.0", "Accept": "application/json" };
+
 async function fetchCryptoPrice(coin: string): Promise<number> {
-  const symbol = CRYPTO_SYMBOLS[coin];
-  if (!symbol) throw new Error(`Unknown coin: ${coin}`);
+  const id = CRYPTO_SYMBOLS[coin];
+  if (!id) throw new Error(`Unknown coin: ${coin}`);
 
   // Stablecoins — hardcode to $1
-  if (symbol === "USDT") return 1;
+  if (id === "tether") return 1;
 
-  // Primary: CryptoCompare (free, no key required)
+  // 1) CoinCap v2 (free, no key, CF Worker friendly)
   try {
-    const resp = await fetch(
-      `https://min-api.cryptocompare.com/data/price?fsym=${symbol}&tsyms=USD`,
-      { signal: AbortSignal.timeout(10_000) },
-    );
+    const resp = await fetch(`https://api.coincap.io/v2/assets/${id}`, {
+      headers: FETCH_HEADERS, signal: AbortSignal.timeout(10_000),
+    });
     if (resp.ok) {
-      const data = await resp.json<{ USD?: number }>();
-      if (data.USD && data.USD > 0) return data.USD;
+      const data = await resp.json<{ data?: { priceUsd?: string } }>();
+      const price = parseFloat(data.data?.priceUsd ?? "0");
+      if (price > 0) return price;
     }
-  } catch { /* fall through to backup */ }
+  } catch { /* fall through */ }
 
-  // Fallback: Binance public ticker
-  const resp = await fetch(
-    `https://api.binance.com/api/v3/ticker/price?symbol=${symbol}USDT`,
-    { signal: AbortSignal.timeout(10_000) },
-  );
-  if (!resp.ok) throw new Error(`Price API error: ${resp.status}`);
-  const data = await resp.json<{ price?: string }>();
-  const price = parseFloat(data.price ?? "0");
-  if (!price || price <= 0) throw new Error(`Invalid price for ${coin}`);
-  return price;
+  // 2) CryptoCompare
+  const tickerMap: Record<string, string> = { bitcoin: "BTC", litecoin: "LTC", binancecoin: "BNB" };
+  const sym = tickerMap[id];
+  if (sym) {
+    try {
+      const resp = await fetch(`https://min-api.cryptocompare.com/data/price?fsym=${sym}&tsyms=USD`, {
+        headers: FETCH_HEADERS, signal: AbortSignal.timeout(10_000),
+      });
+      if (resp.ok) {
+        const data = await resp.json<{ USD?: number }>();
+        if (data.USD && data.USD > 0) return data.USD;
+      }
+    } catch { /* fall through */ }
+  }
+
+  // 3) Binance
+  if (sym) {
+    try {
+      const resp = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${sym}USDT`, {
+        headers: FETCH_HEADERS, signal: AbortSignal.timeout(10_000),
+      });
+      if (resp.ok) {
+        const data = await resp.json<{ price?: string }>();
+        const price = parseFloat(data.price ?? "0");
+        if (price > 0) return price;
+      }
+    } catch { /* fall through */ }
+  }
+
+  throw new Error(`All price APIs failed for ${coin}`);
 }
 
 // ── GET /crypto/wallets ───────────────────────────────────────────────────────
