@@ -416,30 +416,39 @@ function BillingSection({ planName }: { planName: string }) {
               <span className="text-xs font-bold text-warning uppercase tracking-widest">Pay with Crypto</span>
             </div>
             <p className="text-xs text-muted-foreground">Pay with Bitcoin, USDT, Litecoin or BNB. Instant activation on confirmation.</p>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button size="sm" variant="outline" className="rounded-xl border-warning/40 text-warning gap-1.5 hover:bg-warning hover:text-black transition-all"
                 onClick={() => handleCrypto("pro")}>
-                <Zap className="w-3.5 h-3.5" /> Pro — Crypto
+                <Zap className="w-3.5 h-3.5" /> Basic — $5
               </Button>
               <Button size="sm" variant="outline" className="rounded-xl border-warning/40 text-warning gap-1.5 hover:bg-warning hover:text-black transition-all"
                 onClick={() => handleCrypto("business")}>
-                <Zap className="w-3.5 h-3.5" /> Business — Crypto
+                <Zap className="w-3.5 h-3.5" /> Pro — $9
+              </Button>
+              <Button size="sm" variant="outline" className="rounded-xl border-warning/40 text-warning gap-1.5 hover:bg-warning hover:text-black transition-all"
+                onClick={() => handleCrypto("enterprise")}>
+                <Zap className="w-3.5 h-3.5" /> Master — $18
               </Button>
             </div>
           </div>
         )}
 
         {!isPaid && (
-          <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground">
+          <div className="grid grid-cols-3 gap-3 text-xs text-muted-foreground">
             <div className="glass-card rounded-lg p-3 space-y-1">
-              <p className="font-bold text-foreground">Pro</p>
-              <p>100 GB storage · 10 jobs</p>
-              <p>Priority processing</p>
+              <p className="font-bold text-foreground">Basic</p>
+              <p>50 GB storage · 2 slots</p>
+              <p>HD 720p streaming</p>
             </div>
             <div className="glass-card rounded-lg p-3 space-y-1">
-              <p className="font-bold text-foreground">Business</p>
-              <p>1 TB storage · Unlimited jobs</p>
-              <p>Team accounts · API access</p>
+              <p className="font-bold text-foreground">Pro</p>
+              <p>150 GB storage · 8 slots</p>
+              <p>FHD 1080p streaming</p>
+            </div>
+            <div className="glass-card rounded-lg p-3 space-y-1">
+              <p className="font-bold text-foreground">Master</p>
+              <p>1 TB storage · 25 slots</p>
+              <p>4K streaming · Priority</p>
             </div>
           </div>
         )}

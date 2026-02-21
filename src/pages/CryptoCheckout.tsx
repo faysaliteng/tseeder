@@ -76,6 +76,8 @@ export default function CryptoCheckoutPage() {
   useAuthGuard();
   const [params] = useSearchParams();
   const planName = params.get("plan") ?? "pro";
+  const PLAN_DISPLAY: Record<string, string> = { pro: "Basic", business: "Pro", enterprise: "Master" };
+  const planDisplayName = PLAN_DISPLAY[planName] ?? planName;
   const [selectedCoin, setSelectedCoin] = useState<string | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
 
@@ -173,7 +175,7 @@ export default function CryptoCheckoutPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1">Upgrade Plan</div>
-                  <span className="text-lg font-bold text-foreground uppercase">{planName}</span>
+                  <span className="text-lg font-bold text-foreground uppercase">{planDisplayName}</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-xs text-success font-semibold">
                   <Shield className="w-3.5 h-3.5" /> Secure
@@ -317,7 +319,7 @@ export default function CryptoCheckoutPage() {
                 <div className="text-center py-8 space-y-3 animate-scale-in">
                   <CheckCircle2 className="w-16 h-16 text-success mx-auto" style={{ filter: "drop-shadow(0 0 12px hsl(142 71% 45% / 0.5))" }} />
                   <p className="text-lg font-bold text-success">Payment Confirmed!</p>
-                  <p className="text-sm text-muted-foreground">Your {planName} plan is now active.</p>
+                  <p className="text-sm text-muted-foreground">Your {planDisplayName} plan is now active.</p>
                   <Button className="gradient-primary text-white border-0 rounded-xl mt-2" onClick={() => navigate("/app/settings")}>
                     Go to Settings
                   </Button>
