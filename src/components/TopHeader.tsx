@@ -235,6 +235,7 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
   };
   const storageUsedPct = Math.min(100, (safeUsage.storageUsedBytes / (safeUsage.plan.maxStorageGb * 1e9)) * 100);
   const isPro = safeUsage.plan.name !== "free";
+  const planDisplayName = safeUsage.plan.name === "enterprise" ? "MASTER" : safeUsage.plan.name === "business" ? "PRO" : safeUsage.plan.name === "pro" ? "BASIC" : "FREE";
 
   const handlePasteSubmit = () => {
     const val = pasteValue.trim();
@@ -283,7 +284,7 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
           <div className="flex flex-col min-w-0 overflow-hidden">
             <div className="flex items-center gap-1.5">
               <span className="font-bold text-xs text-foreground tracking-widest uppercase whitespace-nowrap">
-                {isPro ? "PRO" : "FREE"}
+                {planDisplayName}
               </span>
               {!isPro && (
                 <button
