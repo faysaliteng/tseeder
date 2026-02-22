@@ -525,8 +525,8 @@ function VideoPlayer({ url, filename, fileId }: { url: string; filename: string;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       switch (e.key) {
         case " ": case "k": e.preventDefault(); togglePlay(); break;
-        case "ArrowLeft": e.preventDefault(); skip(e.shiftKey ? -30 : e.ctrlKey ? -5 : -10); break;
-        case "ArrowRight": e.preventDefault(); skip(e.shiftKey ? 30 : e.ctrlKey ? 5 : 10); break;
+        case "ArrowLeft": e.preventDefault(); skip(e.shiftKey ? -30 : -5); break;
+        case "ArrowRight": e.preventDefault(); skip(e.shiftKey ? 30 : 5); break;
         case "ArrowUp": e.preventDefault(); changeVolume(Math.min(1, volume + 0.05)); break;
         case "ArrowDown": e.preventDefault(); changeVolume(Math.max(0, volume - 0.05)); break;
         case "f": e.preventDefault(); toggleFullscreen(); break;
