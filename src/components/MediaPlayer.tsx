@@ -273,7 +273,6 @@ function VideoPlayer({ url, filename }: { url: string; filename: string }) {
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         onError={() => setLoadError("Could not play video. Try opening in a new tab.")}
-        crossOrigin="anonymous"
       />
 
       {/* Hidden subtitle file input */}
@@ -380,18 +379,10 @@ export function MediaPlayer({ file, onClose }: { file: ApiFile; onClose: () => v
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Fetch signed URL
+  // Use the cookie-authenticated download URL for in-browser playback.
+  // The stream endpoint (token-based, for VLC/Kodi) is handled separately.
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const { url } = await filesApi.getSignedUrl(file.id, 7200);
-        if (!cancelled) setMediaUrl(url);
-      } catch {
-        if (!cancelled) setMediaUrl(filesApi.downloadUrl(file.id));
-      }
-    })();
-    return () => { cancelled = true; };
+    setMediaUrl(filesApi.downloadUrl(file.id));
   }, [file.id]);
 
   // Close on Escape
