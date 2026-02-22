@@ -362,9 +362,12 @@ async function applyPlanByName(db: D1Database, userId: string, planName: string)
     return;
   }
 
+  // Delete existing plan assignment, then insert new one
+  // (user_plan_assignments has composite PK, not just user_id)
+  await db.prepare("DELETE FROM user_plan_assignments WHERE user_id = ?")
+    .bind(userId).run();
   await db.prepare(`
-    INSERT INTO user_plan_assignments (user_id, plan_id)
-    VALUES (?, ?)
-    ON CONFLICT(user_id) DO UPDATE SET plan_id = excluded.plan_id, started_at = datetime('now')
+    INSERT INTO user_plan_assignments (user_id, plan_id, started_at)
+    VALUES (?, ?, datetime('now'))
   `).bind(userId, plan.id).run();
 }

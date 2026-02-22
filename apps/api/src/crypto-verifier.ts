@@ -69,15 +69,17 @@ export async function runCryptoVerifier(env: Env): Promise<void> {
           WHERE id = ?
         `).bind(result.txHash ?? null, result.confirmations, order.id).run();
 
-        // Activate user's plan
+        // Activate user's plan — delete existing, then insert
+        // (user_plan_assignments has composite PK, not just user_id)
         const plan = await env.DB.prepare("SELECT id FROM plans WHERE name = ? LIMIT 1")
           .bind(order.plan_name).first<{ id: string }>();
 
         if (plan) {
+          await env.DB.prepare("DELETE FROM user_plan_assignments WHERE user_id = ?")
+            .bind(order.user_id).run();
           await env.DB.prepare(`
-            INSERT INTO user_plan_assignments (user_id, plan_id)
-            VALUES (?, ?)
-            ON CONFLICT(user_id) DO UPDATE SET plan_id = excluded.plan_id, started_at = datetime('now')
+            INSERT INTO user_plan_assignments (user_id, plan_id, started_at)
+            VALUES (?, ?, datetime('now'))
           `).bind(order.user_id, plan.id).run();
         }
 
@@ -278,6 +280,10 @@ async function checkBNB(order: PendingOrder, requiredConf: number): Promise<Veri
         confirmations,
         txHash: tx.hash,
       };
+    }
+  }
+
+  return null;
 }
 
 // ── USDT-SOL via Solana public RPC ───────────────────────────────────────────
@@ -372,8 +378,3 @@ async function checkUSDT_POLYGON(order: PendingOrder, requiredConf: number): Pro
   }
 
   return null;
-}
-  }
-
-  return null;
-}
