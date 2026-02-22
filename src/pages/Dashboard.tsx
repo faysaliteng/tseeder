@@ -491,7 +491,7 @@ export default function DashboardPage() {
               <RefreshCw className={cn("w-3.5 h-3.5", jobsLoading && "animate-spin")} />
             </button>
 
-            <div className="hidden sm:flex items-center gap-0 ml-auto">
+            <div className="hidden sm:flex items-center gap-3 ml-auto">
               <div className="w-28 text-right">
                 <SortBtn col="size" label="SIZE" active={sortCol === "size"} dir={sortDir} onClick={() => toggleSort("size")} />
               </div>
