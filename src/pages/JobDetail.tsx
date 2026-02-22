@@ -253,14 +253,27 @@ function FileRow({ file, onContextMenu, onPreview }: { file: ApiFile; onContextM
   const handleStream = async () => {
     setStreaming(true);
     try {
-      const { url } = await filesApi.getSignedUrl(file.id, 3600);
-      setStreamUrl(url);
-      await navigator.clipboard.writeText(url);
-      setStreamCopied(true);
-      toast({
-        title: "Stream URL copied! ⚡",
-        description: "Paste into VLC (Media → Open Network Stream) or Kodi (Videos → Enter Location)",
-      });
+      const { url } = await filesApi.getSignedUrl(file.id, 21600);
+      // Verify the stream URL actually works before copying
+      const testRes = await fetch(url, { method: "HEAD" }).catch(() => null);
+      if (testRes && !testRes.ok) {
+        // Stream endpoint not deployed — fall back to download URL
+        const dlUrl = filesApi.downloadUrl(file.id);
+        await navigator.clipboard.writeText(dlUrl);
+        setStreamCopied(true);
+        toast({
+          title: "Download link copied! 🔗",
+          description: "Note: This link requires login. For VLC/Kodi, the streaming endpoint needs redeployment.",
+        });
+      } else {
+        setStreamUrl(url);
+        await navigator.clipboard.writeText(url);
+        setStreamCopied(true);
+        toast({
+          title: "Stream URL copied! ⚡",
+          description: "Paste into VLC (Media → Open Network Stream) or Kodi (Videos → Enter Location)",
+        });
+      }
       setTimeout(() => setStreamCopied(false), 3000);
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : "Failed to get stream link";
