@@ -5,6 +5,7 @@ import { jobs as jobsApi, ApiError } from "@/lib/api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Magnet, Upload, X, FileIcon, Loader2, AlertCircle, Zap, CheckCircle2, ArrowUpCircle, Trash2 } from "lucide-react";
+import { PricingModal } from "@/components/PricingModal";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -28,6 +29,7 @@ export function AddDownloadModal({ open, onOpenChange, onJobAdded, initialMagnet
   const [torrentFile, setTorrentFile] = useState<File | null>(null);
   const [apiError, setApiError] = useState("");
   const [quotaError, setQuotaError] = useState<"QUOTA_STORAGE" | "QUOTA_JOBS" | null>(null);
+  const [pricingOpen, setPricingOpen] = useState(false);
   
 
   useEffect(() => {
@@ -136,6 +138,7 @@ export function AddDownloadModal({ open, onOpenChange, onJobAdded, initialMagnet
   const magnetRest = magnetPrefix ? magnetUri.slice(7) : magnetUri;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={v => { if (!isPending) onOpenChange(v); }}>
       <DialogContent className="sm:max-w-lg glass-premium border-primary/15 rounded-2xl shadow-[0_32px_80px_hsl(220_26%_0%/0.7)]">
         <DialogHeader>
@@ -190,7 +193,7 @@ export function AddDownloadModal({ open, onOpenChange, onJobAdded, initialMagnet
               <Button
                 size="sm"
                 className="flex-1 rounded-lg text-xs gradient-primary text-white border-0 shadow-glow-primary"
-                onClick={() => { onOpenChange(false); navigate("/app/crypto-checkout?plan=business"); }}
+                onClick={() => { onOpenChange(false); setPricingOpen(true); }}
               >
                 <ArrowUpCircle className="w-3 h-3 mr-1.5" />
                 Upgrade Plan
@@ -310,5 +313,7 @@ export function AddDownloadModal({ open, onOpenChange, onJobAdded, initialMagnet
         </div>
       </DialogContent>
     </Dialog>
+    <PricingModal open={pricingOpen} onClose={() => setPricingOpen(false)} />
+    </>
   );
 }
