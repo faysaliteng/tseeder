@@ -281,7 +281,7 @@ export const admin = {
     user: unknown; plan: unknown; usage: unknown;
     sessions: unknown[]; recentJobs: unknown[]; auditTimeline: unknown[];
   }>(`/admin/users/${id}`),
-  updateUser: (id: string, body: { role?: string; suspended?: boolean; planId?: string }) =>
+  updateUser: (id: string, body: { role?: string; suspended?: boolean; planId?: string; emailVerified?: boolean }) =>
     request<unknown>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   forceLogout: (id: string) =>
     request<{ message: string }>(`/admin/users/${id}/force-logout`, { method: "POST" }),

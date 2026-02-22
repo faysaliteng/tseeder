@@ -139,6 +139,7 @@ export const UpdateUserSchema = z.object({
   role: z.nativeEnum(UserRole).optional(),
   planId: UUIDSchema.optional(),
   suspended: z.boolean().optional(),
+  emailVerified: z.boolean().optional(),
 });
 export type UpdateUser = z.infer<typeof UpdateUserSchema>;
 

@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatBytes } from "@/lib/utils";
 import {
   ArrowLeft, ShieldCheck, ShieldOff, LogOut, User,
-  Briefcase, ScrollText, HardDrive, XCircle, CheckCircle,
+  Briefcase, ScrollText, HardDrive, XCircle, CheckCircle, MailCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -31,7 +31,7 @@ export default function AdminUserDetail() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (body: { suspended?: boolean; role?: string; planId?: string }) =>
+    mutationFn: (body: { suspended?: boolean; role?: string; planId?: string; emailVerified?: boolean }) =>
       adminApi.updateUser(id!, body),
     onSuccess: () => {
       toast({ title: "User updated" });
@@ -134,6 +134,16 @@ export default function AdminUserDetail() {
               {user.suspended ? <ShieldCheck className="w-3.5 h-3.5" /> : <ShieldOff className="w-3.5 h-3.5" />}
               {user.suspended ? "Reinstate" : "Suspend"}
             </button>
+            {!user.email_verified && (
+              <button
+                onClick={() => updateMutation.mutate({ emailVerified: true })}
+                disabled={updateMutation.isPending}
+                className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-[hsl(var(--success)/0.4)] text-[hsl(var(--success))] hover:bg-[hsl(var(--success)/0.1)] transition-colors"
+              >
+                <MailCheck className="w-3.5 h-3.5" />
+                Verify Email
+              </button>
+            )}
             <button
               onClick={() => setDangerModal("logout")}
               className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
