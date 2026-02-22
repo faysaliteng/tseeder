@@ -534,8 +534,8 @@ function VideoPlayer({ url, filename, fileId }: { url: string; filename: string;
         case "p": if (!e.ctrlKey) { e.preventDefault(); togglePiP(); } break;
         case "j": e.preventDefault(); skip(-10); break;
         case "l": e.preventDefault(); skip(10); break;
-        case ",": if (e.shiftKey) { e.preventDefault(); changeSpeed(Math.max(0.25, speed - 0.25)); } break;
-        case ".": if (e.shiftKey) { e.preventDefault(); changeSpeed(Math.min(3, speed + 0.25)); } break;
+        case "<": e.preventDefault(); skip(-5); break;
+        case ">": e.preventDefault(); skip(5); break;
         case "s": if (!e.ctrlKey) { e.preventDefault(); handleScreenshot(); } break;
         case "b": e.preventDefault(); handleABLoop(); break;
         case "0": case "1": case "2": case "3": case "4":
