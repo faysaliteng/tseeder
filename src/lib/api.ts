@@ -135,6 +135,9 @@ export const jobs = {
   cancel: (id: string) => request<{ id: string; status: string }>(`/jobs/${id}/cancel`, { method: "POST" }),
   delete: (id: string) => request<{ ok: boolean; id: string }>(`/jobs/${id}`, { method: "DELETE" }),
 
+  rename: (id: string, name: string) =>
+    request<{ id: string; name: string }>(`/jobs/${id}`, { method: "PATCH", body: JSON.stringify({ name }) }),
+
   getFiles: (id: string) => request<{ jobId: string; files: ApiFile[]; tree: unknown[] }>(`/jobs/${id}/files`),
 };
 

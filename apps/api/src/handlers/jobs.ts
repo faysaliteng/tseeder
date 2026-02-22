@@ -275,6 +275,33 @@ export async function handleGetJob(req: Request, env: Env, ctx: Ctx): Promise<Re
   return Response.json(jobRowToApi(job, { bytesTotal, doProgress }));
 }
 
+// ── PATCH /jobs/:id — rename job ──────────────────────────────────────────────
+
+export async function handleRenameJob(req: Request, env: Env, ctx: Ctx): Promise<Response> {
+  const correlationId = req.headers.get("X-Correlation-ID") ?? crypto.randomUUID();
+  const { id } = ctx.params;
+  const userId = ctx.user!.id;
+
+  const job = await getJobByIdForUser(env.DB, id, userId);
+  if (!job) return apiError("NOT_FOUND", "Job not found", 404, correlationId);
+
+  const body = await req.json().catch(() => null);
+  if (!body || typeof (body as any).name !== "string" || !(body as any).name.trim()) {
+    return apiError("VALIDATION_ERROR", "name is required", 400, correlationId);
+  }
+
+  const newName = (body as any).name.trim().slice(0, 255);
+  await env.DB.prepare("UPDATE jobs SET name = ?, updated_at = datetime('now') WHERE id = ?")
+    .bind(newName, id).run();
+
+  await appendJobEvent(env.DB, {
+    jobId: id, eventType: "job_renamed",
+    payload: { oldName: job.name, newName }, correlationId,
+  });
+
+  return Response.json({ id, name: newName, message: "Renamed" });
+}
+
 // ── POST /jobs/:id/pause|resume|cancel ────────────────────────────────────────
 
 export function handleJobAction(action: "pause" | "resume" | "cancel") {
