@@ -1127,3 +1127,439 @@ ON CONFLICT(coin) DO UPDATE SET address = excluded.address, is_active = excluded
 | Price mismatch between UI and DB | Update both `src/pages/Settings.tsx` button labels AND `crypto_prices` table |
 | `src/pages/JobDetail.tsx` | Shows virus scan badge (✅ Virus-free / ⚠️ Threat detected) |
 | `src/pages/Dashboard.tsx` | Shows shield icon on completed jobs |
+
+---
+
+## 12. Multi-Droplet / Multi-Region Cluster Deployment
+
+Scale tseeder horizontally by running multiple compute agents across DigitalOcean droplets (or any VMs). The queue consumer already supports load-balanced routing via the `worker_registry` table.
+
+### Architecture Overview
+
+```
+                         ┌──────────────────────────────┐
+                         │     Cloudflare Workers API   │
+                         │     queue-consumer.ts        │
+                         │                              │
+                         │  selectWorker() picks the    │
+                         │  least-loaded healthy agent   │
+                         └──────────┬───────────────────┘
+                                    │
+              ┌─────────────────────┼─────────────────────┐
+              │                     │                     │
+              ▼                     ▼                     ▼
+   ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
+   │  Droplet #1      │  │  Droplet #2      │  │  Droplet #3      │
+   │  agent-do-blr1   │  │  agent-do-fra1   │  │  agent-do-nyc1   │
+   │  Bangalore 🇮🇳    │  │  Frankfurt 🇩🇪    │  │  New York 🇺🇸     │
+   │  Port 8787       │  │  Port 8787       │  │  Port 8787       │
+   └──────────────────┘  └──────────────────┘  └──────────────────┘
+```
+
+### How It Works
+
+1. Each agent registers itself in the `worker_registry` D1 table via heartbeats
+2. The queue consumer queries `worker_registry` for healthy workers with capacity
+3. It selects the **least-loaded** agent (lowest `active_jobs / max_jobs` ratio)
+4. If no registry workers are available, falls back to `WORKER_CLUSTER_URL` (single-node mode)
+5. Each agent handles its own downloads independently — no shared state between agents
+
+### Benefits
+
+| Benefit | Description |
+|---|---|
+| **Higher throughput** | 3 droplets = 3× concurrent downloads |
+| **Regional speed** | Users routed to closest agent for faster transfers |
+| **Fault tolerance** | If one droplet dies, jobs route to healthy ones |
+| **Independent scaling** | Add/remove droplets without downtime |
+
+### Prerequisites
+
+- 2+ DigitalOcean Droplets (Ubuntu 24.04, minimum 1 vCPU / 2 GB RAM each)
+- Each droplet needs **port 8787 open** (or use Cloudflare Tunnel per droplet)
+- All droplets share the same R2 credentials and `WORKER_CLUSTER_TOKEN`
+- The `worker_registry` D1 table (from migration `0005_worker_heartbeats.sql`)
+
+---
+
+### Step-by-Step: Deploy 3 Droplets
+
+#### Step 1: Create Droplets on DigitalOcean
+
+Create 3 droplets in different regions for geographic coverage:
+
+```
+Droplet 1: Ubuntu 24.04, 2 vCPU / 4 GB, Bangalore (BLR1)
+Droplet 2: Ubuntu 24.04, 2 vCPU / 4 GB, Frankfurt (FRA1)
+Droplet 3: Ubuntu 24.04, 2 vCPU / 4 GB, New York (NYC1)
+```
+
+> **Recommended specs per droplet:**
+> - **Light load (< 5 concurrent):** 1 vCPU / 2 GB RAM, 50 GB disk
+> - **Medium load (5-15 concurrent):** 2 vCPU / 4 GB RAM, 100 GB disk
+> - **Heavy load (15-25 concurrent):** 4 vCPU / 8 GB RAM, 200 GB disk
+> - Disk is the main bottleneck — torrent downloads are I/O heavy
+
+#### Step 2: Install Each Agent
+
+SSH into **each** droplet and run the same setup. The only difference is `WORKER_ID`.
+
+```bash
+ssh root@DROPLET_1_IP
+```
+
+**Install system deps + Node.js 20 (same on all 3):**
+
+```bash
+apt update && apt upgrade -y
+apt install -y curl git ca-certificates build-essential cmake python3
+
+# Node.js 20 (NOT Bun — node-datachannel requires libuv)
+curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+apt install -y nodejs
+node --version  # v20.x.x
+```
+
+**Create user + directories (same on all 3):**
+
+```bash
+useradd --system --no-create-home --shell /usr/sbin/nologin tseeder-agent
+mkdir -p /opt/tseeder-agent
+mkdir -p /var/lib/tseeder-agent/downloads
+chown -R tseeder-agent:tseeder-agent /var/lib/tseeder-agent
+```
+
+**Clone and install agent code (same on all 3):**
+
+```bash
+cd /tmp && rm -rf tseeder-repo
+git clone --depth 1 https://github.com/faysaliteng/tseeder.git tseeder-repo
+
+mkdir -p /opt/tseeder-agent/src/routes
+cp /tmp/tseeder-repo/workers/compute-agent/src/*.ts /opt/tseeder-agent/src/
+cp /tmp/tseeder-repo/workers/compute-agent/src/routes/*.ts /opt/tseeder-agent/src/routes/
+cp /tmp/tseeder-repo/workers/compute-agent/package.json /opt/tseeder-agent/
+cp /tmp/tseeder-repo/workers/compute-agent/update.sh /opt/tseeder-agent/
+chmod +x /opt/tseeder-agent/update.sh
+
+cd /opt/tseeder-agent
+npm install
+npm install node-datachannel --build-from-source
+npm install tsx
+
+chown -R tseeder-agent:tseeder-agent /opt/tseeder-agent
+```
+
+**Install ClamAV (same on all 3):**
+
+```bash
+apt install -y clamav
+freshclam
+echo "0 3 * * * /usr/bin/freshclam --quiet" | crontab -
+```
+
+#### Step 3: Configure Environment Files (UNIQUE per droplet)
+
+The **only difference** between droplets is `WORKER_ID`. Everything else is identical.
+
+**Droplet 1 (Bangalore):**
+
+```bash
+cat > /etc/tseeder-agent.env << 'EOF'
+WORKER_ID=agent-do-blr1-01
+PORT=8787
+WORKER_CLUSTER_TOKEN=YOUR_SHARED_TOKEN
+CALLBACK_SIGNING_SECRET=YOUR_SHARED_SECRET
+R2_ENDPOINT=https://YOUR_ACCOUNT_ID.r2.cloudflarestorage.com
+R2_BUCKET=rdm-files
+R2_ACCESS_KEY_ID=YOUR_R2_KEY
+R2_SECRET_ACCESS_KEY=YOUR_R2_SECRET
+DOWNLOAD_DIR=/var/lib/tseeder-agent/downloads
+MAX_CONCURRENT_JOBS=10
+EOF
+chown root:tseeder-agent /etc/tseeder-agent.env && chmod 640 /etc/tseeder-agent.env
+```
+
+**Droplet 2 (Frankfurt):**
+
+```bash
+# Same as above, but change WORKER_ID:
+WORKER_ID=agent-do-fra1-01
+```
+
+**Droplet 3 (New York):**
+
+```bash
+# Same as above, but change WORKER_ID:
+WORKER_ID=agent-do-nyc1-01
+```
+
+#### Step 4: Install systemd Service (same on all 3)
+
+```bash
+cat > /etc/systemd/system/tseeder-agent.service << 'EOF'
+[Unit]
+Description=tseeder Compute Agent
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=tseeder-agent
+Group=tseeder-agent
+WorkingDirectory=/opt/tseeder-agent
+EnvironmentFile=/etc/tseeder-agent.env
+ExecStart=/usr/bin/node --import tsx /opt/tseeder-agent/src/index.ts
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ReadWritePaths=/var/lib/tseeder-agent /opt/tseeder-agent
+LimitNOFILE=65536
+LimitNPROC=4096
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tseeder-agent
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable tseeder-agent
+systemctl start tseeder-agent
+systemctl status tseeder-agent
+```
+
+#### Step 5: Open Firewall (on all 3)
+
+```bash
+ufw allow 8787/tcp
+ufw allow OpenSSH
+ufw --force enable
+```
+
+#### Step 6: Register Workers in D1
+
+From your **local machine** (PowerShell), register each agent in the worker registry:
+
+```powershell
+cd apps/api
+
+# Register Droplet 1 (Bangalore)
+npx wrangler d1 execute rdm-database --env production --remote --command "INSERT INTO worker_registry (id, region, endpoint, status, active_jobs, max_jobs, last_heartbeat) VALUES ('agent-do-blr1-01', 'blr1', 'http://DROPLET_1_IP:8787', 'healthy', 0, 10, datetime('now')) ON CONFLICT(id) DO UPDATE SET endpoint = excluded.endpoint, status = 'healthy', last_heartbeat = datetime('now')"
+
+# Register Droplet 2 (Frankfurt)
+npx wrangler d1 execute rdm-database --env production --remote --command "INSERT INTO worker_registry (id, region, endpoint, status, active_jobs, max_jobs, last_heartbeat) VALUES ('agent-do-fra1-01', 'fra1', 'http://DROPLET_2_IP:8787', 'healthy', 0, 10, datetime('now')) ON CONFLICT(id) DO UPDATE SET endpoint = excluded.endpoint, status = 'healthy', last_heartbeat = datetime('now')"
+
+# Register Droplet 3 (New York)
+npx wrangler d1 execute rdm-database --env production --remote --command "INSERT INTO worker_registry (id, region, endpoint, status, active_jobs, max_jobs, last_heartbeat) VALUES ('agent-do-nyc1-01', 'nyc1', 'http://DROPLET_3_IP:8787', 'healthy', 0, 10, datetime('now')) ON CONFLICT(id) DO UPDATE SET endpoint = excluded.endpoint, status = 'healthy', last_heartbeat = datetime('now')"
+```
+
+> Replace `DROPLET_1_IP`, `DROPLET_2_IP`, `DROPLET_3_IP` with actual public IPs.
+
+#### Step 7: Set WORKER_CLUSTER_URL (fallback)
+
+The `WORKER_CLUSTER_URL` secret serves as the **fallback** when the registry is empty or unreachable. Set it to your primary/closest droplet:
+
+```powershell
+cd apps/api
+wrangler secret put WORKER_CLUSTER_URL --env production
+# Enter: http://DROPLET_1_IP:8787
+
+# Redeploy to activate
+npx wrangler deploy src/index.ts --config ..\..\infra\wrangler.toml --env production
+```
+
+#### Step 8: Verify All Agents
+
+**From each droplet:**
+
+```bash
+curl -H "Authorization: Bearer YOUR_WORKER_CLUSTER_TOKEN" http://localhost:8787/health
+```
+
+Expected:
+
+```json
+{"status":"ok","activeJobs":0,"maxConcurrent":10}
+```
+
+**From Cloudflare Worker logs:**
+
+```powershell
+npx wrangler tail --env production
+```
+
+Then add a download — you should see `"Worker selected from registry"` in the logs with the chosen worker ID.
+
+**From Admin panel:**
+
+Go to Admin → Infrastructure. All 3 agents should show as **Online** with green status.
+
+---
+
+### Managing the Cluster
+
+#### Check All Agents Status
+
+```powershell
+cd apps/api
+npx wrangler d1 execute rdm-database --env production --remote --command "SELECT id, region, status, active_jobs, max_jobs, last_heartbeat FROM worker_registry ORDER BY region"
+```
+
+#### Take an Agent Offline (maintenance)
+
+```powershell
+# Mark as unhealthy so no new jobs are routed to it
+npx wrangler d1 execute rdm-database --env production --remote --command "UPDATE worker_registry SET status = 'unhealthy' WHERE id = 'agent-do-fra1-01'"
+```
+
+Then SSH and stop:
+
+```bash
+ssh root@DROPLET_2_IP
+sudo systemctl stop tseeder-agent
+```
+
+#### Bring Agent Back Online
+
+```bash
+ssh root@DROPLET_2_IP
+sudo systemctl start tseeder-agent
+```
+
+The agent will automatically send heartbeats and update its status to `healthy`.
+
+#### Update All Agents at Once
+
+Create a script `update-all-agents.sh` on your local machine:
+
+```bash
+#!/bin/bash
+DROPLETS=("DROPLET_1_IP" "DROPLET_2_IP" "DROPLET_3_IP")
+
+for IP in "${DROPLETS[@]}"; do
+  echo "=== Updating $IP ==="
+  ssh root@$IP 'cd /opt/tseeder-agent && ./update.sh'
+  echo ""
+done
+
+echo "All agents updated!"
+```
+
+```bash
+chmod +x update-all-agents.sh
+./update-all-agents.sh
+```
+
+#### Monitor All Agents Logs
+
+Open 3 terminal tabs:
+
+```bash
+# Tab 1
+ssh root@DROPLET_1_IP 'journalctl -u tseeder-agent -f'
+
+# Tab 2
+ssh root@DROPLET_2_IP 'journalctl -u tseeder-agent -f'
+
+# Tab 3
+ssh root@DROPLET_3_IP 'journalctl -u tseeder-agent -f'
+```
+
+#### Check Disk Usage Across All
+
+```bash
+for IP in DROPLET_1_IP DROPLET_2_IP DROPLET_3_IP; do
+  echo "=== $IP ==="
+  ssh root@$IP 'df -h / && du -sh /var/lib/tseeder-agent/downloads 2>/dev/null'
+  echo ""
+done
+```
+
+#### Remove a Worker from the Cluster
+
+```powershell
+# Remove from registry
+npx wrangler d1 execute rdm-database --env production --remote --command "DELETE FROM worker_registry WHERE id = 'agent-do-fra1-01'"
+```
+
+Then optionally destroy the droplet on DigitalOcean.
+
+#### Add a New Worker to the Cluster
+
+Just repeat Steps 2-6 for the new droplet with a unique `WORKER_ID`, then register it in D1. No API redeployment needed — the queue consumer reads the registry dynamically.
+
+---
+
+### Using Cloudflare Tunnels (Alternative to Open Ports)
+
+Instead of exposing port 8787 directly, you can use Cloudflare Tunnels for each droplet:
+
+```bash
+# On each droplet:
+curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
+chmod +x /usr/local/bin/cloudflared
+
+# Authenticate
+cloudflared tunnel login
+
+# Create a tunnel per droplet
+cloudflared tunnel create agent-blr1   # Droplet 1
+cloudflared tunnel create agent-fra1   # Droplet 2
+cloudflared tunnel create agent-nyc1   # Droplet 3
+```
+
+Configure each tunnel to route to `localhost:8787`:
+
+```bash
+cat > /etc/cloudflared/config.yml << EOF
+tunnel: YOUR_TUNNEL_ID
+credentials-file: /root/.cloudflared/YOUR_TUNNEL_ID.json
+
+ingress:
+  - hostname: agent-blr1.fseeder.cc
+    service: http://localhost:8787
+  - service: http_status:404
+EOF
+
+cloudflared service install
+systemctl start cloudflared
+```
+
+Then register with tunnel hostnames instead of IPs:
+
+```powershell
+npx wrangler d1 execute rdm-database --env production --remote --command "INSERT INTO worker_registry (id, region, endpoint, status, active_jobs, max_jobs, last_heartbeat) VALUES ('agent-do-blr1-01', 'blr1', 'https://agent-blr1.fseeder.cc', 'healthy', 0, 10, datetime('now')) ON CONFLICT(id) DO UPDATE SET endpoint = excluded.endpoint"
+```
+
+> **Advantage:** No exposed ports, HTTPS everywhere, Cloudflare DDoS protection on agents.
+
+---
+
+### Scaling Guidelines
+
+| Users | Droplets | Config per Droplet | Total Capacity |
+|---|---|---|---|
+| 1-50 | 1 | 2 vCPU, 4 GB, 100 GB disk | 10 concurrent jobs |
+| 50-200 | 2-3 | 2 vCPU, 4 GB, 100 GB disk | 20-30 concurrent jobs |
+| 200-500 | 3-5 | 4 vCPU, 8 GB, 200 GB disk | 50-75 concurrent jobs |
+| 500+ | 5+ | 4 vCPU, 8 GB, 200+ GB disk | Scale linearly |
+
+> **Cost estimate:** DigitalOcean 2 vCPU / 4 GB droplet ≈ $24/mo per droplet.
+
+### Troubleshooting Multi-Worker
+
+| Issue | Fix |
+|---|---|
+| All jobs go to one agent | Check `worker_registry` — other agents may have stale heartbeats (>5 min old). Restart them. |
+| Agent not appearing in registry | The agent auto-registers via heartbeat. Check if it's running: `systemctl status tseeder-agent` |
+| Load not balanced evenly | Normal — the algorithm picks least-loaded, not round-robin. Slight skew is expected. |
+| New agent not getting jobs | Ensure `WORKER_ID` is unique and registered in D1. Verify health endpoint works. |
+| Jobs fail after adding agent | Ensure `WORKER_CLUSTER_TOKEN` and `CALLBACK_SIGNING_SECRET` match across all agents and the API. |
