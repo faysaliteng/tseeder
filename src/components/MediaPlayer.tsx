@@ -537,6 +537,8 @@ function VideoPlayer({ url, filename, fileId }: { url: string; filename: string;
         case "<": e.preventDefault(); skip(-5); break;
         case ">": e.preventDefault(); skip(5); break;
         case "s": if (!e.ctrlKey) { e.preventDefault(); handleScreenshot(); } break;
+        case "[": e.preventDefault(); changeSpeed(Math.max(0.25, speed - 0.25)); break;
+        case "]": e.preventDefault(); changeSpeed(Math.min(3, speed + 0.25)); break;
         case "b": e.preventDefault(); handleABLoop(); break;
         case "0": case "1": case "2": case "3": case "4":
         case "5": case "6": case "7": case "8": case "9":
@@ -1022,7 +1024,7 @@ export function MediaPlayer({ file, onClose }: { file: ApiFile; onClose: () => v
           {(kind === "video") && mediaUrl && (
             <div className="flex items-center gap-4 px-4 py-1.5 border-t border-white/5 overflow-x-auto">
               <span className="text-[10px] text-white/20 whitespace-nowrap">
-                Space: Play · ←→: Skip · ↑↓: Vol · F: Fullscreen · M: Mute · P: PiP · S: Screenshot · B: A-B Loop · &lt;&gt;: Speed
+                Space: Play · ←→: Skip · ↑↓: Vol · F: Fullscreen · M: Mute · P: PiP · S: Screenshot · B: A-B Loop · &lt;&gt;: Skip 5s · []: Speed
               </span>
             </div>
           )}
