@@ -1,9 +1,10 @@
 import { useState, useCallback, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { jobs as jobsApi, ApiError } from "@/lib/api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Magnet, Upload, X, FileIcon, Loader2, AlertCircle, Zap, CheckCircle2 } from "lucide-react";
+import { Magnet, Upload, X, FileIcon, Loader2, AlertCircle, Zap, CheckCircle2, ArrowUpCircle, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -18,6 +19,7 @@ const MAGNET_REGEX = /^magnet:\?xt=urn:btih:[a-f0-9]{32,40}/i;
 
 export function AddDownloadModal({ open, onOpenChange, onJobAdded, initialMagnetUri }: AddDownloadModalProps) {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<"magnet" | "torrent">("magnet");
   const [magnetUri, setMagnetUri] = useState(initialMagnetUri ?? "");
@@ -25,7 +27,7 @@ export function AddDownloadModal({ open, onOpenChange, onJobAdded, initialMagnet
   const [dragActive, setDragActive] = useState(false);
   const [torrentFile, setTorrentFile] = useState<File | null>(null);
   const [apiError, setApiError] = useState("");
-
+  const [quotaError, setQuotaError] = useState<"QUOTA_STORAGE" | "QUOTA_JOBS" | null>(null);
   
 
   useEffect(() => {
@@ -34,7 +36,7 @@ export function AddDownloadModal({ open, onOpenChange, onJobAdded, initialMagnet
       setTab("magnet");
       validateMagnet(initialMagnetUri);
     }
-    if (!open) { setApiError(""); }
+    if (!open) { setApiError(""); setQuotaError(null); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialMagnetUri]);
 
@@ -71,7 +73,16 @@ export function AddDownloadModal({ open, onOpenChange, onJobAdded, initialMagnet
     },
     onError: (err) => {
       const msg = err instanceof ApiError ? err.message : "Failed to add download";
-      setApiError(msg);
+      if (msg === "QUOTA_STORAGE" || msg.includes("QUOTA_STORAGE")) {
+        setQuotaError("QUOTA_STORAGE");
+        setApiError("");
+      } else if (msg === "QUOTA_JOBS" || msg.includes("QUOTA_JOBS")) {
+        setQuotaError("QUOTA_JOBS");
+        setApiError("");
+      } else {
+        setQuotaError(null);
+        setApiError(msg);
+      }
     },
   });
 
@@ -89,7 +100,16 @@ export function AddDownloadModal({ open, onOpenChange, onJobAdded, initialMagnet
     },
     onError: (err) => {
       const msg = err instanceof ApiError ? err.message : "Failed to add download";
-      setApiError(msg);
+      if (msg === "QUOTA_STORAGE" || msg.includes("QUOTA_STORAGE")) {
+        setQuotaError("QUOTA_STORAGE");
+        setApiError("");
+      } else if (msg === "QUOTA_JOBS" || msg.includes("QUOTA_JOBS")) {
+        setQuotaError("QUOTA_JOBS");
+        setApiError("");
+      } else {
+        setQuotaError(null);
+        setApiError(msg);
+      }
     },
   });
 
@@ -97,6 +117,7 @@ export function AddDownloadModal({ open, onOpenChange, onJobAdded, initialMagnet
 
   const handleSubmit = () => {
     setApiError("");
+    setQuotaError(null);
     if (tab === "magnet") {
       if (!magnetUri || magnetError) return;
       magnetMutation.mutate();
@@ -144,6 +165,39 @@ export function AddDownloadModal({ open, onOpenChange, onJobAdded, initialMagnet
             </button>
           ))}
         </div>
+
+        {quotaError && (
+          <div className="mt-1 p-4 bg-warning/10 border border-warning/30 rounded-xl animate-scale-in">
+            <div className="flex items-center gap-2 text-sm font-semibold text-warning mb-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              {quotaError === "QUOTA_STORAGE" ? "Storage Full" : "Task Limit Reached"}
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">
+              {quotaError === "QUOTA_STORAGE"
+                ? "Your storage is full. Delete some files to free up space, or upgrade your plan for more storage."
+                : "You've reached your concurrent task limit. Wait for a task to finish, or upgrade for more slots."}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex-1 rounded-lg text-xs border-border hover:border-primary/30"
+                onClick={() => { onOpenChange(false); navigate("/app/dashboard"); }}
+              >
+                <Trash2 className="w-3 h-3 mr-1.5" />
+                Manage Files
+              </Button>
+              <Button
+                size="sm"
+                className="flex-1 rounded-lg text-xs gradient-primary text-white border-0 shadow-glow-primary"
+                onClick={() => { onOpenChange(false); navigate("/app/crypto-checkout?plan=business"); }}
+              >
+                <ArrowUpCircle className="w-3 h-3 mr-1.5" />
+                Upgrade Plan
+              </Button>
+            </div>
+          </div>
+        )}
 
         {apiError && (
           <div className="flex items-center gap-2 mt-1 p-3 bg-destructive/10 border border-destructive/30 rounded-xl text-xs text-destructive animate-scale-in">
