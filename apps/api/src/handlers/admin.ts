@@ -150,8 +150,12 @@ export async function handleAdminUpdateUser(req: Request, env: Env, ctx: Ctx): P
   if (!parsed.success) return apiError("VALIDATION_ERROR", formatZodError(parsed.error), 400, correlationId);
 
   const { id } = ctx.params;
-  const { role, suspended, planId } = parsed.data;
+  const { role, suspended, planId, emailVerified } = parsed.data;
 
+  if (emailVerified !== undefined) {
+    await env.DB.prepare("UPDATE users SET email_verified = ?, updated_at = datetime('now') WHERE id = ?")
+      .bind(emailVerified ? 1 : 0, id).run();
+  }
   if (role !== undefined) {
     await env.DB.prepare("UPDATE users SET role = ?, updated_at = datetime('now') WHERE id = ?")
       .bind(role, id).run();
@@ -173,7 +177,7 @@ export async function handleAdminUpdateUser(req: Request, env: Env, ctx: Ctx): P
 
   await writeAuditLog(env.DB, {
     actorId: ctx.user!.id,
-    action: suspended ? "user.suspended" : planId ? "user.plan_changed" : "user.updated",
+    action: suspended !== undefined ? "user.suspended" : emailVerified !== undefined ? "user.updated" : planId ? "user.plan_changed" : "user.updated",
     targetType: "user", targetId: id,
     metadata: parsed.data, ipAddress: req.headers.get("CF-Connecting-IP") ?? undefined,
   });
