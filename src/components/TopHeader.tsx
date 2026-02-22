@@ -229,7 +229,7 @@ export function TopHeader({ usage, onAddMagnet, onUploadTorrent }: TopHeaderProp
   const location = useLocation();
 
   const safeUsage = usage ?? {
-    plan: { name: "free", maxStorageGb: 10, bandwidthGb: 50 },
+    plan: { name: "free", maxStorageGb: 5, bandwidthGb: 50 },
     storageUsedBytes: 0,
     bandwidthUsedBytes: 0,
   };
