@@ -19,6 +19,10 @@ This document covers the **exact steps** used to deploy tseeder from zero to a w
 6. [Turnstile Removal](#6-turnstile-removal)
 7. [Everyday Operations](#7-everyday-operations)
 8. [Troubleshooting](#8-troubleshooting)
+9. [File Cleanup & Retention](#9-file-cleanup--retention)
+10. [ClamAV Virus Scanning](#10-clamav-virus-scanning)
+11. [Crypto Payment Gateway](#11-crypto-payment-gateway)
+12. [Multi-Droplet / Multi-Region Cluster Deployment](#12-multi-droplet--multi-region-cluster-deployment)
 
 ---
 
