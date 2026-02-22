@@ -56,6 +56,18 @@ export async function handleRegister(req: Request, env: Env): Promise<Response> 
 
   await createUser(env.DB, { id: userId, email, passwordHash });
 
+  // Check if auto-email-verify is enabled (email_verification flag OFF = auto-verify)
+  const emailVerifyFlag = await env.DB.prepare(
+    "SELECT value FROM feature_flags WHERE key = 'email_verification' LIMIT 1"
+  ).first<{ value: number }>();
+  const autoVerify = !emailVerifyFlag || emailVerifyFlag.value === 0;
+
+  if (autoVerify) {
+    // Auto-verify the user's email immediately
+    await env.DB.prepare("UPDATE users SET email_verified = 1, updated_at = datetime('now') WHERE id = ?")
+      .bind(userId).run();
+  }
+
   // Generate email verification token and send immediately
   const verifyToken = generateToken();
   const verifyTokenHash = await hashToken(verifyToken);
@@ -67,9 +79,11 @@ export async function handleRegister(req: Request, env: Env): Promise<Response> 
   `).bind(verifyTokenHash, userId, verifyExpiresAt).run();
 
   const verifyUrl = `${env.APP_DOMAIN}/auth/verify?token=${verifyToken}`;
-  await sendVerificationEmail(env, email, verifyUrl, correlationId).catch(err => {
-    console.error(JSON.stringify({ correlationId, msg: "Verification email send failed", error: String(err) }));
-  });
+  if (!autoVerify) {
+    await sendVerificationEmail(env, email, verifyUrl, correlationId).catch(err => {
+      console.error(JSON.stringify({ correlationId, msg: "Verification email send failed", error: String(err) }));
+    });
+  }
 
   await writeAuditLog(env.DB, {
     actorId: userId, action: "user.created",
