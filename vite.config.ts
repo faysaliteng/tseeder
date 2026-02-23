@@ -42,7 +42,7 @@ export default defineConfig(({ mode }) => ({
         theme_color: "#4f46e5",
         background_color: "#f4f6fb",
         display: "standalone",
-        orientation: "portrait-primary",
+        orientation: "any",
         scope: "/",
         start_url: "/app/dashboard",
         categories: ["utilities", "productivity"],
