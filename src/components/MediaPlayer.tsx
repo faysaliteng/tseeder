@@ -584,28 +584,45 @@ function VideoPlayer({ url, filename, fileId }: { url: string; filename: string;
     }
   }, [subtitleUrl, showSubText, subtitleLabel, url]);
 
-  // Double-click skip / fullscreen
-  const lastClick = useRef<{ time: number; x: number } | null>(null);
-  const handleVideoClick = useCallback((e: React.MouseEvent) => {
-    const now = Date.now();
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const pct = (e.clientX - rect.left) / rect.width;
+  // Double-click/tap skip / fullscreen
+  const lastTap = useRef<{ time: number; x: number } | null>(null);
+  const singleTapTimer = useRef<ReturnType<typeof setTimeout>>();
 
-    if (lastClick.current && now - lastClick.current.time < 300) {
-      if (pct < 0.3) skip(-10);
-      else if (pct > 0.7) skip(10);
+  const handleDoubleTapLogic = useCallback((clientX: number, target: HTMLElement) => {
+    const now = Date.now();
+    const rect = target.getBoundingClientRect();
+    const pct = (clientX - rect.left) / rect.width;
+
+    if (lastTap.current && now - lastTap.current.time < 400) {
+      // Double tap detected — cancel single-tap action
+      if (singleTapTimer.current) clearTimeout(singleTapTimer.current);
+      lastTap.current = null;
+      if (pct < 0.35) skip(-10);
+      else if (pct > 0.65) skip(10);
       else toggleFullscreen();
-      lastClick.current = null;
     } else {
-      lastClick.current = { time: now, x: e.clientX };
-      setTimeout(() => {
-        if (lastClick.current?.time === now) {
+      lastTap.current = { time: now, x: clientX };
+      singleTapTimer.current = setTimeout(() => {
+        if (lastTap.current?.time === now) {
           togglePlay();
-          lastClick.current = null;
+          lastTap.current = null;
         }
-      }, 300);
+      }, 350);
     }
   }, [skip, togglePlay, toggleFullscreen]);
+
+  const handleVideoClick = useCallback((e: React.MouseEvent) => {
+    // On touch devices, we handle via onTouchEnd instead
+    if (e.detail === 0) return; // synthetic click from touch — skip
+    handleDoubleTapLogic(e.clientX, e.currentTarget as HTMLElement);
+  }, [handleDoubleTapLogic]);
+
+  const handleVideoTouchEnd = useCallback((e: React.TouchEvent) => {
+    e.preventDefault(); // prevent browser double-tap-to-zoom / restart
+    const touch = e.changedTouches[0];
+    if (!touch) return;
+    handleDoubleTapLogic(touch.clientX, e.currentTarget as HTMLElement);
+  }, [handleDoubleTapLogic]);
 
   if (loadError) {
     return (
@@ -626,6 +643,8 @@ function VideoPlayer({ url, filename, fileId }: { url: string; filename: string;
         className="w-full max-h-[80vh] cursor-pointer"
         src={url}
         onClick={handleVideoClick}
+        onTouchEnd={handleVideoTouchEnd}
+        onDoubleClick={(e) => e.preventDefault()}
         onTimeUpdate={() => { setCurrentTime(videoRef.current?.currentTime ?? 0); updateBuffered(); }}
         onLoadedMetadata={() => { setDuration(videoRef.current?.duration ?? 0); setIsBuffering(false); }}
         onPlay={() => setPlaying(true)}
