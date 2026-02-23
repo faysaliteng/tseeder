@@ -389,15 +389,19 @@ function VideoPlayer({ url, filename, fileId }: { url: string; filename: string;
 
   const seek = useCallback((pct: number) => {
     const v = videoRef.current;
-    if (!v || !duration) return;
-    v.currentTime = Math.max(0, Math.min(duration, pct * duration));
-  }, [duration]);
+    if (!v) return;
+    const dur = v.duration || 0;
+    if (!dur) return;
+    v.currentTime = Math.max(0, Math.min(dur, pct * dur));
+  }, []);
 
   const skip = useCallback((sec: number) => {
     const v = videoRef.current;
     if (!v) return;
-    v.currentTime = Math.max(0, Math.min(duration, v.currentTime + sec));
-  }, [duration]);
+    const dur = v.duration || 0;
+    if (!dur) return;
+    v.currentTime = Math.max(0, Math.min(dur, v.currentTime + sec));
+  }, []);
 
   const changeSpeed = useCallback((s: number) => {
     const v = videoRef.current;
